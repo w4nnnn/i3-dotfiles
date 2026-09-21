@@ -145,6 +145,12 @@ class ControlCenter(Gtk.Window):
         self.set_resizable(False)
         self.taking_screenshot = False
 
+        # Support true RGBA transparency on X11
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.set_visual(visual)
+
         # Apply strictly consistent styling
         self.apply_css()
 
@@ -375,8 +381,8 @@ class ControlCenter(Gtk.Window):
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
         geom = monitor.get_geometry()
-        width, height = self.get_size()
-        pos_x = geom.x + geom.width - width - 12
+        min_sz, nat_sz = self.get_preferred_size()
+        pos_x = geom.x + geom.width - nat_sz.width - 12
         pos_y = geom.y + 44
         self.move(pos_x, pos_y)
 
