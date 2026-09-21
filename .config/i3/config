@@ -12,6 +12,10 @@ default_border pixel 2
 default_floating_border pixel 2
 smart_gaps off
 
+# Ensure terminal has consistent border
+for_window [class="kitty"] border pixel 2
+for_window [class="Kitty"] border pixel 2
+
 # Drag floating windows
 floating_modifier $mod
 tiling_drag modifier titlebar
