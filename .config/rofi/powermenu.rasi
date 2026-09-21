@@ -1,0 +1,81 @@
+/**
+ * Catppuccin Mocha - Modern Horizontal Power Menu
+ **/
+
+configuration {
+    show-icons: false;
+}
+
+* {
+    bg:          #1e1e2e;
+    surface0:    #313244;
+    fg:          #cdd6f4;
+    mauve:       #cba6f7;
+    red:         #f38ba8;
+    crust:       #11111b;
+}
+
+window {
+    transparency:       "real";
+    location:           center;
+    anchor:             center;
+    fullscreen:         false;
+    width:              560px;
+    border:             2px solid;
+    border-color:       @mauve;
+    border-radius:      16px;
+    background-color:   @bg;
+    padding:            24px;
+}
+
+mainbox {
+    background-color:   transparent;
+    spacing:            18px;
+    children:           [ "message", "listview" ];
+}
+
+message {
+    background-color:   @surface0;
+    border-radius:      10px;
+    padding:            10px 16px;
+}
+
+textbox {
+    background-color:   transparent;
+    text-color:         @fg;
+    font:               "JetBrainsMono Nerd Font 10";
+    horizontal-align:   0.5;
+    vertical-align:     0.5;
+}
+
+listview {
+    background-color:   transparent;
+    columns:            5;
+    lines:              1;
+    spacing:            12px;
+    cycle:              true;
+    dynamic:            true;
+    layout:             vertical;
+}
+
+element {
+    background-color:   @surface0;
+    text-color:         @fg;
+    border-radius:      12px;
+    padding:            20px 0px;
+    cursor:             pointer;
+}
+
+element-text {
+    font:               "JetBrainsMono Nerd Font 24";
+    background-color:   transparent;
+    text-color:         inherit;
+    cursor:             inherit;
+    vertical-align:     0.5;
+    horizontal-align:   0.5;
+}
+
+element selected.normal {
+    background-color:   @mauve;
+    text-color:         @crust;
+}

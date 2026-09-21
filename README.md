@@ -1,0 +1,129 @@
+# ☕ Catppuccin Mocha i3wm Dotfiles
+
+A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed in **Catppuccin Mocha (Mauve accent)**. Designed with fluid animations, interactive system menus, and Hyprland-inspired dynamic tiling.
+
+---
+
+## ✨ Features & Highlights
+
+- **Window Manager**: `i3wm` with static minimal gaps (`6px inner`, `2px outer`), rounded corners (`12px`), and smart auto-tiling (`i3-autotile` Fibonacci/spiral split like Hyprland).
+- **Inverted Screen Corners**: Custom Cairo/XFixes utility (`xcorners`) providing concave rounded screen corners underneath the docked top bar.
+- **Top Status Bar**: `Polybar` configured with interactive modules:
+  - **Date / Time**: Click to open a floating Catppuccin interactive calendar widget.
+  - **Network (Ethernet)**: Click to open `nmtui` (left), connection editor (right), or connection status IP (middle).
+  - **Audio & Memory & CPU**: Scroll to change volume, click to open `htop` in a floating terminal.
+  - **Control Center & System Tray**: Native tray support for background apps (e.g. 9router, Discord, Steam).
+- **Control Center (Quick Settings)**: Floating GTK3 card (`Super + c`) inspired by Android / Windows 11:
+  - Interactive volume & brightness sliders with live feedback.
+  - Quick toggle tiles: Network, Do Not Disturb (DND), Screenshot Area, Task Manager, Wallpaper Picker, and Power Menu.
+  - Mini media player with album/title controls (`playerctl`).
+- **Wallpaper & Lockscreen Sync**: Dynamic wallpaper selector (`Super + Shift + w`) via Rofi with live thumbnails that syncs both the active desktop and the lockscreen automatically.
+- **Lockscreen**: `i3lock-color` featuring soft blurred wallpaper, high-contrast clock, and a responsive emerald/peach/blue feedback indicator ring.
+- **Terminal Emulator**: `Kitty` with `JetBrainsMono Nerd Font`, 0.92 opacity, and full Catppuccin Mocha palette.
+- **Compositor**: `Picom` with dual-kawase blur, rounded corners (`12px`), drop shadows, and smooth **Zoom / Scale Pop** workspace transitions.
+- **App Launcher & Power Menu**: `Rofi` customized with frosted floating cards.
+
+---
+
+## ⌨️ Keybindings Cheat Sheet
+
+| Keybinding | Action |
+| :--- | :--- |
+| **`Super + t`** / **`Super + Enter`** | Launch Kitty Terminal |
+| **`Super + b`** | Launch Brave Browser |
+| **`Super + a`** / **`Super + d`** | Open Rofi Application Launcher |
+| **`Super + c`** | Toggle Control Center (Quick Settings) |
+| **`Super + Shift + w`** | Open Wallpaper Selector |
+| **`Super + Escape`** | Lock Screen |
+| **`Super + q`** | Close focused window |
+| **`Super + f`** | Toggle Fullscreen |
+| **`Super + Shift + Space`** | Toggle Floating window mode |
+| **`Super + Tab`** | Switch between open windows (Rofi) |
+| **`Super + Shift + e`** | Open Power Menu (Lock, Logout, Reboot, Shutdown) |
+| **`Print`** | Screenshot selected area (saves to `~/Pictures/Screenshots` & clipboard) |
+| **`Shift + Print`** | Screenshot entire screen |
+| **`Ctrl + Print`** | Screenshot focused window |
+| **`Alt + Print`** | Screenshot with 3-second delay |
+| **`Super + Shift + r`** | In-place Restart i3wm |
+
+---
+
+## 📦 Requirements & Dependencies
+
+The installer will automatically handle all dependencies on **Arch Linux**:
+
+- **Core**: `i3-wm`, `polybar`, `picom`, `kitty`, `rofi`, `feh`, `dunst`, `libnotify`
+- **Audio & Media**: `pamixer`, `playerctl`, `brightnessctl`
+- **Utilities**: `maim`, `slop`, `xclip`, `htop`, `imagemagick`, `bc`, `xorg-xrandr`, `xorg-xset`, `xorg-xrdb`, `network-manager-applet`
+- **GTK & Python**: `python`, `python-gobject`, `gtk3`, `cairo`, `papirus-icon-theme`
+- **AUR Packages**: `i3lock-color`, `betterlockscreen` *(optional)*
+
+---
+
+## 🚀 Installation
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/<your-username>/dotfiles.git ~/dotfiles
+cd ~/dotfiles
+```
+
+### 2. Run the automated installer
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+The script will:
+1. Install all required official repository packages via `pacman`.
+2. Install AUR packages if `yay` or `paru` is present.
+3. Automatically download and register `JetBrainsMono Nerd Font`.
+4. Download and setup the official `Catppuccin Mocha` GTK and Cursor themes.
+5. Compile the C helper utilities (`xcorners` and `set-root-cursor`).
+6. Deploy all `.config/`, `.local/bin/`, wallpapers, and home files.
+7. Restart `i3wm` with the new configuration.
+
+---
+
+## 📂 Repository Structure
+
+```
+dotfiles/
+├── .config/
+│   ├── betterlockscreen/   # Betterlockscreen configuration
+│   ├── dunst/              # Notification daemon styling
+│   ├── gtk-3.0/            # GTK 3.0 theme & font settings
+│   ├── gtk-4.0/            # GTK 4.0 theme & font settings
+│   ├── i3/                 # i3wm config & rules
+│   ├── kitty/              # Kitty terminal configuration
+│   ├── picom/              # Picom compositor (blur, animations, shadows)
+│   ├── polybar/            # Polybar config & launch script
+│   └── rofi/               # Rofi app launcher, powermenu & wallpaper rasi
+├── .local/bin/             # Custom utility scripts
+│   ├── calendar-popup      # Interactive floating calendar widget
+│   ├── control-center      # GTK Quick Settings control center
+│   ├── generate-lock-bg    # Lockscreen canvas renderer
+│   ├── i3-autotile         # Hyprland-style automatic spiral tiling daemon
+│   ├── lockscreen          # Lockscreen launcher
+│   ├── network-info        # Network details notifier
+│   ├── powermenu           # Horizontal rofi power menu
+│   ├── screenshot          # maim + slop screenshot helper
+│   ├── wallpaper-selector  # Dynamic wallpaper selector with thumbnails
+│   └── src/                # C source code for compiled helpers
+│       ├── set-root-cursor.c
+│       └── xcorners.c
+├── Pictures/Wallpapers/    # Curated Catppuccin Mocha wallpapers
+├── home/                   # Home directory dotfiles (.xprofile, .Xresources, .gtkrc-2.0)
+├── install.sh              # Automated Arch Linux installer script
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 🎨 Theme Details
+- **Palette**: [Catppuccin Mocha](https://github.com/catppuccin/catppuccin)
+- **Accent Color**: Mauve (`#cba6f7`)
+- **Font**: JetBrainsMono Nerd Font
+- **Icons**: Papirus-Dark
+- **Cursors**: Catppuccin Mocha Mauve Cursors

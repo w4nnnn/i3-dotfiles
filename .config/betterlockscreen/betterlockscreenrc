@@ -1,0 +1,47 @@
+# ==========================================================
+# Betterlockscreen Configuration - Catppuccin Mocha
+# ==========================================================
+
+# Default options
+display_on=0
+span_image=false
+lock_timeout=300
+fx_list=(dim blur dimblur pixel dimpixel color)
+dim_level=35
+blur_level=2
+pixel_scale=10,1000
+solid_color=1e1e2e
+wallpaper_cmd="feh --bg-fill"
+quiet=false
+
+# Typography & Text
+font="JetBrainsMono Nerd Font"
+locktext="Type password to unlock..."
+time_format="%H:%M"
+veriftext="Verifying..."
+wrongtext="Incorrect Password"
+
+# Catppuccin Mocha Colors (RGBA Hex)
+loginbox=1e1e2ebb
+loginshadow=00000000
+
+ringcolor=cba6f7ff
+insidecolor=1e1e2e44
+separatorcolor=00000000
+
+ringvercolor=89b4faff
+insidevercolor=89b4fa44
+verifcolor=89b4faff
+
+ringwrongcolor=f38ba8ff
+insidewrongcolor=f38ba844
+wrongcolor=f38ba8ff
+
+keyhlcolor=a6e3a1ff
+bshlcolor=fab387ff
+
+timecolor=cdd6f4ff
+greetercolor=bac2deff
+layoutcolor=bac2deff
+modifcolor=f9e2afff
+bgcolor=1e1e2eff

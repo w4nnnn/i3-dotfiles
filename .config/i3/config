@@ -1,0 +1,185 @@
+# i3wm config - Catppuccin Mocha Rice
+# Mod key: Mod4 (Super / Windows key)
+set $mod Mod4
+
+# Font
+font pango:JetBrainsMono Nerd Font 10
+
+# Gaps & Borders (Konfigurasi Margin Manual / Statis)
+gaps inner 6
+gaps outer 2
+default_border pixel 2
+default_floating_border pixel 2
+smart_gaps off
+
+# Drag floating windows
+floating_modifier $mod
+tiling_drag modifier titlebar
+
+# Floating dialog rules
+for_window [class="floating_terminal"] floating enable, resize set 920 620, move position center
+for_window [title="CatppuccinCalendar"] floating enable, border none
+for_window [title="CatppuccinControlCenter"] floating enable, border none
+
+# --- Autostart Applications ---
+exec_always --no-startup-id xrdb -merge ~/.Xresources
+exec_always --no-startup-id ~/.local/bin/set-root-cursor
+exec_always --no-startup-id ~/.local/bin/i3-autotile
+exec --no-startup-id dex --autostart --environment i3
+# exec --no-startup-id xss-lock --transfer-sleep-lock -- ~/.local/bin/lockscreen --nofork
+# exec --no-startup-id nm-applet
+exec --no-startup-id dunst
+exec_always --no-startup-id bash -c '[ -e "$HOME/.cache/current_wallpaper" ] && feh --bg-fill "$HOME/.cache/current_wallpaper" || feh --bg-fill ~/Pictures/Wallpapers/catppuccin-aesthetic.jpg'
+exec_always --no-startup-id picom -b
+exec_always --no-startup-id ~/.config/polybar/launch.sh
+
+# --- Keybindings ---
+# Lock Screen
+bindsym $mod+Escape exec --no-startup-id ~/.local/bin/lockscreen
+
+# Terminal
+bindsym $mod+t exec kitty
+bindsym $mod+Return exec kitty
+
+# Browser
+bindsym $mod+b exec brave
+
+# Kill focused window
+bindsym $mod+q kill
+bindsym $mod+Shift+q kill
+
+# Application Launcher (Rofi)
+bindsym $mod+a exec --no-startup-id rofi -show drun
+bindsym $mod+d exec --no-startup-id rofi -show drun
+bindsym $mod+Shift+d exec --no-startup-id rofi -show run
+bindsym $mod+Tab exec --no-startup-id rofi -show window
+
+# Control Center / Quick Settings
+bindsym $mod+c exec --no-startup-id ~/.local/bin/control-center
+
+# Wallpaper Selector
+bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/wallpaper-selector
+
+# Change focus
+bindsym $mod+j focus left
+bindsym $mod+k focus down
+bindsym $mod+l focus up
+bindsym $mod+semicolon focus right
+
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Move focused window
+bindsym $mod+Shift+j move left
+bindsym $mod+Shift+k move down
+bindsym $mod+Shift+l move up
+bindsym $mod+Shift+semicolon move right
+
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Split orientation
+bindsym $mod+h split h
+bindsym $mod+v split v
+
+# Fullscreen
+bindsym $mod+f fullscreen toggle
+
+# Layout toggle
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+
+# Floating toggle
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+# Focus parent / child
+bindsym $mod+u focus parent
+
+# Workspaces
+set $ws1 "1"
+set $ws2 "2"
+set $ws3 "3"
+set $ws4 "4"
+set $ws5 "5"
+set $ws6 "6"
+set $ws7 "7"
+set $ws8 "8"
+set $ws9 "9"
+set $ws10 "10"
+
+bindsym $mod+1 workspace number $ws1
+bindsym $mod+2 workspace number $ws2
+bindsym $mod+3 workspace number $ws3
+bindsym $mod+4 workspace number $ws4
+bindsym $mod+5 workspace number $ws5
+bindsym $mod+6 workspace number $ws6
+bindsym $mod+7 workspace number $ws7
+bindsym $mod+8 workspace number $ws8
+bindsym $mod+9 workspace number $ws9
+bindsym $mod+0 workspace number $ws10
+
+bindsym $mod+Shift+1 move container to workspace number $ws1
+bindsym $mod+Shift+2 move container to workspace number $ws2
+bindsym $mod+Shift+3 move container to workspace number $ws3
+bindsym $mod+Shift+4 move container to workspace number $ws4
+bindsym $mod+Shift+5 move container to workspace number $ws5
+bindsym $mod+Shift+6 move container to workspace number $ws6
+bindsym $mod+Shift+7 move container to workspace number $ws7
+bindsym $mod+Shift+8 move container to workspace number $ws8
+bindsym $mod+Shift+9 move container to workspace number $ws9
+bindsym $mod+Shift+0 move container to workspace number $ws10
+
+# Reload / Restart / Exit
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+r restart
+bindsym $mod+Shift+e exec --no-startup-id ~/.local/bin/powermenu
+
+# Resize Mode
+mode "resize" {
+    bindsym j resize shrink width 10 px or 10 ppt
+    bindsym k resize grow height 10 px or 10 ppt
+    bindsym l resize shrink height 10 px or 10 ppt
+    bindsym semicolon resize grow width 10 px or 10 ppt
+
+    bindsym Left resize shrink width 10 px or 10 ppt
+    bindsym Down resize grow height 10 px or 10 ppt
+    bindsym Up resize shrink height 10 px or 10 ppt
+    bindsym Right resize grow width 10 px or 10 ppt
+
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+    bindsym $mod+r mode "default"
+}
+bindsym $mod+r mode "resize"
+
+# Multimedia & Brightness Keys
+bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ +5%
+bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5%
+bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle
+bindsym XF86AudioMicMute exec --no-startup-id pactl set-source-mute @DEFAULT_SOURCE@ toggle
+bindsym XF86MonBrightnessUp exec --no-startup-id brightnessctl set +10%
+bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl set 10%-
+bindsym XF86AudioPlay exec --no-startup-id playerctl play-pause
+bindsym XF86AudioNext exec --no-startup-id playerctl next
+bindsym XF86AudioPrev exec --no-startup-id playerctl previous
+
+# Screenshots (maim + slop)
+bindsym Print exec --no-startup-id ~/.local/bin/screenshot select
+bindsym Shift+Print exec --no-startup-id ~/.local/bin/screenshot full
+bindsym Control+Print exec --no-startup-id ~/.local/bin/screenshot window
+bindsym Mod1+Print exec --no-startup-id ~/.local/bin/screenshot delay
+
+# --- Catppuccin Mocha Color Theme ---
+# class                 border  bground text    indicator child_border
+client.focused          #cba6f7 #1e1e2e #cdd6f4 #b4befe   #cba6f7
+client.focused_inactive #45475a #1e1e2e #a6adc8 #45475a   #45475a
+client.unfocused        #313244 #1e1e2e #6c7086 #313244   #313244
+client.urgent           #f38ba8 #1e1e2e #f38ba8 #f38ba8   #f38ba8
+client.placeholder      #181825 #181825 #cdd6f4 #181825   #181825
+client.background       #1e1e2e

@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""
+Catppuccin Modern Card Lockscreen Canvas Generator
+Renders a macOS / Windows 11 style card with rich Catppuccin wallpaper, avatar, and input pill.
+"""
+import gi
+gi.require_version("Gdk", "3.0")
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import Gdk, GdkPixbuf
+import cairo, math, os, sys
+
+cache_dir = os.path.expanduser("~/.cache")
+os.makedirs(cache_dir, exist_ok=True)
+out_png = os.path.join(cache_dir, "catppuccin_lockscreen.png")
+
+# Resolution (defaults to 1920x1080)
+width, height = 1920, 1080
+display = Gdk.Display.get_default()
+if display:
+    monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
+    if monitor:
+        geom = monitor.get_geometry()
+        width, height = geom.width, geom.height
+
+surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
+cr = cairo.Context(surface)
+
+# 1. Load wallpaper (prefer rich dark astronaut art, fallback to aesthetic)
+wall_path = os.path.expanduser("~/Pictures/Wallpapers/catppuccin-astronaut.png")
+if not os.path.exists(wall_path):
+    wall_path = os.path.expanduser("~/Pictures/Wallpapers/catppuccin-aesthetic.jpg")
+
+if os.path.exists(wall_path):
+    pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(wall_path, width, height, False)
+    Gdk.cairo_set_source_pixbuf(cr, pb, 0, 0)
+    cr.paint()
+else:
+    # Deep Catppuccin Base fallback
+    cr.set_source_rgb(0.12, 0.12, 0.18)
+    cr.paint()
+
+# 2. Add rich dark vignette overlay so UI and text pop with high contrast
+cr.set_source_rgba(0.09, 0.09, 0.15, 0.55)
+cr.paint()
+
+# Helper for rounded rect
+def draw_rounded_rect(cr, x, y, w, h, r):
+    cr.new_sub_path()
+    cr.arc(x + w - r, y + r, r, -math.pi/2, 0)
+    cr.arc(x + w - r, y + h - r, r, 0, math.pi/2)
+    cr.arc(x + r, y + h - r, r, math.pi/2, math.pi)
+    cr.arc(x + r, y + r, r, math.pi, 3*math.pi/2)
+    cr.close_path()
+
+# 3. Modern Center Profile Card
+cx = width / 2
+card_w = 340
+card_h = 320
+card_x = (width - card_w) / 2
+card_y = 520
+card_r = 20
+
+# Card background (#1e1e2e at 90% opacity)
+draw_rounded_rect(cr, card_x, card_y, card_w, card_h, card_r)
+cr.set_source_rgba(0.12, 0.12, 0.18, 0.90)
+cr.fill_preserve()
+# Card border (#cba6f7 Mauve at 50% opacity)
+cr.set_source_rgba(0.79, 0.65, 0.97, 0.50)
+cr.set_line_width(2)
+cr.stroke()
+
+# 4. Avatar circle (center: cx, cy = card_y + 75 = 595)
+av_cx = cx
+av_cy = card_y + 75
+av_r = 42
+
+cr.arc(av_cx, av_cy, av_r, 0, 2*math.pi)
+cr.set_source_rgba(0.19, 0.20, 0.27, 0.95) # surface0
+cr.fill_preserve()
+cr.set_source_rgba(0.79, 0.65, 0.97, 0.40)
+cr.set_line_width(2)
+cr.stroke()
+
+# Avatar icon
+cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+cr.set_font_size(34)
+cr.set_source_rgb(0.79, 0.65, 0.97)
+ext = cr.text_extents("")
+cr.move_to(av_cx - ext.width/2 - ext.x_bearing - 1, av_cy - ext.height/2 - ext.y_bearing)
+cr.show_text("")
+
+# 5. Username
+username = os.getenv("USER", "User")
+cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+cr.set_font_size(18)
+cr.set_source_rgb(0.80, 0.84, 0.96) # cdd6f4
+ext_u = cr.text_extents(username)
+cr.move_to(av_cx - ext_u.width/2 - ext_u.x_bearing, av_cy + 70)
+cr.show_text(username)
+
+# Subtitle
+cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+cr.set_font_size(11)
+cr.set_source_rgb(0.65, 0.68, 0.78) # a6adc8
+ext_sub = cr.text_extents("Arch Linux")
+cr.move_to(av_cx - ext_sub.width/2 - ext_sub.x_bearing, av_cy + 90)
+cr.show_text("Arch Linux")
+
+# 6. Sleek Input Pill Box
+pill_w = 230
+pill_h = 38
+pill_x = (width - pill_w) / 2
+pill_y = card_y + 225
+pill_r = 19
+
+draw_rounded_rect(cr, pill_x, pill_y, pill_w, pill_h, pill_r)
+cr.set_source_rgba(0.07, 0.07, 0.11, 0.95) # crust
+cr.fill_preserve()
+cr.set_source_rgba(0.27, 0.28, 0.35, 0.80) # surface1
+cr.set_line_width(1.5)
+cr.stroke()
+
+# Placeholder text
+cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+cr.set_font_size(11)
+cr.set_source_rgba(0.55, 0.57, 0.65, 0.9)
+cr.move_to(pill_x + 20, pill_y + 24)
+cr.show_text("  Enter Password...")
+
+surface.write_to_png(out_png)
+print(f"Lockscreen canvas updated successfully: {out_png}")

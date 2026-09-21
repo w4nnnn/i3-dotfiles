@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# User local bin priority
+export PATH="$HOME/.local/bin:$PATH"
+
+# Set system-wide GTK & Cursor theme for all apps
+export GTK_THEME="catppuccin-mocha-mauve-standard+default"
+export XCURSOR_THEME="catppuccin-mocha-mauve-cursors"
+export XCURSOR_SIZE=24
+export XCURSOR_PATH="$HOME/.icons:$HOME/.local/share/icons:/usr/share/icons:/usr/share/pixmaps"

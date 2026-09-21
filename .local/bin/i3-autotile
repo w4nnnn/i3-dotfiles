@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""
+i3-autotile: Hyprland-style Dwindle / Spiral BSP automatic tiling for i3wm.
+Automatically alternates horizontal and vertical splits based on window aspect ratio.
+"""
+import socket
+import struct
+import json
+import subprocess
+import time
+import os
+import sys
+
+def recv_exact(sock, n):
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            raise ConnectionResetError("Socket closed")
+        buf.extend(chunk)
+    return bytes(buf)
+
+def send_command(sock_path, cmd_str):
+    try:
+        cs = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        cs.connect(sock_path)
+        cmd_bytes = cmd_str.encode("utf-8")
+        cs.sendall(b"i3-ipc" + struct.pack("<II", len(cmd_bytes), 0) + cmd_bytes)
+        hdr = recv_exact(cs, 14)
+        _, length, _ = struct.unpack("<6sII", hdr)
+        recv_exact(cs, length)
+        cs.close()
+    except Exception:
+        pass
+
+def main():
+    # Ensure single instance
+    my_pid = os.getpid()
+    try:
+        pids = subprocess.check_output(["pgrep", "-f", "i3-autotile"], text=True).split()
+        for p in pids:
+            if int(p) != my_pid:
+                os.kill(int(p), signal.SIGTERM)
+    except Exception:
+        pass
+
+    while True:
+        try:
+            sock_path = subprocess.check_output(["i3", "--get-socketpath"], text=True).strip()
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(sock_path)
+
+            # Subscribe to window events (Type 2 = SUBSCRIBE)
+            sub_payload = json.dumps(["window"]).encode("utf-8")
+            s.sendall(b"i3-ipc" + struct.pack("<II", len(sub_payload), 2) + sub_payload)
+            
+            # Read subscribe response
+            hdr = recv_exact(s, 14)
+            _, length, _ = struct.unpack("<6sII", hdr)
+            recv_exact(s, length)
+
+            # Event loop
+            while True:
+                hdr = recv_exact(s, 14)
+                magic, length, msg_type = struct.unpack("<6sII", hdr)
+                data_bytes = recv_exact(s, length)
+                
+                # Check if it is an event (highest bit set)
+                if msg_type & (1 << 31):
+                    event = json.loads(data_bytes.decode("utf-8", errors="ignore"))
+                    change = event.get("change")
+                    if change in ("focus", "new"):
+                        con = event.get("container", {})
+                        # Skip floating and fullscreen windows
+                        if con.get("floating") in ("user_on", "auto_on"):
+                            continue
+                        if con.get("fullscreen_mode", 0) != 0:
+                            continue
+                        # Also skip scratchpad or special containers
+                        if con.get("nodename") == "__i3_scratch":
+                            continue
+                            
+                        rect = con.get("rect", {})
+                        w = rect.get("width", 0)
+                        h = rect.get("height", 0)
+                        
+                        if w > 0 and h > 0:
+                            # If wider than tall, split horizontally (left/right)
+                            # If taller than wide, split vertically (top/bottom)
+                            cmd = "split h" if w > h else "split v"
+                            send_command(sock_path, cmd)
+        except Exception:
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()

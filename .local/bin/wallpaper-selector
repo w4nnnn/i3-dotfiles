@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# ==========================================================
+# Catppuccin Mocha - Wallpaper Selector & Sync
+# Sets wallpaper for both Desktop and Lockscreen
+# ==========================================================
+
+WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
+CACHE_WALL="$HOME/.cache/current_wallpaper"
+RASI="$HOME/.config/rofi/wallpaper.rasi"
+
+# Toggle: close if already open
+if pgrep -x rofi >/dev/null 2>&1; then
+    killall -q rofi
+    exit 0
+fi
+
+# Build list of wallpapers with image thumbnails
+MENU_ITEMS=""
+declare -A FILE_MAP
+
+while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    basename=$(basename "$file")
+    # Clean display name
+    name=$(echo "$basename" | sed -E 's/\.[^.]+$//' | tr '_-' ' ' | sed -E 's/(^| )([a-z])/\1\U\2/g')
+    FILE_MAP["$name"]="$file"
+    MENU_ITEMS+="${name}\0icon\x1f${file}\n"
+done < <(find "$WALLPAPER_DIR" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) | sort)
+
+# Show Rofi Selector
+CHOSEN=$(printf "$MENU_ITEMS" | rofi -no-config -dmenu -theme "$RASI" -p "󰸉 Wallpaper" -i)
+
+if [ -n "$CHOSEN" ] && [ -n "${FILE_MAP[$CHOSEN]}" ]; then
+    SELECTED_PATH="${FILE_MAP[$CHOSEN]}"
+    
+    # 1. Apply to desktop immediately
+    feh --bg-fill "$SELECTED_PATH"
+    
+    # 2. Update symlink for lockscreen & persistent state
+    mkdir -p "$HOME/.cache"
+    ln -sf "$SELECTED_PATH" "$CACHE_WALL"
+    
+    # 3. Notification feedback
+    notify-send -i "$SELECTED_PATH" "Wallpaper Updated" "Applied to Desktop & Lockscreen: $CHOSEN"
+fi

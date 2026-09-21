@@ -1,0 +1,92 @@
+/**
+ * Catppuccin Mocha - Wallpaper Selector Theme
+ **/
+
+configuration {
+    show-icons:                 true;
+    font:                       "JetBrainsMono Nerd Font 10";
+}
+
+* {
+    bg:          #1e1e2e;
+    surface0:    #313244;
+    fg:          #cdd6f4;
+    mauve:       #cba6f7;
+    crust:       #11111b;
+}
+
+window {
+    transparency:       "real";
+    location:           center;
+    anchor:             center;
+    fullscreen:         false;
+    width:              480px;
+    border:             2px solid;
+    border-color:       @mauve;
+    border-radius:      16px;
+    background-color:   @bg;
+    padding:            18px;
+}
+
+mainbox {
+    background-color:   transparent;
+    spacing:            12px;
+    children:           [ "inputbar", "listview" ];
+}
+
+inputbar {
+    background-color:   @surface0;
+    border-radius:      10px;
+    padding:            8px 12px;
+    children:           [ "prompt", "entry" ];
+}
+
+prompt {
+    background-color:   transparent;
+    text-color:         @mauve;
+    font:               "JetBrainsMono Nerd Font Bold 10";
+    margin:             0px 6px 0px 0px;
+}
+
+entry {
+    background-color:   transparent;
+    text-color:         @fg;
+    placeholder:        "Search wallpaper...";
+    placeholder-color:  #6c7086;
+}
+
+listview {
+    background-color:   transparent;
+    columns:            1;
+    lines:              6;
+    spacing:            6px;
+    cycle:              true;
+    dynamic:            true;
+}
+
+element {
+    background-color:   transparent;
+    text-color:         @fg;
+    border-radius:      10px;
+    padding:            8px 12px;
+    cursor:             pointer;
+}
+
+element-icon {
+    size:               28px;
+    margin:             0px 10px 0px 0px;
+    background-color:   transparent;
+}
+
+element-text {
+    font:               "JetBrainsMono Nerd Font 10.5";
+    background-color:   transparent;
+    text-color:         inherit;
+    cursor:             inherit;
+    vertical-align:     0.5;
+}
+
+element selected.normal {
+    background-color:   @mauve;
+    text-color:         @crust;
+}

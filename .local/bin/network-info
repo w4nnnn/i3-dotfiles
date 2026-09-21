@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+IP=$(ip -4 -brief address | grep -v "^lo" | awk '{print $1 ": " $3}' | tr '\n' ' ')
+SPEED=$(cat /sys/class/net/enp0s31f6/speed 2>/dev/null)
+notify-send -i network-wired "Network Status" "Connected: enp0s31f6\nIP: ${IP:-No IP}\nSpeed: ${SPEED:-N/A} Mbps"

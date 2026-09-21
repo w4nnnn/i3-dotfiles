@@ -1,0 +1,754 @@
+#!/usr/bin/env python3
+import sys
+import os
+import re
+import signal
+import subprocess
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib, Pango
+
+# ---------------------------------------------------------
+# Single instance toggle
+# ---------------------------------------------------------
+PID_FILE = "/tmp/catppuccin_control_center.pid"
+if os.path.exists(PID_FILE):
+    try:
+        with open(PID_FILE, "r") as f:
+            old_pid = int(f.read().strip())
+        os.remove(PID_FILE)
+        os.kill(old_pid, signal.SIGTERM)
+        sys.exit(0)
+    except Exception:
+        pass
+
+with open(PID_FILE, "w") as f:
+    f.write(str(os.getpid()))
+
+# ---------------------------------------------------------
+# System Helpers
+# ---------------------------------------------------------
+def get_username():
+    return os.getenv("USER", "User")
+
+def get_uptime():
+    try:
+        out = subprocess.check_output(["uptime", "-p"], text=True).strip()
+        return out.replace("up ", "")
+    except Exception:
+        return "Running"
+
+def get_volume():
+    try:
+        out = subprocess.check_output(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], text=True)
+        m = re.search(r'/\s*(\d+)%', out)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return 50
+
+def get_mute():
+    try:
+        out = subprocess.check_output(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], text=True)
+        return "yes" in out.lower()
+    except Exception:
+        return False
+
+def set_volume(val):
+    subprocess.run(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{int(val)}%"])
+
+def toggle_mute():
+    subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"])
+
+def get_brightness():
+    try:
+        out = subprocess.check_output(["brightnessctl", "-m", "info"], text=True)
+        for line in out.strip().split("\n"):
+            parts = line.split(",")
+            if len(parts) >= 4 and "backlight" in parts[1]:
+                return int(parts[3].replace("%", ""))
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output(["xrandr", "--verbose"], text=True)
+        m = re.search(r'Brightness:\s*([\d\.]+)', out)
+        if m:
+            return int(float(m.group(1)) * 100)
+    except Exception:
+        pass
+    return 100
+
+def set_brightness(val):
+    pct = max(10, min(100, int(val)))
+    try:
+        out = subprocess.check_output(["brightnessctl", "-m", "info"], text=True)
+        if any("backlight" in line for line in out.splitlines()):
+            subprocess.run(["brightnessctl", "set", f"{pct}%"])
+            return
+    except Exception:
+        pass
+    try:
+        b_val = round(pct / 100.0, 2)
+        subprocess.run(["xrandr", "--output", "DP-0", "--brightness", str(b_val)])
+    except Exception:
+        pass
+
+def get_dnd():
+    try:
+        out = subprocess.check_output(["dunstctl", "is-paused"], text=True).strip()
+        return out.lower() == "true"
+    except Exception:
+        return False
+
+def toggle_dnd():
+    subprocess.run(["dunstctl", "set-paused", "toggle"])
+
+def get_network_info():
+    try:
+        out = subprocess.check_output(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev"], text=True)
+        for line in out.strip().split("\n"):
+            parts = line.split(":")
+            if len(parts) >= 4 and parts[2] == "connected" and parts[0] != "lo":
+                icon = "󰈀" if parts[1] == "ethernet" else "󰤨"
+                name = parts[3] if parts[3] else parts[0]
+                return icon, name, True
+    except Exception:
+        pass
+    return "󰤮", "Offline", False
+
+def get_media_info():
+    try:
+        status = subprocess.check_output(["playerctl", "status"], stderr=subprocess.DEVNULL, text=True).strip()
+        title = subprocess.check_output(["playerctl", "metadata", "--format", "{{title}}"], stderr=subprocess.DEVNULL, text=True).strip()
+        artist = subprocess.check_output(["playerctl", "metadata", "--format", "{{artist}}"], stderr=subprocess.DEVNULL, text=True).strip()
+        text = f"{title}"
+        if artist:
+            text += f" - {artist}"
+        return status, text or "Playing"
+    except Exception:
+        return "Stopped", "No media playing"
+
+# ---------------------------------------------------------
+# Control Center GUI
+# ---------------------------------------------------------
+class ControlCenter(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("CatppuccinControlCenter")
+        self.set_role("control-center-popup")
+        self.set_decorated(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_resizable(False)
+        self.taking_screenshot = False
+
+        # Apply strictly consistent styling
+        self.apply_css()
+
+        # Main box with fixed width
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        main_box.set_name("main-container")
+        main_box.set_size_request(350, -1)
+        self.add(main_box)
+
+        # 1. Header (User, Uptime, Lock & Power buttons)
+        main_box.pack_start(self.create_header(), False, False, 0)
+
+        # 2. Quick Toggle Tiles (2x2 Grid with homogeneous sizing)
+        main_box.pack_start(self.create_toggles(), False, False, 0)
+
+        # 3. Sliders (Volume & Brightness with identical structure)
+        main_box.pack_start(self.create_sliders(), False, False, 0)
+
+        # 4. Media Controller Card
+        main_box.pack_start(self.create_media_player(), False, False, 0)
+
+        # Events
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("focus-out-event", self.on_focus_out)
+        self.connect("destroy", self.cleanup)
+
+        self.show_all()
+        self.position_top_right()
+        self.apply_cursor()
+
+    def apply_cursor(self):
+        display = Gdk.Display.get_default()
+        cursor = Gdk.Cursor.new_from_name(display, "default")
+        if not cursor:
+            cursor = Gdk.Cursor.new_from_name(display, "left_ptr")
+        if cursor and self.get_window():
+            self.get_window().set_cursor(cursor)
+
+    def apply_css(self):
+        css = b"""
+        window {
+            background-color: transparent;
+        }
+        #main-container {
+            background-color: #1e1e2e;
+            border: 2px solid #cba6f7;
+            border-radius: 16px;
+            padding: 16px;
+            min-width: 350px;
+        }
+        .avatar-badge {
+            background-color: #313244;
+            color: #cba6f7;
+            border-radius: 10px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            min-width: 36px;
+            min-height: 36px;
+            padding: 0;
+            margin: 0;
+        }
+        .avatar-badge label {
+            margin: 0;
+            padding: 0;
+            margin-right: 2px;
+        }
+        .user-title {
+            color: #cdd6f4;
+            font-size: 11pt;
+            font-weight: bold;
+            font-family: 'JetBrainsMono Nerd Font';
+        }
+        .uptime-sub {
+            color: #a6adc8;
+            font-size: 8.5pt;
+            font-family: 'JetBrainsMono Nerd Font';
+        }
+        .header-btn {
+            background-color: #313244;
+            color: #cdd6f4;
+            border: none;
+            border-radius: 10px;
+            min-width: 36px;
+            min-height: 36px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            padding: 0;
+            margin: 0;
+        }
+        .header-btn label {
+            margin: 0;
+            padding: 0;
+            margin-right: 2px;
+        }
+        .header-btn:hover {
+            background-color: #45475a;
+            color: #cba6f7;
+        }
+        .power-btn:hover {
+            background-color: #f38ba8;
+            color: #11111b;
+        }
+        .tile-btn {
+            background-color: #313244;
+            border: 1px solid #45475a;
+            border-radius: 12px;
+            padding: 0px 10px;
+            min-height: 52px;
+        }
+        .tile-btn:hover {
+            background-color: #45475a;
+        }
+        .tile-btn.active {
+            background-color: #cba6f7;
+            border-color: #cba6f7;
+        }
+        .tile-icon {
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 16pt;
+            min-width: 28px;
+            color: #89b4fa;
+        }
+        .tile-btn.active .tile-icon {
+            color: #11111b;
+        }
+        .tile-title {
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 9.5pt;
+            font-weight: bold;
+            color: #cdd6f4;
+        }
+        .tile-btn.active .tile-title {
+            color: #11111b;
+        }
+        .tile-sub {
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+            color: #a6adc8;
+        }
+        .tile-btn.active .tile-sub {
+            color: #313244;
+        }
+        .slider-row {
+            background-color: #313244;
+            border-radius: 12px;
+            padding: 4px 12px;
+            min-height: 44px;
+        }
+        .slider-btn {
+            background-color: transparent;
+            border: none;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            color: #89b4fa;
+            min-width: 28px;
+            min-height: 28px;
+            padding: 0;
+        }
+        .slider-btn:hover {
+            color: #cba6f7;
+        }
+        .slider-btn-bright {
+            color: #f9e2af;
+        }
+        .slider-val {
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 9pt;
+            font-weight: bold;
+            color: #cdd6f4;
+            min-width: 36px;
+        }
+        scale trough {
+            background-color: #181825;
+            border-radius: 6px;
+            min-height: 8px;
+        }
+        scale highlight {
+            background-color: #cba6f7;
+            border-radius: 6px;
+        }
+        scale slider {
+            background-color: #f5e0dc;
+            border-radius: 50%;
+            min-width: 14px;
+            min-height: 14px;
+        }
+        .media-card {
+            background-color: #313244;
+            border-radius: 12px;
+            padding: 8px 12px;
+            min-height: 44px;
+        }
+        .media-icon {
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            color: #f5c2e7;
+            min-width: 24px;
+        }
+        .media-title {
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+            font-weight: bold;
+            color: #cdd6f4;
+        }
+        .media-btn {
+            background-color: transparent;
+            border: none;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 12pt;
+            color: #cdd6f4;
+            min-width: 26px;
+            min-height: 26px;
+            padding: 0;
+            border-radius: 6px;
+        }
+        .media-btn:hover {
+            background-color: #45475a;
+            color: #cba6f7;
+        }
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    def position_top_right(self):
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
+        geom = monitor.get_geometry()
+        width, height = self.get_size()
+        pos_x = geom.x + geom.width - width - 12
+        pos_y = geom.y + 44
+        self.move(pos_x, pos_y)
+
+    def create_header(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+
+        # Avatar badge (fixed 36x36)
+        avatar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        avatar.get_style_context().add_class("avatar-badge")
+        avatar_lbl = Gtk.Label(label="")
+        avatar_lbl.set_halign(Gtk.Align.CENTER)
+        avatar_lbl.set_valign(Gtk.Align.CENTER)
+        avatar.pack_start(avatar_lbl, True, True, 0)
+        box.pack_start(avatar, False, False, 0)
+
+        # User info
+        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        user_lbl = Gtk.Label(label=get_username(), xalign=0)
+        user_lbl.get_style_context().add_class("user-title")
+        uptime_lbl = Gtk.Label(label=f"󰐥 Uptime: {get_uptime()}", xalign=0)
+        uptime_lbl.get_style_context().add_class("uptime-sub")
+        info_box.pack_start(user_lbl, False, False, 0)
+        info_box.pack_start(uptime_lbl, False, False, 0)
+        box.pack_start(info_box, True, True, 0)
+
+        # Lock button (fixed 36x36)
+        lock_btn = Gtk.Button(label="")
+        lock_btn.get_style_context().add_class("header-btn")
+        if lock_btn.get_child():
+            lock_btn.get_child().set_halign(Gtk.Align.CENTER)
+            lock_btn.get_child().set_valign(Gtk.Align.CENTER)
+        bin_dir = os.path.expanduser("~/.local/bin")
+        lock_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "lockscreen")])))
+        box.pack_start(lock_btn, False, False, 0)
+
+        # Power button (fixed 36x36)
+        power_btn = Gtk.Button(label="⏻")
+        power_btn.get_style_context().add_class("header-btn")
+        power_btn.get_style_context().add_class("power-btn")
+        if power_btn.get_child():
+            power_btn.get_child().set_halign(Gtk.Align.CENTER)
+            power_btn.get_child().set_valign(Gtk.Align.CENTER)
+        power_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "powermenu")])))
+        box.pack_start(power_btn, False, False, 0)
+
+        return box
+
+    def create_toggles(self):
+        grid = Gtk.Grid()
+        grid.set_column_spacing(10)
+        grid.set_row_spacing(10)
+        grid.set_column_homogeneous(True)
+        grid.set_row_homogeneous(True)
+
+        # 1. Network Tile
+        net_icon, net_name, net_ok = get_network_info()
+        self.net_btn = Gtk.Button()
+        self.net_btn.get_style_context().add_class("tile-btn")
+        if net_ok:
+            self.net_btn.get_style_context().add_class("active")
+        net_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        net_box.set_valign(Gtk.Align.CENTER)
+        self.net_icon_lbl = Gtk.Label(label=net_icon)
+        self.net_icon_lbl.get_style_context().add_class("tile-icon")
+        self.net_icon_lbl.set_valign(Gtk.Align.CENTER)
+        net_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        net_text_box.set_valign(Gtk.Align.CENTER)
+        net_title = Gtk.Label(label="Network", xalign=0)
+        net_title.get_style_context().add_class("tile-title")
+        self.net_sub = Gtk.Label(label=net_name, xalign=0)
+        self.net_sub.set_ellipsize(Pango.EllipsizeMode.END)
+        self.net_sub.set_max_width_chars(11)
+        self.net_sub.get_style_context().add_class("tile-sub")
+        net_text_box.pack_start(net_title, False, False, 0)
+        net_text_box.pack_start(self.net_sub, False, False, 0)
+        net_box.pack_start(self.net_icon_lbl, False, False, 0)
+        net_box.pack_start(net_text_box, True, True, 0)
+        self.net_btn.add(net_box)
+        self.net_btn.connect("clicked", self.on_network_clicked)
+        grid.attach(self.net_btn, 0, 0, 1, 1)
+
+        # 2. Do Not Disturb (DND)
+        is_dnd = get_dnd()
+        self.dnd_btn = Gtk.Button()
+        self.dnd_btn.get_style_context().add_class("tile-btn")
+        if is_dnd:
+            self.dnd_btn.get_style_context().add_class("active")
+        dnd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        dnd_box.set_valign(Gtk.Align.CENTER)
+        self.dnd_icon_lbl = Gtk.Label(label="󰂛" if is_dnd else "󰂚")
+        self.dnd_icon_lbl.get_style_context().add_class("tile-icon")
+        self.dnd_icon_lbl.set_valign(Gtk.Align.CENTER)
+        dnd_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        dnd_text_box.set_valign(Gtk.Align.CENTER)
+        dnd_title = Gtk.Label(label="DND Mode", xalign=0)
+        dnd_title.get_style_context().add_class("tile-title")
+        self.dnd_sub = Gtk.Label(label="Active" if is_dnd else "Off", xalign=0)
+        self.dnd_sub.get_style_context().add_class("tile-sub")
+        dnd_text_box.pack_start(dnd_title, False, False, 0)
+        dnd_text_box.pack_start(self.dnd_sub, False, False, 0)
+        dnd_box.pack_start(self.dnd_icon_lbl, False, False, 0)
+        dnd_box.pack_start(dnd_text_box, True, True, 0)
+        self.dnd_btn.add(dnd_box)
+        self.dnd_btn.connect("clicked", self.on_dnd_clicked)
+        grid.attach(self.dnd_btn, 1, 0, 1, 1)
+
+        # 3. Wallpaper Selector Tile
+        wall_btn = Gtk.Button()
+        wall_btn.get_style_context().add_class("tile-btn")
+        wall_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        wall_box.set_valign(Gtk.Align.CENTER)
+        wall_icon = Gtk.Label(label="󰸉")
+        wall_icon.get_style_context().add_class("tile-icon")
+        wall_icon.set_valign(Gtk.Align.CENTER)
+        wall_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        wall_text_box.set_valign(Gtk.Align.CENTER)
+        wall_title = Gtk.Label(label="Wallpaper", xalign=0)
+        wall_title.get_style_context().add_class("tile-title")
+        wall_sub = Gtk.Label(label="Select image", xalign=0)
+        wall_sub.get_style_context().add_class("tile-sub")
+        wall_text_box.pack_start(wall_title, False, False, 0)
+        wall_text_box.pack_start(wall_sub, False, False, 0)
+        wall_box.pack_start(wall_icon, False, False, 0)
+        wall_box.pack_start(wall_text_box, True, True, 0)
+        bin_dir = os.path.expanduser("~/.local/bin")
+        wall_btn.add(wall_box)
+        wall_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "wallpaper-selector")])))
+        grid.attach(wall_btn, 0, 1, 1, 1)
+
+        # 4. Screenshot Tool
+        sc_btn = Gtk.Button()
+        sc_btn.get_style_context().add_class("tile-btn")
+        sc_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        sc_box.set_valign(Gtk.Align.CENTER)
+        sc_icon = Gtk.Label(label="󰹑")
+        sc_icon.get_style_context().add_class("tile-icon")
+        sc_icon.set_valign(Gtk.Align.CENTER)
+        sc_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        sc_text_box.set_valign(Gtk.Align.CENTER)
+        sc_title = Gtk.Label(label="Screenshot", xalign=0)
+        sc_title.get_style_context().add_class("tile-title")
+        sc_sub = Gtk.Label(label="Area capture", xalign=0)
+        sc_sub.get_style_context().add_class("tile-sub")
+        sc_text_box.pack_start(sc_title, False, False, 0)
+        sc_text_box.pack_start(sc_sub, False, False, 0)
+        sc_box.pack_start(sc_icon, False, False, 0)
+        sc_box.pack_start(sc_text_box, True, True, 0)
+        sc_btn.add(sc_box)
+        sc_btn.connect("clicked", self.on_screenshot_clicked)
+        grid.attach(sc_btn, 1, 1, 1, 1)
+
+        # 5. System Monitor (htop)
+        sys_btn = Gtk.Button()
+        sys_btn.get_style_context().add_class("tile-btn")
+        sys_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        sys_box.set_valign(Gtk.Align.CENTER)
+        sys_icon = Gtk.Label(label="󰍛")
+        sys_icon.get_style_context().add_class("tile-icon")
+        sys_icon.set_valign(Gtk.Align.CENTER)
+        sys_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        sys_text_box.set_valign(Gtk.Align.CENTER)
+        sys_title = Gtk.Label(label="Processes", xalign=0)
+        sys_title.get_style_context().add_class("tile-title")
+        sys_sub = Gtk.Label(label="Task manager", xalign=0)
+        sys_sub.get_style_context().add_class("tile-sub")
+        sys_text_box.pack_start(sys_title, False, False, 0)
+        sys_text_box.pack_start(sys_sub, False, False, 0)
+        sys_box.pack_start(sys_icon, False, False, 0)
+        sys_box.pack_start(sys_text_box, True, True, 0)
+        sys_btn.add(sys_box)
+        sys_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "htop"])))
+        grid.attach(sys_btn, 0, 2, 1, 1)
+
+        # 6. Power Menu
+        pwr_btn = Gtk.Button()
+        pwr_btn.get_style_context().add_class("tile-btn")
+        pwr_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        pwr_box.set_valign(Gtk.Align.CENTER)
+        pwr_icon = Gtk.Label(label="⏻")
+        pwr_icon.get_style_context().add_class("tile-icon")
+        pwr_icon.set_valign(Gtk.Align.CENTER)
+        pwr_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        pwr_text_box.set_valign(Gtk.Align.CENTER)
+        pwr_title = Gtk.Label(label="Power Menu", xalign=0)
+        pwr_title.get_style_context().add_class("tile-title")
+        pwr_sub = Gtk.Label(label="Session control", xalign=0)
+        pwr_sub.get_style_context().add_class("tile-sub")
+        pwr_text_box.pack_start(pwr_title, False, False, 0)
+        pwr_text_box.pack_start(pwr_sub, False, False, 0)
+        pwr_box.pack_start(pwr_icon, False, False, 0)
+        pwr_box.pack_start(pwr_text_box, True, True, 0)
+        pwr_btn.add(pwr_box)
+        pwr_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "powermenu")])))
+        grid.attach(pwr_btn, 1, 2, 1, 1)
+
+        return grid
+
+    def on_network_clicked(self, widget):
+        self.close_and_exit()
+        subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
+
+    def on_dnd_clicked(self, widget):
+        toggle_dnd()
+        is_dnd = get_dnd()
+        if is_dnd:
+            self.dnd_btn.get_style_context().add_class("active")
+            self.dnd_icon_lbl.set_text("󰂛")
+            self.dnd_sub.set_text("Active")
+        else:
+            self.dnd_btn.get_style_context().remove_class("active")
+            self.dnd_icon_lbl.set_text("󰂚")
+            self.dnd_sub.set_text("Off")
+
+    def on_screenshot_clicked(self, widget):
+        self.hide()
+        bin_dir = os.path.expanduser("~/.local/bin")
+        GLib.timeout_add(150, lambda: (subprocess.Popen([os.path.join(bin_dir, "screenshot"), "select"]), self.close_and_exit()))
+
+    def create_sliders(self):
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+
+        # 1. Volume Card
+        vol_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        vol_box.get_style_context().add_class("slider-row")
+
+        vol_val = get_volume()
+        is_muted = get_mute()
+
+        self.vol_btn = Gtk.Button(label="󰝟" if is_muted else "󰕾")
+        self.vol_btn.get_style_context().add_class("slider-btn")
+        self.vol_btn.connect("clicked", self.on_mute_clicked)
+        vol_box.pack_start(self.vol_btn, False, False, 0)
+
+        self.vol_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        self.vol_scale.set_value(0 if is_muted else vol_val)
+        self.vol_scale.set_draw_value(False)
+        self.vol_scale.connect("value-changed", self.on_volume_changed)
+        vol_box.pack_start(self.vol_scale, True, True, 0)
+
+        self.vol_lbl = Gtk.Label(label=f"{vol_val}%", xalign=1)
+        self.vol_lbl.get_style_context().add_class("slider-val")
+        vol_box.pack_start(self.vol_lbl, False, False, 0)
+
+        vbox.pack_start(vol_box, False, False, 0)
+
+        # 2. Brightness Card (Identical structure to volume)
+        br_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        br_box.get_style_context().add_class("slider-row")
+
+        br_btn = Gtk.Button(label="󰃠")
+        br_btn.get_style_context().add_class("slider-btn")
+        br_btn.get_style_context().add_class("slider-btn-bright")
+        br_box.pack_start(br_btn, False, False, 0)
+
+        br_val = get_brightness()
+        self.br_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 100, 1)
+        self.br_scale.set_value(br_val)
+        self.br_scale.set_draw_value(False)
+        self.br_scale.connect("value-changed", self.on_brightness_changed)
+        br_box.pack_start(self.br_scale, True, True, 0)
+
+        self.br_lbl = Gtk.Label(label=f"{br_val}%", xalign=1)
+        self.br_lbl.get_style_context().add_class("slider-val")
+        br_box.pack_start(self.br_lbl, False, False, 0)
+
+        vbox.pack_start(br_box, False, False, 0)
+
+        return vbox
+
+    def on_mute_clicked(self, widget):
+        toggle_mute()
+        muted = get_mute()
+        vol = get_volume()
+        self.vol_btn.set_label("󰝟" if muted else "󰕾")
+        self.vol_lbl.set_text("0%" if muted else f"{vol}%")
+        self.vol_scale.set_value(0 if muted else vol)
+
+    def on_volume_changed(self, scale):
+        val = int(scale.get_value())
+        set_volume(val)
+        self.vol_lbl.set_text(f"{val}%")
+        if val > 0:
+            self.vol_btn.set_label("󰕾")
+
+    def on_brightness_changed(self, scale):
+        val = int(scale.get_value())
+        set_brightness(val)
+        self.br_lbl.set_text(f"{val}%")
+
+    def create_media_player(self):
+        card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        card.get_style_context().add_class("media-card")
+
+        icon = Gtk.Label(label="󰝚")
+        icon.get_style_context().add_class("media-icon")
+        card.pack_start(icon, False, False, 0)
+
+        status, text = get_media_info()
+        self.media_title_lbl = Gtk.Label(label=text, xalign=0)
+        self.media_title_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        self.media_title_lbl.set_max_width_chars(20)
+        self.media_title_lbl.get_style_context().add_class("media-title")
+        card.pack_start(self.media_title_lbl, True, True, 0)
+
+        prev_btn = Gtk.Button(label="󰒮")
+        prev_btn.get_style_context().add_class("media-btn")
+        prev_btn.connect("clicked", self.on_media_prev)
+        card.pack_start(prev_btn, False, False, 0)
+
+        self.play_btn = Gtk.Button(label="󰐊" if status != "Playing" else "󰏤")
+        self.play_btn.get_style_context().add_class("media-btn")
+        self.play_btn.connect("clicked", self.on_media_play)
+        card.pack_start(self.play_btn, False, False, 0)
+
+        next_btn = Gtk.Button(label="󰒭")
+        next_btn.get_style_context().add_class("media-btn")
+        next_btn.connect("clicked", self.on_media_next)
+        card.pack_start(next_btn, False, False, 0)
+
+        return card
+
+    def on_media_prev(self, widget):
+        subprocess.run(["playerctl", "previous"], stderr=subprocess.DEVNULL)
+        self.update_media()
+
+    def on_media_play(self, widget):
+        subprocess.run(["playerctl", "play-pause"], stderr=subprocess.DEVNULL)
+        self.update_media()
+
+    def on_media_next(self, widget):
+        subprocess.run(["playerctl", "next"], stderr=subprocess.DEVNULL)
+        self.update_media()
+
+    def update_media(self):
+        status, text = get_media_info()
+        self.media_title_lbl.set_text(text)
+        self.play_btn.set_label("󰐊" if status != "Playing" else "󰏤")
+
+    def on_key_press(self, widget, event):
+        if event.keyval in (Gdk.KEY_Escape,):
+            self.close_and_exit()
+            return True
+        elif event.keyval == Gdk.KEY_Print:
+            self.taking_screenshot = True
+            bin_dir = os.path.expanduser("~/.local/bin")
+            if event.state & Gdk.ModifierType.SHIFT_MASK:
+                subprocess.Popen([os.path.join(bin_dir, "screenshot"), "full"])
+            else:
+                subprocess.Popen([os.path.join(bin_dir, "screenshot"), "select"])
+            GLib.timeout_add(1500, lambda: setattr(self, "taking_screenshot", False))
+            return True
+        return False
+
+    def on_focus_out(self, widget, event):
+        if getattr(self, "taking_screenshot", False):
+            return False
+        self.close_and_exit()
+        return False
+
+    def close_and_exit(self):
+        self.destroy()
+        Gtk.main_quit()
+
+    def cleanup(self, *args):
+        if os.path.exists(PID_FILE):
+            try:
+                os.remove(PID_FILE)
+            except Exception:
+                pass
+
+if __name__ == "__main__":
+    win = ControlCenter()
+    Gtk.main()

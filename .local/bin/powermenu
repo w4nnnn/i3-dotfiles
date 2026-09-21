@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+# Toggle behavior: if rofi is already running, close it and exit cleanly
+if pgrep -x rofi >/dev/null 2>&1; then
+    killall -q rofi
+    exit 0
+fi
+
+UPTIME=$(uptime -p | sed -e 's/up //g')
+RASI="$HOME/.config/rofi/powermenu.rasi"
+
+# Options (Nerd Font Icons)
+LOCK=""
+SUSPEND="󰤄"
+LOGOUT="󰍃"
+REBOOT="󰜉"
+SHUTDOWN="⏻"
+
+OPTIONS="$LOCK\n$SUSPEND\n$LOGOUT\n$REBOOT\n$SHUTDOWN"
+
+# Run rofi with -no-config so it uses only the clean powermenu theme without conflicting with drun config
+CHOSEN=$(printf "$OPTIONS" | rofi -no-config -dmenu -theme "$RASI" -mesg "󰐥  Uptime: $UPTIME" -selected-row 2)
+
+case "$CHOSEN" in
+    "$LOCK")
+        "$HOME/.local/bin/lockscreen"
+        ;;
+    "$SUSPEND")
+        systemctl suspend
+        ;;
+    "$LOGOUT")
+        i3-msg exit
+        ;;
+    "$REBOOT")
+        systemctl reboot
+        ;;
+    "$SHUTDOWN")
+        systemctl poweroff
+        ;;
+esac
