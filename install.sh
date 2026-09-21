@@ -45,7 +45,10 @@ fi
 # ------------------------------------------------------------------------------
 # 1. Install Pacman Packages
 # ------------------------------------------------------------------------------
-echo -e "\n${CYAN}${BOLD}[1/7] Installing required official packages...${NC}"
+echo -e "\n${CYAN}${BOLD}[1/7] Syncing databases & installing required packages...${NC}"
+
+# Ensure database is updated to prevent 404 package errors
+sudo pacman -Sy
 
 OFFICIAL_PKGS=(
     i3-wm
@@ -81,6 +84,16 @@ OFFICIAL_PKGS=(
     network-manager-applet
     networkmanager-dmenu
     papirus-icon-theme
+    nemo
+    file-roller
+    nemo-fileroller
+    p7zip
+    unrar
+    nemo-terminal
+    ffmpegthumbnailer
+    tumbler
+    webp-pixbuf-loader
+    poppler-glib
 )
 
 TO_INSTALL=()
@@ -98,12 +111,12 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 2. Install AUR Packages (betterlockscreen & i3lock-color)
+# 2. Install AUR Packages (betterlockscreen, i3lock-color, nemo-preview)
 # ------------------------------------------------------------------------------
-echo -e "\n${CYAN}${BOLD}[2/7] Checking AUR packages (betterlockscreen & i3lock-color)...${NC}"
+echo -e "\n${CYAN}${BOLD}[2/7] Checking AUR packages (betterlockscreen, i3lock-color, nemo-preview)...${NC}"
 
 if [ -n "$AUR_HELPER" ]; then
-    AUR_PKGS=(betterlockscreen i3lock-color)
+    AUR_PKGS=(betterlockscreen i3lock-color nemo-preview)
     AUR_TO_INSTALL=()
     for pkg in "${AUR_PKGS[@]}"; do
         if ! pacman -Q "$pkg" >/dev/null 2>&1; then

@@ -54,9 +54,11 @@ The installer will automatically handle all dependencies on **Arch Linux**:
 
 - **Core**: `i3-wm`, `polybar`, `picom`, `kitty`, `rofi`, `feh`, `dunst`, `libnotify`
 - **Audio & Media**: `pamixer`, `playerctl`, `brightnessctl`
-- **Utilities**: `maim`, `slop`, `xclip`, `htop`, `imagemagick`, `bc`, `xorg-xrandr`, `xorg-xset`, `xorg-xrdb`, `network-manager-applet`
+- **Network**: `networkmanager-dmenu`, `network-manager-applet`
+- **File Manager & Media Engine**: `nemo`, `file-roller`, `nemo-fileroller`, `p7zip`, `unrar`, `nemo-terminal`, `ffmpegthumbnailer`, `tumbler`, `webp-pixbuf-loader`, `poppler-glib`
+- **Utilities**: `maim`, `slop`, `xclip`, `htop`, `imagemagick`, `bc`, `xorg-xrandr`, `xorg-xset`, `xorg-xrdb`
 - **GTK & Python**: `python`, `python-gobject`, `gtk3`, `cairo`, `papirus-icon-theme`
-- **AUR Packages**: `i3lock-color`, `betterlockscreen` *(optional)*
+- **AUR Packages**: `i3lock-color`, `betterlockscreen`, `nemo-preview` *(optional)*
 
 ---
 
