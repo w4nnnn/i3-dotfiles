@@ -125,16 +125,21 @@ fi
 echo -e "\n${CYAN}${BOLD}[3/7] Setting up JetBrainsMono Nerd Font & Catppuccin Theme...${NC}"
 
 # Font
+mkdir -p "$HOME/.local/share/fonts"
+if [ -f "$DIR/fonts/lucide.ttf" ]; then
+    cp "$DIR/fonts/lucide.ttf" "$HOME/.local/share/fonts/"
+fi
+
 if ! fc-list : family | grep -iq "JetBrainsMono Nerd Font"; then
     echo -e "${BLUE}Downloading JetBrainsMono Nerd Font...${NC}"
-    mkdir -p "$HOME/.local/share/fonts"
     curl -sL "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.1/JetBrainsMono.tar.xz" -o /tmp/JetBrainsMono.tar.xz
     tar -xf /tmp/JetBrainsMono.tar.xz -C "$HOME/.local/share/fonts/"
     rm -f /tmp/JetBrainsMono.tar.xz
     fc-cache -f "$HOME/.local/share/fonts"
     echo -e "${GREEN}Fonts installed!${NC}"
 else
-    echo -e "${GREEN}JetBrainsMono Nerd Font is already installed.${NC}"
+    fc-cache -f "$HOME/.local/share/fonts" >/dev/null 2>&1 || true
+    echo -e "${GREEN}Fonts are up to date.${NC}"
 fi
 
 # GTK Theme (Catppuccin Mocha Mauve)
