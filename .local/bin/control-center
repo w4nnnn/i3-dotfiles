@@ -111,12 +111,12 @@ def get_network_info():
         for line in out.strip().split("\n"):
             parts = line.split(":")
             if len(parts) >= 4 and parts[2] == "connected" and parts[0] != "lo":
-                icon = "󰈀" if parts[1] == "ethernet" else "󰤨"
+                icon = "" if parts[1] == "ethernet" else ""
                 name = parts[3] if parts[3] else parts[0]
                 return icon, name, True
     except Exception:
         pass
-    return "󰤮", "Offline", False
+    return "", "Offline", False
 
 def get_media_info():
     try:
@@ -157,7 +157,7 @@ class ControlCenter(Gtk.Window):
         # 1. Header (User, Uptime, Lock & Power buttons)
         main_box.pack_start(self.create_header(), False, False, 0)
 
-        # 2. Quick Toggle Tiles (2x2 Grid with homogeneous sizing)
+        # 2. Quick Toggle Tiles (2x3 Grid with homogeneous sizing)
         main_box.pack_start(self.create_toggles(), False, False, 0)
 
         # 3. Sliders (Volume & Brightness with identical structure)
@@ -199,8 +199,8 @@ class ControlCenter(Gtk.Window):
             background-color: #313244;
             color: #cba6f7;
             border-radius: 10px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 14pt;
             min-width: 36px;
             min-height: 36px;
             padding: 0;
@@ -209,7 +209,6 @@ class ControlCenter(Gtk.Window):
         .avatar-badge label {
             margin: 0;
             padding: 0;
-            margin-right: 2px;
         }
         .user-title {
             color: #cdd6f4;
@@ -229,15 +228,14 @@ class ControlCenter(Gtk.Window):
             border-radius: 10px;
             min-width: 36px;
             min-height: 36px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 14pt;
             padding: 0;
             margin: 0;
         }
         .header-btn label {
             margin: 0;
             padding: 0;
-            margin-right: 2px;
         }
         .header-btn:hover {
             background-color: #45475a;
@@ -262,8 +260,8 @@ class ControlCenter(Gtk.Window):
             border-color: #cba6f7;
         }
         .tile-icon {
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 16pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 17pt;
             min-width: 28px;
             color: #89b4fa;
         }
@@ -296,8 +294,8 @@ class ControlCenter(Gtk.Window):
         .slider-btn {
             background-color: transparent;
             border: none;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 14pt;
             color: #89b4fa;
             min-width: 28px;
             min-height: 28px;
@@ -338,8 +336,8 @@ class ControlCenter(Gtk.Window):
             min-height: 44px;
         }
         .media-icon {
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 14pt;
             color: #f5c2e7;
             min-width: 24px;
         }
@@ -352,8 +350,8 @@ class ControlCenter(Gtk.Window):
         .media-btn {
             background-color: transparent;
             border: none;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 12pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
             color: #cdd6f4;
             min-width: 26px;
             min-height: 26px;
@@ -385,10 +383,10 @@ class ControlCenter(Gtk.Window):
     def create_header(self):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
 
-        # Avatar badge (fixed 36x36)
+        # Avatar badge (fixed 36x36, Lucide user icon)
         avatar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         avatar.get_style_context().add_class("avatar-badge")
-        avatar_lbl = Gtk.Label(label="")
+        avatar_lbl = Gtk.Label(label="")
         avatar_lbl.set_halign(Gtk.Align.CENTER)
         avatar_lbl.set_valign(Gtk.Align.CENTER)
         avatar.pack_start(avatar_lbl, True, True, 0)
@@ -398,24 +396,25 @@ class ControlCenter(Gtk.Window):
         info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         user_lbl = Gtk.Label(label=get_username(), xalign=0)
         user_lbl.get_style_context().add_class("user-title")
-        uptime_lbl = Gtk.Label(label=f"󰐥 Uptime: {get_uptime()}", xalign=0)
+        uptime_lbl = Gtk.Label(label=f"Uptime: {get_uptime()}", xalign=0)
         uptime_lbl.get_style_context().add_class("uptime-sub")
         info_box.pack_start(user_lbl, False, False, 0)
         info_box.pack_start(uptime_lbl, False, False, 0)
         box.pack_start(info_box, True, True, 0)
 
-        # Lock button (fixed 36x36)
-        lock_btn = Gtk.Button(label="")
+        bin_dir = os.path.expanduser("~/.local/bin")
+
+        # Lock button (fixed 36x36, Lucide lock icon)
+        lock_btn = Gtk.Button(label="")
         lock_btn.get_style_context().add_class("header-btn")
         if lock_btn.get_child():
             lock_btn.get_child().set_halign(Gtk.Align.CENTER)
             lock_btn.get_child().set_valign(Gtk.Align.CENTER)
-        bin_dir = os.path.expanduser("~/.local/bin")
         lock_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "lockscreen")])))
         box.pack_start(lock_btn, False, False, 0)
 
-        # Power button (fixed 36x36)
-        power_btn = Gtk.Button(label="⏻")
+        # Power button (fixed 36x36, Lucide power icon)
+        power_btn = Gtk.Button(label="")
         power_btn.get_style_context().add_class("header-btn")
         power_btn.get_style_context().add_class("power-btn")
         if power_btn.get_child():
@@ -433,7 +432,7 @@ class ControlCenter(Gtk.Window):
         grid.set_column_homogeneous(True)
         grid.set_row_homogeneous(True)
 
-        # 1. Network Tile
+        # 1. Network Tile (Lucide network)
         net_icon, net_name, net_ok = get_network_info()
         self.net_btn = Gtk.Button()
         self.net_btn.get_style_context().add_class("tile-btn")
@@ -460,7 +459,7 @@ class ControlCenter(Gtk.Window):
         self.net_btn.connect("clicked", self.on_network_clicked)
         grid.attach(self.net_btn, 0, 0, 1, 1)
 
-        # 2. Do Not Disturb (DND)
+        # 2. Do Not Disturb (Lucide bell / bell-off)
         is_dnd = get_dnd()
         self.dnd_btn = Gtk.Button()
         self.dnd_btn.get_style_context().add_class("tile-btn")
@@ -468,7 +467,7 @@ class ControlCenter(Gtk.Window):
             self.dnd_btn.get_style_context().add_class("active")
         dnd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         dnd_box.set_valign(Gtk.Align.CENTER)
-        self.dnd_icon_lbl = Gtk.Label(label="󰂛" if is_dnd else "󰂚")
+        self.dnd_icon_lbl = Gtk.Label(label="" if is_dnd else "")
         self.dnd_icon_lbl.get_style_context().add_class("tile-icon")
         self.dnd_icon_lbl.set_valign(Gtk.Align.CENTER)
         dnd_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
@@ -485,12 +484,14 @@ class ControlCenter(Gtk.Window):
         self.dnd_btn.connect("clicked", self.on_dnd_clicked)
         grid.attach(self.dnd_btn, 1, 0, 1, 1)
 
-        # 3. Wallpaper Selector Tile
+        bin_dir = os.path.expanduser("~/.local/bin")
+
+        # 3. Wallpaper Selector Tile (Lucide image)
         wall_btn = Gtk.Button()
         wall_btn.get_style_context().add_class("tile-btn")
         wall_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         wall_box.set_valign(Gtk.Align.CENTER)
-        wall_icon = Gtk.Label(label="󰸉")
+        wall_icon = Gtk.Label(label="")
         wall_icon.get_style_context().add_class("tile-icon")
         wall_icon.set_valign(Gtk.Align.CENTER)
         wall_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
@@ -503,17 +504,16 @@ class ControlCenter(Gtk.Window):
         wall_text_box.pack_start(wall_sub, False, False, 0)
         wall_box.pack_start(wall_icon, False, False, 0)
         wall_box.pack_start(wall_text_box, True, True, 0)
-        bin_dir = os.path.expanduser("~/.local/bin")
         wall_btn.add(wall_box)
         wall_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "wallpaper-selector")])))
         grid.attach(wall_btn, 0, 1, 1, 1)
 
-        # 4. Screenshot Tool
+        # 4. Screenshot Tool (Lucide camera)
         sc_btn = Gtk.Button()
         sc_btn.get_style_context().add_class("tile-btn")
         sc_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         sc_box.set_valign(Gtk.Align.CENTER)
-        sc_icon = Gtk.Label(label="󰹑")
+        sc_icon = Gtk.Label(label="")
         sc_icon.get_style_context().add_class("tile-icon")
         sc_icon.set_valign(Gtk.Align.CENTER)
         sc_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
@@ -530,12 +530,12 @@ class ControlCenter(Gtk.Window):
         sc_btn.connect("clicked", self.on_screenshot_clicked)
         grid.attach(sc_btn, 1, 1, 1, 1)
 
-        # 5. System Monitor (htop)
+        # 5. System Monitor (Lucide cpu)
         sys_btn = Gtk.Button()
         sys_btn.get_style_context().add_class("tile-btn")
         sys_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         sys_box.set_valign(Gtk.Align.CENTER)
-        sys_icon = Gtk.Label(label="󰍛")
+        sys_icon = Gtk.Label(label="")
         sys_icon.get_style_context().add_class("tile-icon")
         sys_icon.set_valign(Gtk.Align.CENTER)
         sys_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
@@ -552,12 +552,12 @@ class ControlCenter(Gtk.Window):
         sys_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "htop"])))
         grid.attach(sys_btn, 0, 2, 1, 1)
 
-        # 6. Power Menu
+        # 6. Power Menu (Lucide power)
         pwr_btn = Gtk.Button()
         pwr_btn.get_style_context().add_class("tile-btn")
         pwr_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         pwr_box.set_valign(Gtk.Align.CENTER)
-        pwr_icon = Gtk.Label(label="⏻")
+        pwr_icon = Gtk.Label(label="")
         pwr_icon.get_style_context().add_class("tile-icon")
         pwr_icon.set_valign(Gtk.Align.CENTER)
         pwr_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
@@ -585,11 +585,11 @@ class ControlCenter(Gtk.Window):
         is_dnd = get_dnd()
         if is_dnd:
             self.dnd_btn.get_style_context().add_class("active")
-            self.dnd_icon_lbl.set_text("󰂛")
+            self.dnd_icon_lbl.set_text("")
             self.dnd_sub.set_text("Active")
         else:
             self.dnd_btn.get_style_context().remove_class("active")
-            self.dnd_icon_lbl.set_text("󰂚")
+            self.dnd_icon_lbl.set_text("")
             self.dnd_sub.set_text("Off")
 
     def on_screenshot_clicked(self, widget):
@@ -600,14 +600,14 @@ class ControlCenter(Gtk.Window):
     def create_sliders(self):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
 
-        # 1. Volume Card
+        # 1. Volume Card (Lucide volume-2 / volume-x)
         vol_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         vol_box.get_style_context().add_class("slider-row")
 
         vol_val = get_volume()
         is_muted = get_mute()
 
-        self.vol_btn = Gtk.Button(label="󰝟" if is_muted else "󰕾")
+        self.vol_btn = Gtk.Button(label="" if is_muted else "")
         self.vol_btn.get_style_context().add_class("slider-btn")
         self.vol_btn.connect("clicked", self.on_mute_clicked)
         vol_box.pack_start(self.vol_btn, False, False, 0)
@@ -624,11 +624,11 @@ class ControlCenter(Gtk.Window):
 
         vbox.pack_start(vol_box, False, False, 0)
 
-        # 2. Brightness Card (Identical structure to volume)
+        # 2. Brightness Card (Lucide sun)
         br_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         br_box.get_style_context().add_class("slider-row")
 
-        br_btn = Gtk.Button(label="󰃠")
+        br_btn = Gtk.Button(label="")
         br_btn.get_style_context().add_class("slider-btn")
         br_btn.get_style_context().add_class("slider-btn-bright")
         br_box.pack_start(br_btn, False, False, 0)
@@ -652,7 +652,7 @@ class ControlCenter(Gtk.Window):
         toggle_mute()
         muted = get_mute()
         vol = get_volume()
-        self.vol_btn.set_label("󰝟" if muted else "󰕾")
+        self.vol_btn.set_label("" if muted else "")
         self.vol_lbl.set_text("0%" if muted else f"{vol}%")
         self.vol_scale.set_value(0 if muted else vol)
 
@@ -661,7 +661,7 @@ class ControlCenter(Gtk.Window):
         set_volume(val)
         self.vol_lbl.set_text(f"{val}%")
         if val > 0:
-            self.vol_btn.set_label("󰕾")
+            self.vol_btn.set_label("")
 
     def on_brightness_changed(self, scale):
         val = int(scale.get_value())
@@ -672,7 +672,7 @@ class ControlCenter(Gtk.Window):
         card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         card.get_style_context().add_class("media-card")
 
-        icon = Gtk.Label(label="󰝚")
+        icon = Gtk.Label(label="")
         icon.get_style_context().add_class("media-icon")
         card.pack_start(icon, False, False, 0)
 
@@ -683,17 +683,17 @@ class ControlCenter(Gtk.Window):
         self.media_title_lbl.get_style_context().add_class("media-title")
         card.pack_start(self.media_title_lbl, True, True, 0)
 
-        prev_btn = Gtk.Button(label="󰒮")
+        prev_btn = Gtk.Button(label="")
         prev_btn.get_style_context().add_class("media-btn")
         prev_btn.connect("clicked", self.on_media_prev)
         card.pack_start(prev_btn, False, False, 0)
 
-        self.play_btn = Gtk.Button(label="󰐊" if status != "Playing" else "󰏤")
+        self.play_btn = Gtk.Button(label="" if status != "Playing" else "")
         self.play_btn.get_style_context().add_class("media-btn")
         self.play_btn.connect("clicked", self.on_media_play)
         card.pack_start(self.play_btn, False, False, 0)
 
-        next_btn = Gtk.Button(label="󰒭")
+        next_btn = Gtk.Button(label="")
         next_btn.get_style_context().add_class("media-btn")
         next_btn.connect("clicked", self.on_media_next)
         card.pack_start(next_btn, False, False, 0)
@@ -715,7 +715,7 @@ class ControlCenter(Gtk.Window):
     def update_media(self):
         status, text = get_media_info()
         self.media_title_lbl.set_text(text)
-        self.play_btn.set_label("󰐊" if status != "Playing" else "󰏤")
+        self.play_btn.set_label("" if status != "Playing" else "")
 
     def on_key_press(self, widget, event):
         if event.keyval in (Gdk.KEY_Escape,):
