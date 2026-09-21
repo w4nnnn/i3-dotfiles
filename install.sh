@@ -79,6 +79,7 @@ OFFICIAL_PKGS=(
     libxfixes
     libxcursor
     network-manager-applet
+    networkmanager-dmenu
     papirus-icon-theme
 )
 

@@ -57,6 +57,9 @@ bindsym $mod+Tab exec --no-startup-id rofi -show window
 # Control Center / Quick Settings
 bindsym $mod+c exec --no-startup-id ~/.local/bin/control-center
 
+# Network Menu (networkmanager_dmenu)
+bindsym $mod+n exec --no-startup-id networkmanager_dmenu
+
 # Wallpaper Selector
 bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/wallpaper-selector
 
