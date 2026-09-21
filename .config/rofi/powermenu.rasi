@@ -1,5 +1,5 @@
 /**
- * Catppuccin Mocha - Modern Horizontal Power Menu (Lucide Icons)
+ * Catppuccin Mocha - Modern Horizontal Power Menu (Lucide Icons + Clean Typography)
  **/
 
 configuration {
@@ -20,17 +20,17 @@ window {
     location:           center;
     anchor:             center;
     fullscreen:         false;
-    width:              560px;
+    width:              680px;
     border:             2px solid;
     border-color:       @mauve;
     border-radius:      16px;
     background-color:   @bg;
-    padding:            24px;
+    padding:            20px;
 }
 
 mainbox {
     background-color:   transparent;
-    spacing:            18px;
+    spacing:            14px;
     children:           [ "message", "listview" ];
 }
 
@@ -43,7 +43,7 @@ message {
 textbox {
     background-color:   transparent;
     text-color:         @fg;
-    font:               "lucide, JetBrainsMono Nerd Font 10";
+    font:               "JetBrainsMono Nerd Font 10.5";
     horizontal-align:   0.5;
     vertical-align:     0.5;
 }
@@ -52,7 +52,7 @@ listview {
     background-color:   transparent;
     columns:            5;
     lines:              1;
-    spacing:            12px;
+    spacing:            10px;
     cycle:              true;
     dynamic:            true;
     layout:             vertical;
@@ -62,12 +62,12 @@ element {
     background-color:   @surface0;
     text-color:         @fg;
     border-radius:      12px;
-    padding:            20px 0px;
+    padding:            14px 6px;
     cursor:             pointer;
 }
 
 element-text {
-    font:               "lucide 22";
+    font:               "JetBrainsMono Nerd Font 11";
     background-color:   transparent;
     text-color:         inherit;
     cursor:             inherit;

@@ -9,32 +9,32 @@ fi
 UPTIME=$(uptime -p | sed -e 's/up //g')
 RASI="$HOME/.config/rofi/powermenu.rasi"
 
-# Lucide Icons
-LOCK=""       # lock
-SUSPEND=""    # moon
-LOGOUT=""     # log-out
-REBOOT=""     # refresh-cw
-SHUTDOWN=""   # power
+# Lucide Icons with clean labels
+LOCK="  Lock"
+SUSPEND="  Suspend"
+LOGOUT="  Logout"
+REBOOT="  Reboot"
+SHUTDOWN="  Shutdown"
 
 OPTIONS="$LOCK\n$SUSPEND\n$LOGOUT\n$REBOOT\n$SHUTDOWN"
 
-# Run rofi with -no-config so it uses only the clean powermenu theme
-CHOSEN=$(printf "$OPTIONS" | rofi -no-config -dmenu -theme "$RASI" -mesg "  Uptime: $UPTIME" -selected-row 2)
+# Run rofi with clean typography
+CHOSEN=$(printf "$OPTIONS" | rofi -no-config -dmenu -theme "$RASI" -mesg "󰥔  Uptime: $UPTIME" -selected-row 2)
 
 case "$CHOSEN" in
-    "$LOCK")
+    *Lock*)
         "$HOME/.local/bin/lockscreen"
         ;;
-    "$SUSPEND")
+    *Suspend*)
         systemctl suspend
         ;;
-    "$LOGOUT")
+    *Logout*)
         i3-msg exit
         ;;
-    "$REBOOT")
+    *Reboot*)
         systemctl reboot
         ;;
-    "$SHUTDOWN")
+    *Shutdown*)
         systemctl poweroff
         ;;
 esac
