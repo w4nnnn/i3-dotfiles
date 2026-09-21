@@ -18,6 +18,7 @@ tiling_drag modifier titlebar
 
 # Floating dialog rules
 for_window [class="floating_terminal"] floating enable, resize set 920 620, move position center
+for_window [class="htop_terminal"] floating enable, resize set 920 620, move position center
 for_window [title="CatppuccinCalendar"] floating enable, border none
 for_window [title="CatppuccinControlCenter"] floating enable, border none
 

@@ -555,7 +555,7 @@ class ControlCenter(Gtk.Window):
         sys_box.pack_start(sys_icon, False, False, 0)
         sys_box.pack_start(sys_text_box, True, True, 0)
         sys_btn.add(sys_box)
-        sys_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "htop"])))
+        sys_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "toggle-htop")])))
         grid.attach(sys_btn, 0, 2, 1, 1)
 
         # 6. Power Menu (Lucide power)

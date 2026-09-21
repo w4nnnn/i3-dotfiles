@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# ==========================================================
+# Toggle htop in floating terminal
+# - If open: close/kill htop window
+# - If closed: open htop in floating window
+# ==========================================================
+
+if i3-msg -t get_tree | grep -q '"class":"htop_terminal"'; then
+    i3-msg '[class="htop_terminal"] kill' >/dev/null 2>&1
+else
+    setsid kitty --class htop_terminal --title "Process Monitor" -e htop </dev/null >/dev/null 2>&1 &
+fi
