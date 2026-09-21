@@ -9,17 +9,17 @@ fi
 UPTIME=$(uptime -p | sed -e 's/up //g')
 RASI="$HOME/.config/rofi/powermenu.rasi"
 
-# Options (Nerd Font Icons)
-LOCK=""
-SUSPEND="󰤄"
-LOGOUT="󰍃"
-REBOOT="󰜉"
-SHUTDOWN="⏻"
+# Lucide Icons
+LOCK=""       # lock
+SUSPEND=""    # moon
+LOGOUT=""     # log-out
+REBOOT=""     # refresh-cw
+SHUTDOWN=""   # power
 
 OPTIONS="$LOCK\n$SUSPEND\n$LOGOUT\n$REBOOT\n$SHUTDOWN"
 
-# Run rofi with -no-config so it uses only the clean powermenu theme without conflicting with drun config
-CHOSEN=$(printf "$OPTIONS" | rofi -no-config -dmenu -theme "$RASI" -mesg "󰐥  Uptime: $UPTIME" -selected-row 2)
+# Run rofi with -no-config so it uses only the clean powermenu theme
+CHOSEN=$(printf "$OPTIONS" | rofi -no-config -dmenu -theme "$RASI" -mesg "  Uptime: $UPTIME" -selected-row 2)
 
 case "$CHOSEN" in
     "$LOCK")
