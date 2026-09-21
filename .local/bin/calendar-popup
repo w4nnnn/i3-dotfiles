@@ -21,7 +21,7 @@ with open(pid_file, "w") as f:
 
 import gi
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 
 class CatppuccinCalendar(Gtk.Window):
     def __init__(self):
@@ -33,21 +33,31 @@ class CatppuccinCalendar(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
         self.set_resizable(False)
+        self.taking_screenshot = False
+
+        # Support true RGBA transparency on X11
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.set_visual(visual)
 
         # Apply Catppuccin Mocha CSS styling
         css = b"""
         window {
+            background-color: transparent;
+        }
+        #calendar-card {
             background-color: #1e1e2e;
             border: 2px solid #cba6f7;
-            border-radius: 12px;
-            padding: 10px;
+            border-radius: 16px;
+            padding: 16px;
         }
         calendar {
             background-color: #1e1e2e;
             color: #cdd6f4;
             border: none;
             font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10.5pt;
+            font-size: 10pt;
         }
         calendar:selected {
             background-color: #cba6f7;
@@ -68,27 +78,29 @@ class CatppuccinCalendar(Gtk.Window):
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
         Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(),
+            screen,
             provider,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        self.add(box)
+        # Dedicated card box to cleanly hold padding and border
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        card.set_name("calendar-card")
+        self.add(card)
 
         self.calendar = Gtk.Calendar()
         self.calendar.set_display_options(
             Gtk.CalendarDisplayOptions.SHOW_HEADING |
             Gtk.CalendarDisplayOptions.SHOW_DAY_NAMES
         )
-        box.pack_start(self.calendar, True, True, 0)
+        card.pack_start(self.calendar, True, True, 0)
 
-        # Close on Escape or Focus Out
+        # Close on Escape, allow Screenshot on PrintScreen, close on Focus Out
         self.connect("key-press-event", self.on_key_press)
         self.connect("focus-out-event", self.on_focus_out)
         self.connect("destroy", self.cleanup)
 
-        # Calculate position directly below Polybar in screen center
+        # Show and position directly below Polybar in screen center
         self.show_all()
         self.set_position_below_bar()
         self.apply_cursor()
@@ -105,17 +117,31 @@ class CatppuccinCalendar(Gtk.Window):
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
         geom = monitor.get_geometry()
-        width, height = self.get_size()
-        pos_x = geom.x + (geom.width - width) // 2
+        min_sz, nat_sz = self.get_preferred_size()
+        pos_x = geom.x + (geom.width - nat_sz.width) // 2
         pos_y = geom.y + 44  # Just below 36px Polybar
         self.move(pos_x, pos_y)
 
     def on_key_press(self, widget, event):
         if event.keyval in (Gdk.KEY_Escape, Gdk.KEY_Return):
             self.close_and_exit()
+            return True
+        elif event.keyval == Gdk.KEY_Print:
+            self.taking_screenshot = True
+            bin_dir = os.path.expanduser("~/.local/bin")
+            if event.state & Gdk.ModifierType.SHIFT_MASK:
+                subprocess.Popen([os.path.join(bin_dir, "screenshot"), "full"])
+            else:
+                subprocess.Popen([os.path.join(bin_dir, "screenshot"), "select"])
+            GLib.timeout_add(1500, lambda: setattr(self, "taking_screenshot", False))
+            return True
+        return False
 
     def on_focus_out(self, widget, event):
+        if getattr(self, "taking_screenshot", False):
+            return False
         self.close_and_exit()
+        return False
 
     def close_and_exit(self):
         self.destroy()
