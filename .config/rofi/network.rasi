@@ -1,5 +1,5 @@
 /**
- * Catppuccin Mocha - Network Manager Menu (networkmanager_dmenu)
+ * Catppuccin Mocha - Network Manager Menu (NetworkManager + Rofi)
  **/
 
 configuration {
@@ -8,15 +8,24 @@ configuration {
 }
 
 * {
-    bg:          #1e1e2ed0;
-    surface0:    #313244d0;
-    fg:          #cdd6f4;
-    mauve:       #cba6f7;
-    blue:        #89b4fa;
-    green:       #a6e3a1;
-    red:         #f38ba8;
-    crust:       #11111b;
-    grey:        #6c7086;
+    bg:             #1e1e2ed0;
+    surface0:       #313244d0;
+    surface1:       #45475a;
+    border-col:     #cba6f7;
+    fg:             #cdd6f4;
+    subtext:        #a6adc8;
+    overlay:        #6c7086;
+    mauve:          #cba6f7;
+    blue:           #89b4fa;
+    green:          #a6e3a1;
+    red:            #f38ba8;
+    crust:          #11111b;
+
+    background-color:   transparent;
+    text-color:         @fg;
+    margin:             0;
+    padding:            0;
+    spacing:            0;
 }
 
 window {
@@ -24,7 +33,7 @@ window {
     location:           center;
     anchor:             center;
     fullscreen:         false;
-    width:              500px;
+    width:              560px;
     border:             2px solid;
     border-color:       @mauve;
     border-radius:      16px;
@@ -41,22 +50,25 @@ mainbox {
 inputbar {
     background-color:   @surface0;
     border-radius:      10px;
-    padding:            8px 12px;
+    padding:            10px 14px;
+    spacing:            10px;
     children:           [ "prompt", "entry" ];
 }
 
 prompt {
     background-color:   transparent;
     text-color:         @mauve;
-    font:               "JetBrainsMono Nerd Font Bold 10.5";
-    margin:             0px 6px 0px 0px;
+    font:               "JetBrainsMono Nerd Font Bold 11";
+    vertical-align:     0.5;
 }
 
 entry {
     background-color:   transparent;
     text-color:         @fg;
-    placeholder:        "Search or enter password...";
-    placeholder-color:  @grey;
+    placeholder:        "Search networks or enter command...";
+    placeholder-color:  @overlay;
+    font:               "JetBrainsMono Nerd Font 10.5";
+    vertical-align:     0.5;
 }
 
 message {
@@ -69,15 +81,17 @@ textbox {
     background-color:   transparent;
     text-color:         @blue;
     font:               "JetBrainsMono Nerd Font 10";
+    horizontal-align:   0.0;
 }
 
 listview {
     background-color:   transparent;
     columns:            1;
-    lines:              7;
+    lines:              8;
     spacing:            6px;
     cycle:              true;
     dynamic:            true;
+    scrollbar:          false;
 }
 
 element {
@@ -94,9 +108,14 @@ element-text {
     text-color:         inherit;
     cursor:             inherit;
     vertical-align:     0.5;
+    highlight:          bold underline #cba6f7;
 }
 
 element selected.normal {
     background-color:   @mauve;
+    text-color:         @crust;
+}
+
+element selected.normal element-text {
     text-color:         @crust;
 }

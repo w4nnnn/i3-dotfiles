@@ -1,0 +1,183 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Catppuccin Mocha - Network Manager Menu (NetworkManager + Rofi)
+# ==============================================================================
+
+RASI="$HOME/.config/rofi/network.rasi"
+
+# 1. Toggle behavior: close rofi if already open
+if pgrep -x rofi >/dev/null 2>&1; then
+    killall -q rofi
+    exit 0
+fi
+
+# 2. Check NetworkManager status
+if ! systemctl is-active --quiet NetworkManager; then
+    notify-send -a "Network" -i network-error "NetworkManager Inactive" "NetworkManager service is not running."
+    exit 1
+fi
+
+# 3. Detect active connections & IP
+ACTIVE_DEV=$(ip route 2>/dev/null | grep '^default' | awk '{print $5}' | head -n 1)
+ACTIVE_IP=""
+ACTIVE_NAME=""
+ACTIVE_TYPE=""
+
+if [ -n "$ACTIVE_DEV" ]; then
+    ACTIVE_IP=$(ip -4 addr show "$ACTIVE_DEV" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
+    ACTIVE_TYPE=$(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep "^${ACTIVE_DEV}:" | cut -d: -f2)
+    ACTIVE_NAME=$(nmcli -t -f DEVICE,CONNECTION dev 2>/dev/null | grep "^${ACTIVE_DEV}:" | cut -d: -f2)
+fi
+
+# 4. Detect Wi-Fi device & radio status
+WIFI_DEV=$(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep ':wifi$' | cut -d: -f1 | head -n 1)
+WIFI_RADIO=""
+[ -n "$WIFI_DEV" ] && WIFI_RADIO=$(nmcli radio wifi 2>/dev/null)
+
+# 5. Build status message
+STATUS_MESG=""
+if [ -n "$ACTIVE_DEV" ]; then
+    if [ "$ACTIVE_TYPE" = "wifi" ]; then
+        STATUS_MESG="󰤨 Connected: $ACTIVE_NAME • $ACTIVE_IP"
+    else
+        STATUS_MESG="󰈀 Connected: ${ACTIVE_NAME:-Ethernet} • $ACTIVE_IP"
+    fi
+else
+    STATUS_MESG="󰤮 Offline • No active connection"
+fi
+
+# 6. Build menu items
+declare -A SSID_MAP
+MENU=""
+
+# Quick actions
+if [ -n "$WIFI_DEV" ]; then
+    if [ "$WIFI_RADIO" = "enabled" ]; then
+        MENU+="󰤮  Disable Wi-Fi\n"
+        MENU+="󰑐  Rescan Wi-Fi Networks\n"
+    else
+        MENU+="󰤨  Enable Wi-Fi\n"
+    fi
+fi
+
+if [ -n "$ACTIVE_DEV" ] && [ -n "$ACTIVE_NAME" ]; then
+    MENU+="󰅖  Disconnect (${ACTIVE_NAME})\n"
+fi
+
+MENU+="󰢻  Network Connections (nmtui)\n"
+
+# Scan & list Wi-Fi networks if Wi-Fi is enabled
+if [ -n "$WIFI_DEV" ] && [ "$WIFI_RADIO" = "enabled" ]; then
+    MENU+="--- Available Wi-Fi Networks ---\n"
+    
+    while IFS=: read -r in_use ssid signal security; do
+        [ -z "$ssid" ] && continue
+        [ -n "${SSID_MAP[$ssid]}" ] && continue
+        
+        sig_num=$((signal + 0))
+        icon="󰤯"
+        if [ "$sig_num" -ge 75 ]; then
+            icon="󰤨"
+        elif [ "$sig_num" -ge 50 ]; then
+            icon="󰤥"
+        elif [ "$sig_num" -ge 25 ]; then
+            icon="󰤢"
+        else
+            icon="󰤟"
+        fi
+        
+        lock=""
+        if [ -n "$security" ] && [ "$security" != "--" ]; then
+            lock=" 󰌾"
+        fi
+        
+        active_mark="  "
+        if [ "$in_use" = "*" ]; then
+            active_mark="● "
+        fi
+        
+        display_line="${active_mark}${icon}  ${ssid}${lock}"
+        SSID_MAP["$display_line"]="$ssid"
+        MENU+="${display_line}\n"
+    done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list 2>/dev/null)
+fi
+
+# 7. Launch Rofi
+CHOSEN=$(printf "%b" "$MENU" | rofi -no-config -dmenu -theme "$RASI" \
+    -p "󰈀 Network" \
+    -mesg "$STATUS_MESG" \
+    -i)
+
+[ -z "$CHOSEN" ] && exit 0
+[ "$CHOSEN" = "--- Available Wi-Fi Networks ---" ] && exit 0
+
+# 8. Handle selected action
+case "$CHOSEN" in
+    "󰤮  Disable Wi-Fi")
+        nmcli radio wifi off
+        notify-send -a "Network" -i network-wireless-disconnected "Wi-Fi Disabled" "Wi-Fi radio turned off."
+        exit 0
+        ;;
+    "󰤨  Enable Wi-Fi")
+        nmcli radio wifi on
+        notify-send -a "Network" -i network-wireless "Wi-Fi Enabled" "Scanning for available networks..."
+        exit 0
+        ;;
+    "󰑐  Rescan Wi-Fi Networks")
+        nmcli dev wifi rescan 2>/dev/null
+        notify-send -a "Network" -i network-wireless "Wi-Fi Rescanned" "Network scan completed."
+        exec "$0"
+        ;;
+    󰅖\ \ Disconnect*)
+        if [ -n "$ACTIVE_NAME" ]; then
+            nmcli con down id "$ACTIVE_NAME" 2>/dev/null || nmcli dev disconnect "$ACTIVE_DEV" 2>/dev/null
+            notify-send -a "Network" -i network-offline "Disconnected" "Disconnected from $ACTIVE_NAME."
+        fi
+        exit 0
+        ;;
+    "󰢻  Network Connections (nmtui)")
+        kitty --class floating_terminal -e nmtui &
+        exit 0
+        ;;
+esac
+
+# 9. Handle Wi-Fi connection
+TARGET_SSID="${SSID_MAP[$CHOSEN]}"
+if [ -n "$TARGET_SSID" ]; then
+    if [ "$TARGET_SSID" = "$ACTIVE_NAME" ]; then
+        notify-send -a "Network" -i network-wireless "Already Connected" "You are already connected to $TARGET_SSID."
+        exit 0
+    fi
+
+    if nmcli -t -f NAME c show | grep -Fxq "$TARGET_SSID"; then
+        notify-send -a "Network" -i network-wireless "Connecting..." "Connecting to saved network: $TARGET_SSID"
+        if nmcli con up id "$TARGET_SSID" 2>&1; then
+            notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
+        else
+            notify-send -a "Network" -i network-error "Connection Failed" "Failed to connect to $TARGET_SSID."
+        fi
+        exit 0
+    fi
+
+    if [[ "$CHOSEN" == *"󰌾"* ]]; then
+        PASS=$(rofi -no-config -dmenu -password -theme "$RASI" \
+            -p "󰌾 Password" \
+            -mesg "Enter Wi-Fi password for $TARGET_SSID:" \
+            -placeholder "Password...")
+        [ -z "$PASS" ] && exit 0
+        
+        notify-send -a "Network" -i network-wireless "Connecting..." "Authenticating with $TARGET_SSID..."
+        if nmcli dev wifi connect "$TARGET_SSID" password "$PASS" 2>&1; then
+            notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
+        else
+            notify-send -a "Network" -i network-error "Connection Failed" "Incorrect password or failed to connect to $TARGET_SSID."
+        fi
+    else
+        notify-send -a "Network" -i network-wireless "Connecting..." "Connecting to open network: $TARGET_SSID"
+        if nmcli dev wifi connect "$TARGET_SSID" 2>&1; then
+            notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
+        else
+            notify-send -a "Network" -i network-error "Connection Failed" "Failed to connect to $TARGET_SSID."
+        fi
+    fi
+fi
