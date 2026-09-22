@@ -1,0 +1,89 @@
+# ==========================================================
+# Starship Prompt - Catppuccin Mocha (HyDE Style)
+# ==========================================================
+
+add_newline = false
+
+format = """\
+[󰣇 ](bold #89b4fa)\
+$directory\
+$git_branch\
+$git_status\
+$package\
+$python\
+$nodejs\
+$rust\
+$golang\
+$cmd_duration\
+$line_break\
+$character"""
+
+# Character
+[character]
+success_symbol = "[❯](bold #a6e3a1)"
+error_symbol = "[❯](bold #f38ba8)"
+vimcmd_symbol = "[❮](bold #cba6f7)"
+
+# Directory
+[directory]
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold #cba6f7"
+read_only = " 󰌾"
+read_only_style = "bold #f38ba8"
+truncation_length = 3
+truncate_to_repo = true
+
+# Git Branch
+[git_branch]
+format = "[$symbol$branch]($style) "
+symbol = "󰊢 "
+style = "bold #f5c2e7"
+
+# Git Status
+[git_status]
+format = "([\\[$all_status$ahead_behind\\]]($style) )"
+style = "bold #fab387"
+conflicted = "󰞇 "
+ahead = "󰁝${count} "
+behind = "󰁅${count} "
+diverged = "󰃻 "
+up_to_date = "󰄬 "
+untracked = "󰡯 "
+stashed = "󰆓 "
+modified = "󰛿 "
+staged = "󰐗 "
+renamed = "󰑕 "
+deleted = "󰆴 "
+
+# Package version
+[package]
+format = "[$symbol$version]($style) "
+symbol = "󰏗 "
+style = "bold #f9e2af"
+
+# Languages
+[python]
+format = "[$symbol$version]($style) "
+symbol = "󰌠 "
+style = "bold #89b4fa"
+
+[nodejs]
+format = "[$symbol$version]($style) "
+symbol = "󰎙 "
+style = "bold #a6e3a1"
+
+[rust]
+format = "[$symbol$version]($style) "
+symbol = "󱘗 "
+style = "bold #fab387"
+
+[golang]
+format = "[$symbol$version]($style) "
+symbol = "󰟓 "
+style = "bold #74c7ec"
+
+# Command duration
+[cmd_duration]
+min_time = 2000
+format = "[󱎫 $duration]($style) "
+style = "bold #f9e2af"
