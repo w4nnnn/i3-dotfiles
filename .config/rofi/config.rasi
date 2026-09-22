@@ -1,136 +1,137 @@
 /**
- * ROFI Theme - Windows 11 Grid (Catppuccin Mocha)
- * Adapted from: https://github.com/newmanls/rofi-themes-collection (windows11-grid-dark.rasi)
+ * Rofi Configuration - Catppuccin Mocha Theme
  **/
 
 configuration {
-  modi:                       "drun,run,window";
-  show-icons:                 true;
-  icon-theme:                 "Papirus-Dark";
-  font:                       "JetBrainsMono Nerd Font 10";
-  drun-display-format:        "{name}";
-  window-format:              "{w} · {c} · {t}";
+    modi:                       "drun,run,window";
+    font:                       "JetBrainsMono Nerd Font 10";
+    show-icons:                 true;
+    icon-theme:                 "Papirus-Dark";
+    display-drun:               "   Apps ";
+    display-run:                "   Run ";
+    display-window:             "   Windows ";
+    drun-display-format:        "{name}";
+    window-format:              "{w} · {c} · {t}";
 }
 
 * {
-  font: "JetBrainsMono Nerd Font 10";
+    bg-col:  #1e1e2e;
+    bg-col-light: #313244;
+    border-col: #cba6f7;
+    selected-col: #313244;
+    blue: #89b4fa;
+    fg-col: #cdd6f4;
+    fg-col2: #f38ba8;
+    grey: #6c7086;
+    mauve: #cba6f7;
 
-  bg0    : #181825cc;
-  bg1    : #1e1e2ee6;
-  bg2    : #313244;
-  bg3    : #45475a;
-  fg0    : #cdd6f4;
-  fg1    : #a6adc8;
-  accent : #cba6f7;
-  urgent : #f38ba8;
-
-  background-color : transparent;
-  text-color       : @fg0;
-
-  margin  : 0;
-  padding : 0;
-  spacing : 0;
+    width: 600;
+    font: "JetBrainsMono Nerd Font 10";
 }
 
-element-icon, element-text, scrollbar {
-  cursor: pointer;
+element-text, element-icon , mode-switcher {
+    background-color: inherit;
+    text-color:       inherit;
 }
 
 window {
-  location : center;
-  width    : 660px;
-  height   : 580px;
-
-  background-color : @bg1;
-  border           : 2px solid;
-  border-color     : @accent;
-  border-radius    : 16px;
+    height: 400px;
+    border: 2px;
+    border-color: @border-col;
+    border-radius: 12px;
+    background-color: @bg-col;
+    padding: 10px;
 }
 
 mainbox {
-  padding : 24px;
-  spacing : 20px;
-  children: [ inputbar, listview ];
+    background-color: @bg-col;
+    children: [ inputbar, listview, mode-switcher ];
+    spacing: 10px;
+    padding: 10px;
 }
 
 inputbar {
-  padding          : 10px 14px;
-  spacing          : 10px;
-  children         : [ icon-search, entry ];
-  border           : 0 0 2px 0 solid;
-  border-color     : @accent;
-  border-radius    : 8px;
-  background-color : @bg0;
+    children: [entry];
+    background-color: @bg-col-light;
+    border-radius: 8px;
+    padding: 4px;
 }
 
-icon-search, entry, element-icon, element-text {
-  vertical-align: 0.5;
+prompt {
+    background-color: @blue;
+    padding: 8px 12px;
+    text-color: @bg-col;
+    border-radius: 6px;
+    margin: 0px 5px 0px 0px;
 }
 
-icon-search {
-  expand   : false;
-  filename : "search-symbolic";
-  size     : 20px;
+textbox-prompt-colon {
+    expand: false;
+    str: ":";
 }
 
 entry {
-  font              : "JetBrainsMono Nerd Font 11";
-  placeholder       : "Type here to search";
-  placeholder-color : @fg1;
-}
-
-textbox {
-  padding          : 6px 10px;
-  background-color : @bg2;
-  border-radius    : 6px;
+    padding: 8px 12px;
+    text-color: @fg-col;
+    background-color: @bg-col-light;
+    placeholder: "Search apps...";
+    placeholder-color: @grey;
 }
 
 listview {
-  columns       : 6;
-  lines         : 4;
-  spacing       : 10px;
-  fixed-height  : true;
-  fixed-columns : true;
+    border: 0px 0px 0px;
+    padding: 6px 0px 0px;
+    margin: 10px 0px 0px 20px;
+    columns: 1;
+    lines: 6;
+    background-color: @bg-col;
 }
 
 element {
-  orientation   : vertical;
-  spacing       : 6px;
-  padding       : 12px 6px;
-  border-radius : 8px;
-}
-
-element normal urgent {
-  text-color: @urgent;
-}
-
-element normal active {
-  text-color: @accent;
-}
-
-element alternate active {
-  text-color: @accent;
-}
-
-element selected active {
-  text-color: @accent;
-}
-
-element selected {
-  background-color: @bg3;
-  text-color: @accent;
-}
-
-element selected urgent {
-  background-color: @urgent;
+    padding: 8px 12px;
+    background-color: @bg-col;
+    text-color: @fg-col;
+    border-radius: 8px;
 }
 
 element-icon {
-  size: 40px;
-  horizontal-align: 0.5;
+    size: 24px;
+    margin: 0px 10px 0px 0px;
 }
 
-element-text {
-  text-color       : inherit;
-  horizontal-align : 0.5;
+element selected {
+    background-color:  @selected-col ;
+    text-color: @mauve  ;
+}
+
+mode-switcher {
+    spacing: 10px;
+}
+
+button {
+    padding: 8px 12px;
+    background-color: @bg-col-light;
+    text-color: @grey;
+    vertical-align: 0.5; 
+    horizontal-align: 0.5;
+    border-radius: 8px;
+}
+
+button selected {
+    background-color: @mauve;
+    text-color: @bg-col;
+}
+
+message {
+    background-color: @bg-col-light;
+    margin: 2px;
+    padding: 2px;
+    border-radius: 5px;
+}
+
+textbox {
+    padding: 6px;
+    margin: 20px 0px 0px 20px;
+    text-color: @blue;
+    background-color: @bg-col-light;
 }
