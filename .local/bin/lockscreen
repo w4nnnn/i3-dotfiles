@@ -20,7 +20,7 @@ fi
 exec /usr/bin/i3lock \
   -i "$WALLPAPER" \
   --fill \
-  --blur 3 \
+  --blur 5 \
   --clock \
   --indicator \
   --radius=140 \
