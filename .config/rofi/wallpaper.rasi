@@ -8,8 +8,8 @@ configuration {
 }
 
 * {
-    bg:          #1e1e2e;
-    surface0:    #313244;
+    bg:          #1e1e2ed0;
+    surface0:    #313244d0;
     fg:          #cdd6f4;
     mauve:       #cba6f7;
     crust:       #11111b;

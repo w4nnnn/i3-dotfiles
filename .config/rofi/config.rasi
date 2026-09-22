@@ -12,8 +12,8 @@ configuration {
 }
 
 * {
-    bg:             #1e1e2ef0;
-    surface0:       #313244;
+    bg:             #1e1e2ed0;
+    surface0:       #313244d0;
     surface1:       #45475a;
     border-col:     #cba6f7;
     fg:             #cdd6f4;
