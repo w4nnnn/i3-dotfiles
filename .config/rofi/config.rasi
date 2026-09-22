@@ -1,30 +1,28 @@
 /**
- * Rofi Configuration - Spotlight / Raycast Style (Catppuccin Mocha)
- * Minimalist, elegant, and modern floating launcher
+ * Rofi Configuration - Windows 11 Start Menu Style (Catppuccin Mocha)
+ * Modern floating card with Search, Pinned Grid, and User/Power Footer
  **/
 
 configuration {
     modi:                       "drun,run,window";
-    font:                       "JetBrainsMono Nerd Font 11";
     show-icons:                 true;
     icon-theme:                 "Papirus-Dark";
-    display-drun:               "";
-    display-run:                "";
-    display-window:             "";
     drun-display-format:        "{name}";
     window-format:              "{w} · {c} · {t}";
 }
 
 * {
-    bg:          #1e1e2ee6;
-    surface0:    #313244;
-    surface1:    #45475a;
-    fg:          #cdd6f4;
-    subtext:     #a6adc8;
-    overlay:     #6c7086;
-    mauve:       #cba6f7;
-    blue:        #89b4fa;
-    crust:       #11111b;
+    bg:             #1e1e2ef0;
+    surface0:       #313244;
+    surface1:       #45475a;
+    border-col:     #cba6f7;
+    fg:             #cdd6f4;
+    subtext:        #a6adc8;
+    overlay:        #6c7086;
+    mauve:          #cba6f7;
+    blue:           #89b4fa;
+    red:            #f38ba8;
+    crust:          #11111b;
 
     background-color:   transparent;
     text-color:         @fg;
@@ -38,102 +36,136 @@ window {
     location:           center;
     anchor:             center;
     fullscreen:         false;
-    width:              640px;
+    width:              680px;
+    height:             580px;
     border:             2px solid;
-    border-color:       @mauve;
-    border-radius:      16px;
+    border-color:       @border-col;
+    border-radius:      20px;
     background-color:   @bg;
+    padding:            20px 24px;
 }
 
 mainbox {
-    spacing:            0px;
-    children:           [ "inputbar", "message", "listview" ];
-}
-
-/* --- Clean Search Bar (Spotlight Style) --- */
-inputbar {
-    padding:            16px 20px;
     spacing:            14px;
-    border:             0px 0px 1px 0px solid;
-    border-color:       @surface0;
-    background-color:   transparent;
-    children:           [ "prompt", "entry" ];
+    children:           [ "inputbar", "box-header", "listview", "box-footer" ];
 }
 
-prompt {
-    text-color:         @mauve;
-    font:               "JetBrainsMono Nerd Font Bold 13";
+/* --- Windows 11 Search Pill --- */
+inputbar {
+    background-color:   @surface0;
+    border-radius:      12px;
+    padding:            10px 16px;
+    spacing:            10px;
+    children:           [ "icon-search", "entry" ];
+}
+
+icon-search {
+    expand:             false;
+    filename:           "search-symbolic";
+    size:               18px;
     vertical-align:     0.5;
 }
 
 entry {
-    font:               "JetBrainsMono Nerd Font 11.5";
+    font:               "JetBrainsMono Nerd Font 10.5";
     text-color:         @fg;
-    placeholder:        "Search apps, commands, windows...";
+    placeholder:        "Search for apps, settings, and documents...";
     placeholder-color:  @overlay;
     vertical-align:     0.5;
 }
 
-message {
-    padding:            8px 20px;
-    background-color:   @surface0;
-    border:             0px 0px 1px 0px solid;
-    border-color:       @surface1;
+/* --- Section Title "Pinned" & "All apps >" --- */
+box-header {
+    orientation:        horizontal;
+    padding:            4px 8px 0px 8px;
+    children:           [ "textbox-pinned", "dummy-header", "textbox-allapps" ];
 }
 
-textbox {
-    text-color:         @blue;
+textbox-pinned {
+    str:                "Pinned";
+    font:               "JetBrainsMono Nerd Font Bold 11";
+    text-color:         @fg;
+    vertical-align:     0.5;
+}
+
+dummy-header {
+    expand:             true;
+}
+
+textbox-allapps {
+    str:                "All apps  >";
     font:               "JetBrainsMono Nerd Font 10";
+    text-color:         @mauve;
+    vertical-align:     0.5;
 }
 
-/* --- Spacious App List --- */
+/* --- 6 Columns x 3 Rows App Grid --- */
 listview {
-    padding:            10px 12px;
-    lines:              8;
-    columns:            1;
-    spacing:            4px;
+    columns:            6;
+    lines:              3;
+    spacing:            8px;
     cycle:              true;
     dynamic:            true;
-    fixed-height:       false;
+    layout:             vertical;
+    flow:               horizontal;
+    fixed-height:       true;
+    fixed-columns:      true;
 }
 
 element {
-    padding:            10px 14px;
-    spacing:            14px;
+    orientation:        vertical;
+    spacing:            6px;
+    padding:            10px 4px;
     border-radius:      10px;
     background-color:   transparent;
     text-color:         @fg;
     cursor:             pointer;
 }
 
-element normal.urgent {
-    text-color:         #f38ba8;
-}
-
-element normal.active {
-    text-color:         @mauve;
-}
-
-element selected.normal, element selected.active {
+element selected.normal {
     background-color:   @surface0;
     text-color:         @mauve;
-}
-
-element selected.urgent {
-    background-color:   #f38ba8;
-    text-color:         @crust;
+    border:             1.5px solid;
+    border-color:       @mauve;
 }
 
 element-icon {
-    size:               28px;
-    vertical-align:     0.5;
-    cursor:             inherit;
+    size:               38px;
+    horizontal-align:   0.5;
     background-color:   transparent;
+    cursor:             inherit;
 }
 
 element-text {
-    font:               "JetBrainsMono Nerd Font 11";
+    font:               "JetBrainsMono Nerd Font 9.5";
+    horizontal-align:   0.5;
     text-color:         inherit;
-    vertical-align:     0.5;
     cursor:             inherit;
+}
+
+/* --- Bottom User Profile & Power Button Footer --- */
+box-footer {
+    orientation:        horizontal;
+    border:             1px 0px 0px 0px solid;
+    border-color:       @surface0;
+    padding:            14px 10px 4px 10px;
+    children:           [ "textbox-user", "dummy-footer", "textbox-power" ];
+}
+
+textbox-user {
+    str:                "  w4nn";
+    font:               "JetBrainsMono Nerd Font Bold 10.5";
+    text-color:         @fg;
+    vertical-align:     0.5;
+}
+
+dummy-footer {
+    expand:             true;
+}
+
+textbox-power {
+    str:                "⏻";
+    font:               "JetBrainsMono Nerd Font Bold 13";
+    text-color:         @red;
+    vertical-align:     0.5;
 }
