@@ -33,6 +33,7 @@ exec_always --no-startup-id ~/.local/bin/set-root-cursor
 exec_always --no-startup-id ~/.local/bin/i3-autotile
 exec_always --no-startup-id xset s 300 300
 exec --no-startup-id dex --autostart --environment i3
+exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
 exec --no-startup-id xss-lock --transfer-sleep-lock -- ~/.local/bin/lockscreen --nofork
 # exec --no-startup-id nm-applet
 exec --no-startup-id dunst

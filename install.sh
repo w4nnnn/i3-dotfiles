@@ -71,6 +71,7 @@ OFFICIAL_PKGS=(
     xorg-xset
     xorg-xrdb
     xss-lock
+    polkit-gnome
     brightnessctl
     playerctl
     pamixer
@@ -350,6 +351,11 @@ if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.cinnamon.desktop.default-applications.terminal exec 'kitty' 2>/dev/null || true
     gsettings set org.cinnamon.desktop.default-applications.terminal exec-arg '-e' 2>/dev/null || true
     gsettings set org.nemo.extensions.nemo-terminal terminal-shell '/usr/bin/zsh' 2>/dev/null || true
+fi
+
+# Add user to libvirt and kvm groups if installed
+if getent group libvirt >/dev/null 2>&1; then
+    sudo usermod -aG libvirt,kvm "$USER" 2>/dev/null || true
 fi
 
 # Set initial wallpaper
