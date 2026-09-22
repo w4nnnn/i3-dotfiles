@@ -340,7 +340,7 @@ fi
 # Set Zsh as default user shell if installed
 if command -v zsh >/dev/null 2>&1 && [ "$SHELL" != "$(which zsh)" ]; then
     echo -e "${BLUE}Setting Zsh as default user shell...${NC}"
-    chsh -s "$(which zsh)" "$USER" 2>/dev/null || sudo chsh -s "$(which zsh)" "$USER" 2>/dev/null || true
+    sudo usermod -s "$(which zsh)" "$USER" 2>/dev/null || chsh -s "$(which zsh)" 2>/dev/null || true
 fi
 
 # ------------------------------------------------------------------------------
