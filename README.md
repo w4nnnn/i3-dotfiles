@@ -54,6 +54,38 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 
 ---
 
+## 🖼️ Wallpaper Management
+
+### 1. How to Change Wallpaper
+There are two fast ways to switch wallpapers:
+- **Shortcut**: Press **`Super + Shift + w`** to open the Rofi Wallpaper Selector.
+- **Control Center**: Press **`Super + c`** (or click the slider icon `` on Polybar) and click the **`Wallpaper`** tile.
+
+A menu will appear displaying all available wallpapers with live image thumbnails. Select your wallpaper using the arrow keys or mouse and press `Enter`. It will instantly:
+1. Apply to your current desktop via `feh`.
+2. Automatically pre-render a clean **50% Gaussian blur** version for the lockscreen (`~/.cache/lockscreen_blur.png`).
+3. Save the active choice persistently across reboots (`~/.cache/current_wallpaper`).
+
+### 2. How to Add New Wallpapers
+The selector script dynamically reads files, so adding wallpapers requires zero configuration:
+1. Copy or download any image file (`.jpg`, `.png`, `.jpeg`, or `.webp`) into:
+   ```bash
+   ~/Pictures/Wallpapers/
+   ```
+2. Press **`Super + Shift + w`** — your new image will immediately show up in the menu!
+
+### 3. Syncing New Wallpapers to GitHub Dotfiles
+To save newly added wallpapers to your dotfiles repository:
+```bash
+cp ~/Pictures/Wallpapers/* ~/dotfiles/Pictures/Wallpapers/
+cd ~/dotfiles
+git add Pictures/Wallpapers/
+git commit -m "feat(wallpapers): add new wallpapers"
+git push
+```
+
+---
+
 ## 📦 Requirements & Dependencies
 
 The installer will automatically handle all dependencies on **Arch Linux**:
