@@ -96,9 +96,15 @@ The installer will automatically handle all dependencies on **Arch Linux**:
 
 ## 🚀 Installation
 
+> [!IMPORTANT]
+> **Do NOT run the script with `sudo`!** Run it as your normal user: `./install.sh`.  
+> The script will automatically ask for your `sudo` password only when required (e.g. for `pacman` and system services).
+> 
+> **You do NOT need to install dependencies manually** (like Polybar, Picom, Pamixer, etc.). The script automatically detects, downloads, and installs everything for you!
+
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-username>/dotfiles.git ~/dotfiles
+git clone https://github.com/w4nnnn/i3-dotfiles.git ~/dotfiles
 cd ~/dotfiles
 ```
 
@@ -108,14 +114,15 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The script will:
-1. Install all required official repository packages via `pacman`.
-2. Install AUR packages if `yay` or `paru` is present.
-3. Automatically download and register `JetBrainsMono Nerd Font`.
+The script will automatically:
+1. Synchronize package databases and install all official packages via `pacman`.
+2. Bootstrap `yay` automatically (if no AUR helper exists) and install AUR packages (`sddm-silent-theme`, `i3lock-color`, `nemo-preview`, `betterlockscreen`).
+3. Download and register `JetBrainsMono Nerd Font` and `Lucide` icons into the font cache.
 4. Download and setup the official `Catppuccin Mocha` GTK and Cursor themes.
-5. Compile the C helper utilities (`xcorners` and `set-root-cursor`).
-6. Deploy all `.config/`, `.local/bin/`, wallpapers, and home files.
-7. Restart `i3wm` with the new configuration.
+5. Compile C helper utilities (`xcorners` and `set-root-cursor`).
+6. Deploy all `.config/`, `.local/bin/`, wallpapers, and home files (`.xinitrc`, `.xprofile`, `.zshrc`, etc.).
+7. Setup and enable `SilentSDDM` with matching blurred wallpaper and auto-sync.
+8. Restart `i3wm` with the new configuration.
 
 ---
 
@@ -155,7 +162,7 @@ dotfiles/
 │   ├── sddm.conf           # Environment & theme selection config
 │   └── catppuccin-mocha.conf # SilentSDDM Catppuccin Mocha preset
 ├── Pictures/Wallpapers/    # Curated Catppuccin Mocha wallpapers
-├── home/                   # Home directory dotfiles (.zshrc, .xprofile, .Xresources, .gtkrc-2.0)
+├── home/                   # Home directory dotfiles (.xinitrc, .zshrc, .xprofile, .Xresources, .gtkrc-2.0)
 ├── install.sh              # Automated Arch Linux installer script
 ├── .gitignore
 └── README.md
