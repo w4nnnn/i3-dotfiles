@@ -36,6 +36,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | :--- | :--- |
 | **`Super + t`** / **`Super + Enter`** | Launch Kitty Terminal |
 | **`Super + b`** | Launch Brave Browser |
+| **`Super + e`** | Launch Nemo File Manager |
 | **`Super + a`** / **`Super + d`** | Open Rofi Application Launcher |
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
 | **`Super + Shift + w`** | Open Wallpaper Selector |

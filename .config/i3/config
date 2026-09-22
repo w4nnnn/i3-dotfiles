@@ -49,6 +49,9 @@ bindsym $mod+Return exec kitty
 # Browser
 bindsym $mod+b exec brave
 
+# File Manager (Nemo)
+bindsym $mod+e exec nemo
+
 # Kill focused window
 bindsym $mod+q kill
 bindsym $mod+Shift+q kill
@@ -100,7 +103,7 @@ bindsym $mod+f fullscreen toggle
 # Layout toggle
 bindsym $mod+s layout stacking
 bindsym $mod+w layout tabbed
-bindsym $mod+e layout toggle split
+bindsym $mod+x layout toggle split
 
 # Floating toggle
 bindsym $mod+Shift+space floating toggle
