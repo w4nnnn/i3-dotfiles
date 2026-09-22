@@ -62,6 +62,7 @@ OFFICIAL_PKGS=(
     xorg-xrandr
     xorg-xset
     xorg-xrdb
+    xss-lock
     brightnessctl
     playerctl
     pamixer

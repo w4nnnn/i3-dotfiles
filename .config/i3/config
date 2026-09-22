@@ -31,8 +31,9 @@ for_window [title="Windows11StartMenu"] floating enable, border none
 exec_always --no-startup-id xrdb -merge ~/.Xresources
 exec_always --no-startup-id ~/.local/bin/set-root-cursor
 exec_always --no-startup-id ~/.local/bin/i3-autotile
+exec_always --no-startup-id xset s 300 300
 exec --no-startup-id dex --autostart --environment i3
-# exec --no-startup-id xss-lock --transfer-sleep-lock -- ~/.local/bin/lockscreen --nofork
+exec --no-startup-id xss-lock --transfer-sleep-lock -- ~/.local/bin/lockscreen --nofork
 # exec --no-startup-id nm-applet
 exec --no-startup-id dunst
 exec_always --no-startup-id bash -c '[ -e "$HOME/.cache/current_wallpaper" ] && feh --bg-fill "$HOME/.cache/current_wallpaper" || feh --bg-fill ~/Pictures/Wallpapers/catppuccin-aesthetic.jpg'

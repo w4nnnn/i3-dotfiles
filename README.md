@@ -18,7 +18,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
   - Quick toggle tiles: Network, Do Not Disturb (DND), Wallpaper, and Screenshot.
   - Mini media player with album/title controls (`playerctl`).
 - **Wallpaper & Lockscreen Sync**: Dynamic wallpaper selector (`Super + Shift + w`) via Rofi with live thumbnails that syncs both the active desktop and the lockscreen automatically.
-- **Lockscreen**: `i3lock-color` featuring soft blurred wallpaper, high-contrast clock, and a responsive emerald/peach/blue feedback indicator ring.
+- **Lockscreen & Auto-Lock**: `i3lock-color` featuring 50% Gaussian blurred wallpaper, high-contrast clock, responsive emerald/peach/blue feedback indicator ring, and automatic locking after **5 minutes** of inactivity (AFK) via `xss-lock`.
 - **Shell & Modern Terminal Stack (HyDE Inspired)**:
   - `ZSH` with `zsh-autosuggestions`, `zsh-syntax-highlighting`, and `fzf` history search.
   - `Starship` prompt customized with Catppuccin pastel colors and Arch glyphs (`󰣇`).
