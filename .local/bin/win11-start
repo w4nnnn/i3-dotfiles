@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Windows 11 Start Menu Clone (Catppuccin Mocha)
-Inspired by: https://github.com/Laaouatni/w11CSS
-Native GTK3 + Python application with search, pinned apps, recommended files, and footer.
+Windows 11 Start Menu (Catppuccin Mocha)
+Direct All-Apps Grid View with Search and Footer
 """
 import sys
 import os
@@ -70,7 +69,7 @@ class Win11StartMenu(Gtk.Window):
         # Root Card Container
         root_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         root_card.set_name("start-window")
-        root_card.set_size_request(640, 680)
+        root_card.set_size_request(660, 580)
         self.add(root_card)
 
         # 1. Search Box Bar
@@ -99,13 +98,13 @@ class Win11StartMenu(Gtk.Window):
         search_wrapper.pack_start(search_box, False, False, 0)
         root_card.pack_start(search_wrapper, False, False, 0)
 
-        # Scrollable Body (Pinned & Recommended)
-        self.body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        # 2. Main Apps Body (Grid View)
+        self.body_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         self.body_box.set_name("body-container")
         root_card.pack_start(self.body_box, True, True, 0)
 
-        # Build initial view
-        self.build_default_view()
+        # Build initial all-apps view
+        self.build_apps_view(self.all_apps)
 
         # 3. Bottom Footer (User & Power)
         root_card.pack_start(self.create_footer(), False, False, 0)
@@ -124,7 +123,7 @@ class Win11StartMenu(Gtk.Window):
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
         geom = monitor.get_geometry()
-        w, h = 640, 680
+        w, h = 660, 580
         pos_x = geom.x + (geom.width - w) // 2
         pos_y = geom.y + (geom.height - h) // 2
         self.move(pos_x, pos_y)
@@ -147,7 +146,7 @@ class Win11StartMenu(Gtk.Window):
             padding: 0px;
         }
         #search-wrapper {
-            padding: 24px 28px 12px 28px;
+            padding: 22px 26px 14px 26px;
         }
         #search-bar {
             background-color: #181825;
@@ -182,36 +181,13 @@ class Win11StartMenu(Gtk.Window):
             background-color: #313244;
         }
         #body-container {
-            padding: 0px 28px 10px 28px;
-        }
-        .section-header {
-            padding: 4px 4px;
-        }
-        .section-title {
-            color: #cdd6f4;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10pt;
-            font-weight: bold;
-        }
-        .all-apps-btn {
-            background-color: #313244;
-            border: 1px solid #45475a;
-            border-radius: 6px;
-            padding: 2px 8px;
-        }
-        .all-apps-btn:hover {
-            background-color: #45475a;
-        }
-        .all-apps-btn label {
-            color: #cdd6f4;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.5pt;
+            padding: 0px 24px 8px 24px;
         }
         .app-tile {
             background-color: transparent;
             border: 1px solid transparent;
-            border-radius: 8px;
-            padding: 8px 4px;
+            border-radius: 10px;
+            padding: 10px 4px;
         }
         .app-tile:hover {
             background-color: #313244;
@@ -220,27 +196,13 @@ class Win11StartMenu(Gtk.Window):
         .app-tile-label {
             color: #cdd6f4;
             font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-            margin-top: 4px;
+            font-size: 8.5pt;
+            margin-top: 5px;
         }
-        .rec-item {
-            background-color: transparent;
-            border-radius: 8px;
-            padding: 6px 8px;
-        }
-        .rec-item:hover {
-            background-color: #313244;
-        }
-        .rec-title {
-            color: #cdd6f4;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 9pt;
-            font-weight: bold;
-        }
-        .rec-sub {
+        .no-results-lbl {
             color: #a6adc8;
             font-family: 'JetBrainsMono Nerd Font';
-            font-size: 7.5pt;
+            font-size: 10pt;
         }
         #footer-bar {
             background-color: #181825;
@@ -278,6 +240,17 @@ class Win11StartMenu(Gtk.Window):
         .footer-power-btn:hover {
             background-color: #313244;
         }
+        scrollbar trough {
+            background-color: transparent;
+        }
+        scrollbar slider {
+            background-color: #313244;
+            border-radius: 6px;
+            min-width: 4px;
+        }
+        scrollbar slider:hover {
+            background-color: #cba6f7;
+        }
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css)
@@ -287,86 +260,46 @@ class Win11StartMenu(Gtk.Window):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
-    def build_default_view(self):
-        # Clear body
+    def build_apps_view(self, apps_list):
         for child in self.body_box.get_children():
             child.destroy()
 
-        # --- Section 1: Pinned Apps ---
-        header_pinned = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        header_pinned.get_style_context().add_class("section-header")
+        self.filtered_apps = apps_list
 
-        title_pinned = Gtk.Label(label="Pinned")
-        title_pinned.get_style_context().add_class("section-title")
-        header_pinned.pack_start(title_pinned, False, False, 0)
+        if not apps_list:
+            no_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            no_box.set_valign(Gtk.Align.CENTER)
+            no_lbl = Gtk.Label(label="No applications found")
+            no_lbl.get_style_context().add_class("no-results-lbl")
+            no_box.pack_start(no_lbl, True, True, 0)
+            self.body_box.pack_start(no_box, True, True, 0)
+            self.body_box.show_all()
+            return
 
-        all_apps_btn = Gtk.Button(label="All apps  >")
-        all_apps_btn.get_style_context().add_class("all-apps-btn")
-        all_apps_btn.connect("clicked", self.on_all_apps_clicked)
-        header_pinned.pack_end(all_apps_btn, False, False, 0)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_min_content_height(400)
 
-        self.body_box.pack_start(header_pinned, False, False, 0)
-
-        # 6 Columns Grid of Pinned Apps (Top 18 apps)
         grid = Gtk.Grid()
-        grid.set_column_spacing(6)
-        grid.set_row_spacing(6)
+        grid.set_column_spacing(8)
+        grid.set_row_spacing(8)
         grid.set_column_homogeneous(True)
-        grid.set_row_homogeneous(True)
 
-        pinned_apps = self.all_apps[:18]
-        for idx, app in enumerate(pinned_apps):
+        for idx, app in enumerate(apps_list):
             col = idx % 6
             row = idx // 6
             btn = self.create_app_tile(app)
             grid.attach(btn, col, row, 1, 1)
 
-        self.body_box.pack_start(grid, False, False, 0)
-
-        # --- Section 2: Recommended Section ---
-        header_rec = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        header_rec.get_style_context().add_class("section-header")
-
-        title_rec = Gtk.Label(label="Recommended")
-        title_rec.get_style_context().add_class("section-title")
-        header_rec.pack_start(title_rec, False, False, 0)
-
-        more_btn = Gtk.Button(label="More  >")
-        more_btn.get_style_context().add_class("all-apps-btn")
-        more_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["nemo"])))
-        header_rec.pack_end(more_btn, False, False, 0)
-
-        self.body_box.pack_start(header_rec, False, False, 0)
-
-        # 2 Columns of Recommended Quick Actions
-        rec_grid = Gtk.Grid()
-        rec_grid.set_column_spacing(12)
-        rec_grid.set_row_spacing(6)
-        rec_grid.set_column_homogeneous(True)
-
-        rec_items = [
-            ("dev.recordly.app", "Recordly", "Screen recording", lambda: subprocess.Popen(["recordly"])),
-            ("system-file-manager", "File Manager", "Browse files", lambda: subprocess.Popen(["nemo"])),
-            ("utilities-terminal", "Terminal Kitty", "Open terminal", lambda: subprocess.Popen(["kitty"])),
-            ("web-browser", "Brave Browser", "Browse the web", lambda: subprocess.Popen(["brave"])),
-            ("preferences-desktop-wallpaper", "Wallpaper", "Change wallpaper", lambda: subprocess.Popen(["wallpaper-selector"])),
-            ("utilities-system-monitor", "Process Monitor", "htop task manager", lambda: subprocess.Popen(["toggle-htop"])),
-        ]
-
-        for idx, (icon_name, name, desc, action) in enumerate(rec_items):
-            col = idx % 2
-            row = idx // 2
-            item_box = self.create_rec_item(icon_name, name, desc, action)
-            rec_grid.attach(item_box, col, row, 1, 1)
-
-        self.body_box.pack_start(rec_grid, False, False, 0)
+        scroll.add(grid)
+        self.body_box.pack_start(scroll, True, True, 0)
         self.body_box.show_all()
 
     def create_app_tile(self, app):
         btn = Gtk.Button()
         btn.get_style_context().add_class("app-tile")
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         box.set_halign(Gtk.Align.CENTER)
         box.set_valign(Gtk.Align.CENTER)
 
@@ -374,47 +307,21 @@ class Win11StartMenu(Gtk.Window):
         icon = app.get_icon()
         if icon:
             img = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.DIALOG)
-            img.set_pixel_size(36)
+            img.set_pixel_size(38)
         else:
             img = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
-            img.set_pixel_size(36)
+            img.set_pixel_size(38)
         box.pack_start(img, False, False, 0)
 
         # Name label
         lbl = Gtk.Label(label=app.get_name())
         lbl.get_style_context().add_class("app-tile-label")
         lbl.set_ellipsize(Pango.EllipsizeMode.END)
-        lbl.set_max_width_chars(9)
+        lbl.set_max_width_chars(10)
         box.pack_start(lbl, False, False, 0)
 
         btn.add(box)
         btn.connect("clicked", lambda w, a=app: self.launch_app(a))
-        return btn
-
-    def create_rec_item(self, icon_name, name, desc, action):
-        btn = Gtk.Button()
-        btn.get_style_context().add_class("rec-item")
-
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-
-        img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR)
-        img.set_pixel_size(32)
-        box.pack_start(img, False, False, 0)
-
-        txt_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        txt_box.set_valign(Gtk.Align.CENTER)
-
-        lbl_name = Gtk.Label(label=name, xalign=0)
-        lbl_name.get_style_context().add_class("rec-title")
-        txt_box.pack_start(lbl_name, False, False, 0)
-
-        lbl_desc = Gtk.Label(label=desc, xalign=0)
-        lbl_desc.get_style_context().add_class("rec-sub")
-        txt_box.pack_start(lbl_desc, False, False, 0)
-
-        box.pack_start(txt_box, True, True, 0)
-        btn.add(box)
-        btn.connect("clicked", lambda w: (self.close_and_exit(), action()))
         return btn
 
     def create_footer(self):
@@ -448,86 +355,15 @@ class Win11StartMenu(Gtk.Window):
     def on_search_changed(self, entry):
         query = entry.get_text().strip().lower()
         if not query:
-            self.build_default_view()
+            self.build_apps_view(self.all_apps)
             return
 
-        # Show filtered search results grid
-        for child in self.body_box.get_children():
-            child.destroy()
-
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        header.get_style_context().add_class("section-header")
-        title = Gtk.Label(label=f"Search Results")
-        title.get_style_context().add_class("section-title")
-        header.pack_start(title, False, False, 0)
-        self.body_box.pack_start(header, False, False, 0)
-
         matches = [a for a in self.all_apps if query in a.get_name().lower() or query in a.get_display_name().lower() or (a.get_description() and query in a.get_description().lower())]
-        self.filtered_apps = matches
-
-        if matches:
-            scroll = Gtk.ScrolledWindow()
-            scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-            scroll.set_min_content_height(420)
-
-            grid = Gtk.Grid()
-            grid.set_column_spacing(6)
-            grid.set_row_spacing(6)
-            grid.set_column_homogeneous(True)
-
-            for idx, app in enumerate(matches):
-                col = idx % 6
-                row = idx // 6
-                btn = self.create_app_tile(app)
-                grid.attach(btn, col, row, 1, 1)
-
-            scroll.add(grid)
-            self.body_box.pack_start(scroll, True, True, 0)
-        else:
-            no_lbl = Gtk.Label(label=f"No results found for \"{query}\"")
-            no_lbl.get_style_context().add_class("rec-sub")
-            self.body_box.pack_start(no_lbl, True, True, 0)
-
-        self.body_box.show_all()
+        self.build_apps_view(matches)
 
     def on_search_activate(self, entry):
         if self.filtered_apps:
             self.launch_app(self.filtered_apps[0])
-
-    def on_all_apps_clicked(self, widget):
-        for child in self.body_box.get_children():
-            child.destroy()
-
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        header.get_style_context().add_class("section-header")
-        title = Gtk.Label(label="All Applications")
-        title.get_style_context().add_class("section-title")
-        header.pack_start(title, False, False, 0)
-
-        back_btn = Gtk.Button(label="<  Back")
-        back_btn.get_style_context().add_class("all-apps-btn")
-        back_btn.connect("clicked", lambda w: self.build_default_view())
-        header.pack_end(back_btn, False, False, 0)
-        self.body_box.pack_start(header, False, False, 0)
-
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_min_content_height(420)
-
-        grid = Gtk.Grid()
-        grid.set_column_spacing(6)
-        grid.set_row_spacing(6)
-        grid.set_column_homogeneous(True)
-
-        for idx, app in enumerate(self.all_apps):
-            col = idx % 6
-            row = idx // 6
-            btn = self.create_app_tile(app)
-            grid.attach(btn, col, row, 1, 1)
-
-        scroll.add(grid)
-        self.body_box.pack_start(scroll, True, True, 0)
-        self.body_box.show_all()
 
     def launch_app(self, app):
         self.close_and_exit()
@@ -536,7 +372,6 @@ class Win11StartMenu(Gtk.Window):
         except Exception:
             cmd = app.get_commandline()
             if cmd:
-                # Remove %u, %f, etc.
                 clean_cmd = [part for part in cmd.split() if not part.startswith("%")]
                 subprocess.Popen(clean_cmd)
 
@@ -544,10 +379,6 @@ class Win11StartMenu(Gtk.Window):
         if event.keyval == Gdk.KEY_Escape:
             self.close_and_exit()
             return True
-        return False
-
-    def on_focus_out(self, widget, event):
-        self.close_and_exit()
         return False
 
     def close_and_exit(self):
