@@ -42,4 +42,7 @@ if [ -n "$CHOSEN" ] && [ -n "${FILE_MAP[$CHOSEN]}" ]; then
     
     # 3. Notification feedback
     notify-send -i "$SELECTED_PATH" "Wallpaper Updated" "Applied to Desktop & Lockscreen: $CHOSEN"
+    
+    # 4. Pre-render 50% blurred background for lockscreen asynchronously
+    magick "$SELECTED_PATH" -resize 1920x1080^ -gravity center -extent 1920x1080 -blur 0x12 "$HOME/.cache/lockscreen_blur.png" &
 fi

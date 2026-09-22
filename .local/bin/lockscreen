@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==========================================================
-# Catppuccin Mocha Circle Lockscreen (Slightly Blurred Wallpaper)
+# Catppuccin Mocha Circle Lockscreen (True 50% Blurred Wallpaper)
 # ==========================================================
 
 # Prevent duplicate lock processes
@@ -8,19 +8,24 @@ if pgrep -x "i3lock" >/dev/null 2>&1 || pgrep -x "i3lock-color" >/dev/null 2>&1;
     exit 0
 fi
 
-# Prefer the actively selected wallpaper from ~/.cache/current_wallpaper
+# Prefer active wallpaper
 if [ -e "$HOME/.cache/current_wallpaper" ]; then
-    WALLPAPER="$HOME/.cache/current_wallpaper"
+    WALLPAPER="$(readlink -f "$HOME/.cache/current_wallpaper")"
 elif [ -f "$HOME/Pictures/Wallpapers/catppuccin-aesthetic.jpg" ]; then
     WALLPAPER="$HOME/Pictures/Wallpapers/catppuccin-aesthetic.jpg"
 else
     WALLPAPER="$HOME/Pictures/Wallpapers/catppuccin-astronaut.png"
 fi
 
+BLUR_CACHE="$HOME/.cache/lockscreen_blur.png"
+
+# Generate 50% Gaussian blurred background if missing or wallpaper was updated
+if [ ! -f "$BLUR_CACHE" ] || [ "$WALLPAPER" -nt "$BLUR_CACHE" ]; then
+    magick "$WALLPAPER" -resize 1920x1080^ -gravity center -extent 1920x1080 -blur 0x12 "$BLUR_CACHE"
+fi
+
 exec /usr/bin/i3lock \
-  -i "$WALLPAPER" \
-  --fill \
-  --blur 5 \
+  -i "$BLUR_CACHE" \
   --clock \
   --indicator \
   --radius=140 \
