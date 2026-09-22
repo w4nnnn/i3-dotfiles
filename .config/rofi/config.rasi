@@ -1,11 +1,11 @@
 /**
- * Rofi Configuration - Top-Left Application Menu (Docked to Polybar)
- * Seamlessly attached underneath the Arch Linux logo in Polybar
+ * Rofi Configuration - Spotlight / Raycast Style (Catppuccin Mocha)
+ * Minimalist, elegant, and modern floating launcher
  **/
 
 configuration {
     modi:                       "drun,run,window";
-    font:                       "JetBrainsMono Nerd Font 10.5";
+    font:                       "JetBrainsMono Nerd Font 11";
     show-icons:                 true;
     icon-theme:                 "Papirus-Dark";
     display-drun:               "";
@@ -35,16 +35,14 @@ configuration {
 
 window {
     transparency:       "real";
-    location:           northwest;
-    anchor:             northwest;
-    x-offset:           8px;
-    y-offset:           36px;
-    width:              440px;
-    border:             0px 2px 2px 2px solid;
+    location:           center;
+    anchor:             center;
+    fullscreen:         false;
+    width:              640px;
+    border:             2px solid;
     border-color:       @mauve;
-    border-radius:      0px 0px 16px 16px;
+    border-radius:      16px;
     background-color:   @bg;
-    padding:            0px;
 }
 
 mainbox {
@@ -52,10 +50,10 @@ mainbox {
     children:           [ "inputbar", "message", "listview" ];
 }
 
-/* --- Search Input Header --- */
+/* --- Clean Search Bar (Spotlight Style) --- */
 inputbar {
-    padding:            14px 16px;
-    spacing:            12px;
+    padding:            16px 20px;
+    spacing:            14px;
     border:             0px 0px 1px 0px solid;
     border-color:       @surface0;
     background-color:   transparent;
@@ -64,20 +62,20 @@ inputbar {
 
 prompt {
     text-color:         @mauve;
-    font:               "JetBrainsMono Nerd Font Bold 12";
+    font:               "JetBrainsMono Nerd Font Bold 13";
     vertical-align:     0.5;
 }
 
 entry {
-    font:               "JetBrainsMono Nerd Font 10.5";
+    font:               "JetBrainsMono Nerd Font 11.5";
     text-color:         @fg;
-    placeholder:        "Search applications...";
+    placeholder:        "Search apps, commands, windows...";
     placeholder-color:  @overlay;
     vertical-align:     0.5;
 }
 
 message {
-    padding:            8px 16px;
+    padding:            8px 20px;
     background-color:   @surface0;
     border:             0px 0px 1px 0px solid;
     border-color:       @surface1;
@@ -88,21 +86,21 @@ textbox {
     font:               "JetBrainsMono Nerd Font 10";
 }
 
-/* --- Application List --- */
+/* --- Spacious App List --- */
 listview {
-    padding:            8px 10px;
+    padding:            10px 12px;
     lines:              8;
     columns:            1;
-    spacing:            3px;
+    spacing:            4px;
     cycle:              true;
     dynamic:            true;
     fixed-height:       false;
 }
 
 element {
-    padding:            8px 12px;
-    spacing:            12px;
-    border-radius:      8px;
+    padding:            10px 14px;
+    spacing:            14px;
+    border-radius:      10px;
     background-color:   transparent;
     text-color:         @fg;
     cursor:             pointer;
@@ -127,14 +125,14 @@ element selected.urgent {
 }
 
 element-icon {
-    size:               24px;
+    size:               28px;
     vertical-align:     0.5;
-    background-color:   transparent;
     cursor:             inherit;
+    background-color:   transparent;
 }
 
 element-text {
-    font:               "JetBrainsMono Nerd Font 10.5";
+    font:               "JetBrainsMono Nerd Font 11";
     text-color:         inherit;
     vertical-align:     0.5;
     cursor:             inherit;
