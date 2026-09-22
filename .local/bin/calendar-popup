@@ -95,8 +95,9 @@ class CatppuccinCalendar(Gtk.Window):
         )
         card.pack_start(self.calendar, True, True, 0)
 
-        # Close on Escape, allow Screenshot on PrintScreen
+        # Close on Escape, allow Screenshot on PrintScreen, close on Focus Out
         self.connect("key-press-event", self.on_key_press)
+        self.connect("focus-out-event", self.on_focus_out)
         self.connect("destroy", self.cleanup)
 
         # Show and position directly below Polybar in screen center
