@@ -113,7 +113,8 @@ class Win11StartMenu(Gtk.Window):
 
         # Events
         self.connect("key-press-event", self.on_key_press)
-        self.connect("focus-out-event", self.on_focus_out)
+        self.connect("map-event", self.on_map_event)
+        self.connect("button-press-event", self.on_button_press)
         self.connect("size-allocate", self.on_size_allocate)
         self.connect("destroy", self.cleanup)
 
@@ -405,11 +406,38 @@ class Win11StartMenu(Gtk.Window):
             return True
         return False
 
-    def on_focus_out(self, widget, event):
-        self.close_and_exit()
+    def on_map_event(self, widget, event):
+        GLib.idle_add(self.grab_seat)
+
+    def grab_seat(self):
+        try:
+            seat = Gdk.Display.get_default().get_default_seat()
+            if seat and self.get_window():
+                cursor = self.get_window().get_cursor()
+                seat.grab(self.get_window(), Gdk.SeatCapabilities.ALL, True, cursor, None, None)
+        except Exception:
+            pass
+        return False
+
+    def on_button_press(self, widget, event):
+        if not self.get_window():
+            return False
+        success, ox, oy = self.get_window().get_origin()
+        w = self.get_window().get_width()
+        h = self.get_window().get_height()
+        inside = (ox <= event.x_root <= ox + w) and (oy <= event.y_root <= oy + h)
+        if not inside:
+            self.close_and_exit()
+            return True
         return False
 
     def close_and_exit(self):
+        try:
+            seat = Gdk.Display.get_default().get_default_seat()
+            if seat:
+                seat.ungrab()
+        except Exception:
+            pass
         self.destroy()
         Gtk.main_quit()
 
