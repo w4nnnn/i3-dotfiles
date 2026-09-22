@@ -4,6 +4,8 @@ import os
 import re
 import signal
 import subprocess
+import math
+import cairo
 import gi
 
 gi.require_version("Gtk", "3.0")
@@ -174,11 +176,32 @@ class ControlCenter(Gtk.Window):
 
         # Events
         self.connect("key-press-event", self.on_key_press)
+        self.connect("size-allocate", self.on_size_allocate)
         self.connect("destroy", self.cleanup)
 
         self.show_all()
         self.position_top_right()
         self.apply_cursor()
+
+    def on_size_allocate(self, widget, alloc):
+        w, h = alloc.width, alloc.height
+        r = 16
+        surf = cairo.ImageSurface(cairo.FORMAT_A1, w, h)
+        cr = cairo.Context(surf)
+        cr.set_source_rgba(0, 0, 0, 0)
+        cr.paint()
+
+        cr.new_sub_path()
+        cr.arc(w - r, r, r, -math.pi / 2, 0)
+        cr.arc(w - r, h - r, r, 0, math.pi / 2)
+        cr.arc(r, h - r, r, math.pi / 2, math.pi)
+        cr.arc(r, r, r, math.pi, 3 * math.pi / 2)
+        cr.close_path()
+        cr.set_source_rgba(1, 1, 1, 1)
+        cr.fill()
+
+        region = Gdk.cairo_region_create_from_surface(surf)
+        widget.shape_combine_region(region)
 
     def apply_cursor(self):
         display = Gdk.Display.get_default()
