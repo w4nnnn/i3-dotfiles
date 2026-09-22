@@ -23,6 +23,11 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
+# Setup logging (terminal output + log file)
+LOG_FILE="$HOME/install_dotfiles.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "=== Dotfiles Installation Started: $(date) ==="
+
 echo -e "${PURPLE}${BOLD}"
 cat << "EOF"
    ____      _                                _        _ _____ 
@@ -420,6 +425,7 @@ fi
 echo -e "\n${PURPLE}${BOLD}======================================================${NC}"
 echo -e "${GREEN}${BOLD}       Installation Completed Successfully!           ${NC}"
 echo -e "${PURPLE}${BOLD}======================================================${NC}"
+echo -e "${CYAN}📁 Detailed log saved to:${NC} ${BOLD}$LOG_FILE${NC}\n"
 echo -e "${CYAN}Key Shortcuts:${NC}"
 echo -e "  • ${BOLD}Super + t${NC}       : Open Kitty Terminal"
 echo -e "  • ${BOLD}Super + b${NC}       : Open Brave Browser"
