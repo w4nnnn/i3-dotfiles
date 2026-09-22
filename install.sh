@@ -102,6 +102,10 @@ OFFICIAL_PKGS=(
     eza
     bat
     fzf
+    noto-fonts-emoji
+    noto-fonts
+    noto-fonts-cjk
+    inter-font
 )
 
 TO_INSTALL=()

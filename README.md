@@ -86,6 +86,7 @@ The installer will automatically handle all dependencies on **Arch Linux**:
 - **Network**: `networkmanager-dmenu`, `network-manager-applet`
 - **File Manager & Media Engine**: `nemo`, `file-roller`, `nemo-fileroller`, `p7zip`, `unrar`, `nemo-terminal`, `ffmpegthumbnailer`, `tumbler`, `webp-pixbuf-loader`, `poppler-glib`
 - **Utilities**: `maim`, `slop`, `xclip`, `htop`, `imagemagick`, `bc`, `xorg-xrandr`, `xorg-xset`, `xorg-xrdb`
+- **Fonts & Emojis**: `noto-fonts-emoji` (full-color emoji), `inter-font` (UI font), `noto-fonts`, `noto-fonts-cjk` (East Asian glyphs), `JetBrainsMono Nerd Font`, `lucide`
 - **GTK & Python**: `python`, `python-gobject`, `gtk3`, `cairo`, `papirus-icon-theme`
 - **AUR Packages**: `i3lock-color`, `betterlockscreen`, `nemo-preview` *(optional)*
 
@@ -124,6 +125,7 @@ dotfiles/
 │   ├── betterlockscreen/   # Betterlockscreen configuration
 │   ├── dunst/              # Notification daemon styling
 │   ├── fastfetch/          # Fastfetch system info banner
+│   ├── fontconfig/         # Font fallback & Noto Color Emoji configuration
 │   ├── gtk-3.0/            # GTK 3.0 theme & font settings
 │   ├── gtk-4.0/            # GTK 4.0 theme & font settings
 │   ├── i3/                 # i3wm config & rules
