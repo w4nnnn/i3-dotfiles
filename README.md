@@ -41,6 +41,8 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | **`Super + a`** / **`Super + d`** | Open Rofi Application Launcher |
 | **`Super + v`** | Open Clipboard History (Greenclip + Rofi) |
 | **`Super + Shift + v`** | Clear Clipboard History |
+| **`Super + n`** | Open Network Menu (NetworkManager + Rofi) |
+| **`Super + Shift + n`** | Advanced Network Settings (nmtui) |
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
 | **`Super + Shift + w`** | Open Wallpaper Selector |
 | **`Super + Escape`** | Lock Screen |

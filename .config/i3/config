@@ -73,8 +73,9 @@ bindsym $mod+c exec --no-startup-id ~/.local/bin/control-center
 bindsym $mod+v exec --no-startup-id ~/.local/bin/clipboard
 bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/clipboard --clear
 
-# Network Menu (networkmanager_dmenu)
-bindsym $mod+n exec --no-startup-id networkmanager_dmenu
+# Network Menu (NetworkManager + Rofi)
+bindsym $mod+n exec --no-startup-id ~/.local/bin/network-menu
+bindsym $mod+Shift+n exec --no-startup-id kitty --class floating_terminal -e nmtui
 
 # Wallpaper Selector
 bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/wallpaper-selector

@@ -564,7 +564,8 @@ class ControlCenter(Gtk.Window):
 
     def on_network_clicked(self, widget):
         self.close_and_exit()
-        subprocess.Popen(["networkmanager_dmenu"])
+        bin_dir = os.path.expanduser("~/.local/bin")
+        subprocess.Popen([os.path.join(bin_dir, "network-menu")])
 
     def on_dnd_clicked(self, widget):
         toggle_dnd()
