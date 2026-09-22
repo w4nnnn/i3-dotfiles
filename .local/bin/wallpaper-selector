@@ -45,4 +45,10 @@ if [ -n "$CHOSEN" ] && [ -n "${FILE_MAP[$CHOSEN]}" ]; then
     
     # 4. Pre-render 50% blurred background for lockscreen asynchronously
     magick "$SELECTED_PATH" -resize 1920x1080^ -gravity center -extent 1920x1080 -blur 0x12 "$HOME/.cache/lockscreen_blur.png" &
+
+    # 5. Sync with SDDM background if installed & writable
+    SDDM_WALL="/usr/share/sddm/themes/silent/backgrounds/wallpaper.jpg"
+    if [ -w "$SDDM_WALL" ]; then
+        magick "$SELECTED_PATH" -resize 1920x1080^ -gravity center -extent 1920x1080 "$SDDM_WALL" &
+    fi
 fi
