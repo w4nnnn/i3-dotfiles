@@ -174,7 +174,6 @@ class ControlCenter(Gtk.Window):
 
         # Events
         self.connect("key-press-event", self.on_key_press)
-        self.connect("focus-out-event", self.on_focus_out)
         self.connect("destroy", self.cleanup)
 
         self.show_all()
