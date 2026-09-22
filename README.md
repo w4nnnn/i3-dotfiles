@@ -39,6 +39,8 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | **`Super + b`** | Launch Brave Browser |
 | **`Super + e`** | Launch Nemo File Manager |
 | **`Super + a`** / **`Super + d`** | Open Rofi Application Launcher |
+| **`Super + v`** | Open Clipboard History (Greenclip + Rofi) |
+| **`Super + Shift + v`** | Clear Clipboard History |
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
 | **`Super + Shift + w`** | Open Wallpaper Selector |
 | **`Super + Escape`** | Lock Screen |
@@ -90,7 +92,7 @@ The installer will automatically handle all dependencies on **Arch Linux**:
 - **Fonts & Emojis**: `noto-fonts-emoji` (full-color emoji), `inter-font` (UI font), `noto-fonts`, `noto-fonts-cjk` (East Asian glyphs), `JetBrainsMono Nerd Font`, `lucide`
 - **GTK & Python**: `python`, `python-gobject`, `gtk3`, `cairo`, `papirus-icon-theme`
 - **Display Manager**: `sddm`, `qt6-svg`, `qt6-virtualkeyboard`, `qt6-multimedia-ffmpeg`, `qt6-imageformats`
-- **AUR Packages**: `sddm-silent-theme`, `i3lock-color`, `betterlockscreen`, `nemo-preview` *(optional)*
+- **AUR Packages**: `sddm-silent-theme`, `i3lock-color`, `betterlockscreen`, `nemo-preview`, `rofi-greenclip` *(optional)*
 
 ---
 

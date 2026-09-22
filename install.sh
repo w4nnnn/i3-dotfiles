@@ -162,7 +162,7 @@ if [ -z "$AUR_HELPER" ]; then
 fi
 
 if [ -n "$AUR_HELPER" ]; then
-    AUR_PKGS=(betterlockscreen i3lock-color nemo-preview sddm-silent-theme)
+    AUR_PKGS=(betterlockscreen i3lock-color nemo-preview sddm-silent-theme rofi-greenclip)
     AUR_TO_INSTALL=()
     for pkg in "${AUR_PKGS[@]}"; do
         if ! pacman -Q "$pkg" >/dev/null 2>&1; then
@@ -177,6 +177,15 @@ if [ -n "$AUR_HELPER" ]; then
     fi
 else
     echo -e "${YELLOW}[!] Could not setup AUR helper. Please install AUR packages manually if desired.${NC}"
+fi
+
+# Fallback for greenclip if AUR installation failed or skipped
+if ! command -v greenclip >/dev/null 2>&1 && [ ! -f "$HOME/.local/bin/greenclip" ]; then
+    echo -e "${BLUE}Downloading greenclip static binary (clipboard manager)...${NC}"
+    mkdir -p "$HOME/.local/bin"
+    curl -sL "https://github.com/erebe/greenclip/releases/download/v4.2/greenclip" -o "$HOME/.local/bin/greenclip"
+    chmod +x "$HOME/.local/bin/greenclip"
+    echo -e "${GREEN}greenclip static binary installed!${NC}"
 fi
 
 # ------------------------------------------------------------------------------

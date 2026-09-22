@@ -1,0 +1,129 @@
+/**
+ * Catppuccin Mocha - Modern Clipboard Manager Theme
+ **/
+
+configuration {
+    show-icons:                 true;
+    icon-theme:                 "Papirus-Dark";
+    font:                       "JetBrainsMono Nerd Font 10.5";
+    drun-display-format:        "{name}";
+}
+
+* {
+    bg:             #1e1e2ed0;
+    surface0:       #313244d0;
+    surface1:       #45475a;
+    border-col:     #cba6f7;
+    fg:             #cdd6f4;
+    subtext:        #a6adc8;
+    overlay:        #6c7086;
+    mauve:          #cba6f7;
+    blue:           #89b4fa;
+    red:            #f38ba8;
+    crust:          #11111b;
+
+    background-color:   transparent;
+    text-color:         @fg;
+    margin:             0;
+    padding:            0;
+    spacing:            0;
+}
+
+window {
+    transparency:       "real";
+    location:           center;
+    anchor:             center;
+    fullscreen:         false;
+    width:              660px;
+    border:             2px solid;
+    border-color:       @mauve;
+    border-radius:      16px;
+    background-color:   @bg;
+    padding:            18px;
+}
+
+mainbox {
+    background-color:   transparent;
+    spacing:            12px;
+    children:           [ "inputbar", "message", "listview" ];
+}
+
+inputbar {
+    background-color:   @surface0;
+    border-radius:      10px;
+    padding:            10px 14px;
+    spacing:            10px;
+    children:           [ "prompt", "entry" ];
+}
+
+prompt {
+    background-color:   transparent;
+    text-color:         @mauve;
+    font:               "JetBrainsMono Nerd Font Bold 11";
+    vertical-align:     0.5;
+}
+
+entry {
+    background-color:   transparent;
+    text-color:         @fg;
+    placeholder:        "Search clipboard history...";
+    placeholder-color:  @overlay;
+    font:               "JetBrainsMono Nerd Font 10.5";
+    vertical-align:     0.5;
+}
+
+message {
+    background-color:   @surface0;
+    border-radius:      8px;
+    padding:            6px 12px;
+}
+
+textbox {
+    background-color:   transparent;
+    text-color:         @subtext;
+    font:               "JetBrainsMono Nerd Font 9.5";
+    horizontal-align:   0.0;
+}
+
+listview {
+    background-color:   transparent;
+    columns:            1;
+    lines:              8;
+    spacing:            6px;
+    cycle:              true;
+    dynamic:            true;
+    scrollbar:          false;
+}
+
+element {
+    background-color:   transparent;
+    text-color:         @fg;
+    border-radius:      10px;
+    padding:            8px 12px;
+    cursor:             pointer;
+    spacing:            10px;
+}
+
+element-icon {
+    size:               24px;
+    background-color:   transparent;
+    vertical-align:     0.5;
+}
+
+element-text {
+    font:               "JetBrainsMono Nerd Font 10";
+    background-color:   transparent;
+    text-color:         inherit;
+    cursor:             inherit;
+    vertical-align:     0.5;
+    highlight:          bold underline #cba6f7;
+}
+
+element selected.normal {
+    background-color:   @mauve;
+    text-color:         @crust;
+}
+
+element selected.normal element-text {
+    text-color:         @crust;
+}

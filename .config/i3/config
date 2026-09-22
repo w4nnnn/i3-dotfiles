@@ -40,6 +40,7 @@ exec --no-startup-id dunst
 exec_always --no-startup-id bash -c '[ -e "$HOME/.cache/current_wallpaper" ] && feh --bg-fill "$HOME/.cache/current_wallpaper" || feh --bg-fill ~/Pictures/Wallpapers/catppuccin-aesthetic.jpg'
 exec_always --no-startup-id picom -b
 exec_always --no-startup-id ~/.config/polybar/launch.sh
+exec --no-startup-id greenclip daemon
 
 # --- Keybindings ---
 # Lock Screen
@@ -67,6 +68,10 @@ bindsym $mod+Tab exec --no-startup-id rofi -show window
 
 # Control Center / Quick Settings
 bindsym $mod+c exec --no-startup-id ~/.local/bin/control-center
+
+# Clipboard Manager
+bindsym $mod+v exec --no-startup-id ~/.local/bin/clipboard
+bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/clipboard --clear
 
 # Network Menu (networkmanager_dmenu)
 bindsym $mod+n exec --no-startup-id networkmanager_dmenu
@@ -98,7 +103,7 @@ bindsym $mod+Shift+Right move right
 
 # Split orientation
 bindsym $mod+h split h
-bindsym $mod+v split v
+bindsym $mod+Shift+h split v
 
 # Fullscreen
 bindsym $mod+f fullscreen toggle

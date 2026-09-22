@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Catppuccin Mocha - Modern Clipboard Manager (Greenclip + Rofi)
+# ==============================================================================
+
+RASI="$HOME/.config/rofi/clipboard.rasi"
+CLEAR_LABEL="󰃢  Clear Clipboard History"
+EMPTY_LABEL="(Clipboard is empty)"
+
+# Helper function to wipe history cleanly
+clear_history() {
+    pkill -x greenclip 2>/dev/null || true
+    greenclip clear </dev/null 2>/dev/null || true
+    nohup greenclip daemon </dev/null >/dev/null 2>&1 &
+    notify-send -a "Clipboard" -i "edit-clear-history" "Clipboard Cleared" "All clipboard history has been removed."
+}
+
+# 1. CLI parameter handlers
+if [ "$1" = "--clear" ] || [ "$1" = "clear" ]; then
+    clear_history
+    exit 0
+fi
+
+if [ "$1" = "--daemon" ] || [ "$1" = "daemon" ]; then
+    exec greenclip daemon
+fi
+
+# 2. Toggle behavior: close rofi if already open
+if pgrep -x rofi >/dev/null 2>&1; then
+    killall -q rofi
+    exit 0
+fi
+
+# 3. Ensure greenclip daemon is running
+if ! pgrep -x greenclip >/dev/null 2>&1; then
+    nohup greenclip daemon </dev/null >/dev/null 2>&1 &
+    sleep 0.15
+fi
+
+# 4. Stream items from greenclip with custom icons & format
+generate_items() {
+    local has_entries=0
+    while IFS= read -r line || [ -n "$line" ]; do
+        [ -z "$line" ] && continue
+        has_entries=1
+        if [[ "$line" =~ ^image/(png|jpeg)[[:space:]]+([0-9a-zA-Z_-]+) ]]; then
+            local img_type="${BASH_REMATCH[1]}"
+            local img_hash="${BASH_REMATCH[2]}"
+            local img_file="/tmp/greenclip/${img_hash}.${img_type}"
+            if [ -f "$img_file" ]; then
+                printf "󰋩 [Image] %s\0icon\x1f%s\n" "$img_hash" "$img_file"
+            else
+                printf "󰋩 [Image] %s\0icon\x1fimage-x-generic\n" "$img_hash"
+            fi
+        else
+            printf "%s\0icon\x1fedit-copy\n" "$line"
+        fi
+    done < <(greenclip print </dev/null 2>/dev/null)
+
+    if [ "$has_entries" -eq 1 ]; then
+        printf "%s\0icon\x1fedit-clear-history\n" "$CLEAR_LABEL"
+    else
+        printf "%s\0icon\x1fedit-copy\n" "$EMPTY_LABEL"
+    fi
+}
+
+# 5. Launch Rofi
+CHOSEN=$(generate_items | rofi -no-config -dmenu -theme "$RASI" \
+    -p "󰅍 Clipboard" \
+    -mesg "Enter: Copy  •  Alt+Del: Clear History  •  Esc: Close" \
+    -kb-custom-1 "Alt+Delete" \
+    -i)
+ROFI_STATUS=$?
+
+# 6. Process choice
+# Custom hotkey triggered (Alt+Delete)
+if [ "$ROFI_STATUS" -eq 10 ] || [ "$CHOSEN" = "$CLEAR_LABEL" ]; then
+    clear_history
+    exit 0
+fi
+
+# Canceled with Escape or empty
+if [ "$ROFI_STATUS" -ne 0 ] || [ -z "$CHOSEN" ] || [ "$CHOSEN" = "$EMPTY_LABEL" ]; then
+    exit 0
+fi
+
+# Image selection
+if [[ "$CHOSEN" =~ ^󰋩[[:space:]]\[Image\][[:space:]]([0-9a-zA-Z_-]+) ]]; then
+    hash="${BASH_REMATCH[1]}"
+    if [ -f "/tmp/greenclip/${hash}.png" ]; then
+        greenclip print "image/png  ${hash}" </dev/null
+        notify-send -a "Clipboard" -i "/tmp/greenclip/${hash}.png" "Image Copied" "Restored image to clipboard"
+    elif [ -f "/tmp/greenclip/${hash}.jpeg" ]; then
+        greenclip print "image/jpeg  ${hash}" </dev/null
+        notify-send -a "Clipboard" -i "/tmp/greenclip/${hash}.jpeg" "Image Copied" "Restored image to clipboard"
+    fi
+    exit 0
+fi
+
+# Normal text selection
+greenclip print "$CHOSEN" </dev/null
+
+# Clean truncated preview for dunst notification
+preview="${CHOSEN:0:60}"
+[ ${#CHOSEN} -gt 60 ] && preview="${preview}..."
+notify-send -a "Clipboard" -i "edit-copy" "Copied to Clipboard" "$preview"
