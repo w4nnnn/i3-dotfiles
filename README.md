@@ -27,6 +27,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 - **Terminal Emulator**: `Kitty` running Zsh with `JetBrainsMono Nerd Font`, 0.92 opacity, and full Catppuccin Mocha palette.
 - **Compositor**: `Picom` with dual-kawase blur, rounded corners (`12px`), drop shadows, and smooth **Zoom / Scale Pop** workspace transitions.
 - **App Launcher & Power Menu**: `Rofi` customized with frosted floating cards.
+- **Display Manager**: `SDDM` running the [SilentSDDM](https://github.com/uiriansan/SilentSDDM) theme (Catppuccin Mocha preset, matching blurred wallpaper, and persistent auto-sync with the wallpaper selector).
 
 ---
 
@@ -88,7 +89,8 @@ The installer will automatically handle all dependencies on **Arch Linux**:
 - **Utilities**: `maim`, `slop`, `xclip`, `htop`, `imagemagick`, `bc`, `xorg-xrandr`, `xorg-xset`, `xorg-xrdb`
 - **Fonts & Emojis**: `noto-fonts-emoji` (full-color emoji), `inter-font` (UI font), `noto-fonts`, `noto-fonts-cjk` (East Asian glyphs), `JetBrainsMono Nerd Font`, `lucide`
 - **GTK & Python**: `python`, `python-gobject`, `gtk3`, `cairo`, `papirus-icon-theme`
-- **AUR Packages**: `i3lock-color`, `betterlockscreen`, `nemo-preview` *(optional)*
+- **Display Manager**: `sddm`, `qt6-svg`, `qt6-virtualkeyboard`, `qt6-multimedia-ffmpeg`, `qt6-imageformats`
+- **AUR Packages**: `sddm-silent-theme`, `i3lock-color`, `betterlockscreen`, `nemo-preview` *(optional)*
 
 ---
 
@@ -149,6 +151,9 @@ dotfiles/
 │       ├── set-root-cursor.c
 │       └── xcorners.c
 ├── fonts/                  # Custom font files (lucide.ttf)
+├── sddm/                   # SDDM login manager configuration
+│   ├── sddm.conf           # Environment & theme selection config
+│   └── catppuccin-mocha.conf # SilentSDDM Catppuccin Mocha preset
 ├── Pictures/Wallpapers/    # Curated Catppuccin Mocha wallpapers
 ├── home/                   # Home directory dotfiles (.zshrc, .xprofile, .Xresources, .gtkrc-2.0)
 ├── install.sh              # Automated Arch Linux installer script

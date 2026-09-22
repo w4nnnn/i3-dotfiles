@@ -106,6 +106,11 @@ OFFICIAL_PKGS=(
     noto-fonts
     noto-fonts-cjk
     inter-font
+    sddm
+    qt6-svg
+    qt6-virtualkeyboard
+    qt6-multimedia-ffmpeg
+    qt6-imageformats
 )
 
 TO_INSTALL=()
@@ -123,12 +128,12 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 2. Install AUR Packages (betterlockscreen, i3lock-color, nemo-preview)
+# 2. Install AUR Packages (betterlockscreen, i3lock-color, nemo-preview, sddm-silent-theme)
 # ------------------------------------------------------------------------------
-echo -e "\n${CYAN}${BOLD}[2/7] Checking AUR packages (betterlockscreen, i3lock-color, nemo-preview)...${NC}"
+echo -e "\n${CYAN}${BOLD}[2/7] Checking AUR packages (betterlockscreen, i3lock-color, nemo-preview, sddm-silent-theme)...${NC}"
 
 if [ -n "$AUR_HELPER" ]; then
-    AUR_PKGS=(betterlockscreen i3lock-color nemo-preview)
+    AUR_PKGS=(betterlockscreen i3lock-color nemo-preview sddm-silent-theme)
     AUR_TO_INSTALL=()
     for pkg in "${AUR_PKGS[@]}"; do
         if ! pacman -Q "$pkg" >/dev/null 2>&1; then
@@ -316,6 +321,29 @@ if [ -f "$INITIAL_WALL" ]; then
     mkdir -p "$HOME/.cache"
     ln -sf "$INITIAL_WALL" "$HOME/.cache/current_wallpaper"
     feh --bg-fill "$INITIAL_WALL" 2>/dev/null || true
+fi
+
+# Configure SilentSDDM Theme (Catppuccin Mocha)
+if [ -d /usr/share/sddm/themes/silent ]; then
+    echo -e "\n${CYAN}${BOLD}Configuring SilentSDDM (Catppuccin Mocha)...${NC}"
+    if [ -f "$DIR/sddm/sddm.conf" ]; then
+        sudo cp "$DIR/sddm/sddm.conf" /etc/sddm.conf 2>/dev/null || true
+    fi
+    if [ -f "$DIR/sddm/catppuccin-mocha.conf" ]; then
+        sudo cp "$DIR/sddm/catppuccin-mocha.conf" /usr/share/sddm/themes/silent/configs/catppuccin-mocha.conf 2>/dev/null || true
+    fi
+    sudo sed -i 's|^ConfigFile=.*|ConfigFile=configs/catppuccin-mocha.conf|' /usr/share/sddm/themes/silent/metadata.desktop 2>/dev/null || true
+
+    # Prepare wallpaper and permissions for auto-sync
+    if [ -f "$INITIAL_WALL" ]; then
+        sudo cp "$INITIAL_WALL" /usr/share/sddm/themes/silent/backgrounds/wallpaper.jpg 2>/dev/null || true
+        sudo chown "$USER:$USER" /usr/share/sddm/themes/silent/backgrounds/wallpaper.jpg 2>/dev/null || true
+    fi
+
+    # Switch display manager to SDDM
+    sudo systemctl disable lightdm 2>/dev/null || true
+    sudo systemctl enable sddm 2>/dev/null || true
+    echo -e "${GREEN}SilentSDDM configured and enabled!${NC}"
 fi
 
 # ------------------------------------------------------------------------------
