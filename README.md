@@ -19,7 +19,12 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
   - Mini media player with album/title controls (`playerctl`).
 - **Wallpaper & Lockscreen Sync**: Dynamic wallpaper selector (`Super + Shift + w`) via Rofi with live thumbnails that syncs both the active desktop and the lockscreen automatically.
 - **Lockscreen**: `i3lock-color` featuring soft blurred wallpaper, high-contrast clock, and a responsive emerald/peach/blue feedback indicator ring.
-- **Terminal Emulator**: `Kitty` with `JetBrainsMono Nerd Font`, 0.92 opacity, and full Catppuccin Mocha palette.
+- **Shell & Modern Terminal Stack (HyDE Inspired)**:
+  - `ZSH` with `zsh-autosuggestions`, `zsh-syntax-highlighting`, and `fzf` history search.
+  - `Starship` prompt customized with Catppuccin pastel colors and Arch glyphs (`󰣇`).
+  - `Fastfetch` system information banner on terminal startup.
+  - Modern CLI tools: `eza` (modern ls with icons), `bat` (syntax highlighting cat).
+- **Terminal Emulator**: `Kitty` running Zsh with `JetBrainsMono Nerd Font`, 0.92 opacity, and full Catppuccin Mocha palette.
 - **Compositor**: `Picom` with dual-kawase blur, rounded corners (`12px`), drop shadows, and smooth **Zoom / Scale Pop** workspace transitions.
 - **App Launcher & Power Menu**: `Rofi` customized with frosted floating cards.
 
@@ -53,6 +58,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 The installer will automatically handle all dependencies on **Arch Linux**:
 
 - **Core**: `i3-wm`, `polybar`, `picom`, `kitty`, `rofi`, `feh`, `dunst`, `libnotify`
+- **Shell & CLI**: `zsh`, `starship`, `fastfetch`, `eza`, `bat`, `fzf`, `zsh-autosuggestions`, `zsh-syntax-highlighting`
 - **Audio & Media**: `pamixer`, `playerctl`, `brightnessctl`
 - **Network**: `networkmanager-dmenu`, `network-manager-applet`
 - **File Manager & Media Engine**: `nemo`, `file-roller`, `nemo-fileroller`, `p7zip`, `unrar`, `nemo-terminal`, `ffmpegthumbnailer`, `tumbler`, `webp-pixbuf-loader`, `poppler-glib`
@@ -94,13 +100,15 @@ dotfiles/
 ├── .config/
 │   ├── betterlockscreen/   # Betterlockscreen configuration
 │   ├── dunst/              # Notification daemon styling
+│   ├── fastfetch/          # Fastfetch system info banner
 │   ├── gtk-3.0/            # GTK 3.0 theme & font settings
 │   ├── gtk-4.0/            # GTK 4.0 theme & font settings
 │   ├── i3/                 # i3wm config & rules
 │   ├── kitty/              # Kitty terminal configuration
 │   ├── picom/              # Picom compositor (blur, animations, shadows)
 │   ├── polybar/            # Polybar config & launch script
-│   └── rofi/               # Rofi app launcher, powermenu & wallpaper rasi
+│   ├── rofi/               # Rofi app launcher, powermenu & wallpaper rasi
+│   └── starship.toml       # Starship prompt configuration
 ├── .local/bin/             # Custom utility scripts
 │   ├── calendar-popup      # Interactive floating calendar widget
 │   ├── control-center      # GTK Quick Settings control center
@@ -110,12 +118,14 @@ dotfiles/
 │   ├── network-info        # Network details notifier
 │   ├── powermenu           # Horizontal rofi power menu
 │   ├── screenshot          # maim + slop screenshot helper
+│   ├── toggle-htop         # Smart toggle for task manager
 │   ├── wallpaper-selector  # Dynamic wallpaper selector with thumbnails
 │   └── src/                # C source code for compiled helpers
 │       ├── set-root-cursor.c
 │       └── xcorners.c
+├── fonts/                  # Custom font files (lucide.ttf)
 ├── Pictures/Wallpapers/    # Curated Catppuccin Mocha wallpapers
-├── home/                   # Home directory dotfiles (.xprofile, .Xresources, .gtkrc-2.0)
+├── home/                   # Home directory dotfiles (.zshrc, .xprofile, .Xresources, .gtkrc-2.0)
 ├── install.sh              # Automated Arch Linux installer script
 ├── .gitignore
 └── README.md

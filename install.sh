@@ -94,6 +94,14 @@ OFFICIAL_PKGS=(
     tumbler
     webp-pixbuf-loader
     poppler-glib
+    zsh
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+    starship
+    fastfetch
+    eza
+    bat
+    fzf
 )
 
 TO_INSTALL=()
@@ -235,12 +243,16 @@ fi
 # ------------------------------------------------------------------------------
 echo -e "\n${CYAN}${BOLD}[5/7] Deploying configuration files...${NC}"
 
-# .config directories
+# .config files & directories
 mkdir -p "$HOME/.config"
 for cfg in "$DIR/.config/"*; do
     target_name=$(basename "$cfg")
-    mkdir -p "$HOME/.config/$target_name"
-    cp -r "$cfg/"* "$HOME/.config/$target_name/"
+    if [ -d "$cfg" ]; then
+        mkdir -p "$HOME/.config/$target_name"
+        cp -r "$cfg/"* "$HOME/.config/$target_name/"
+    else
+        cp "$cfg" "$HOME/.config/$target_name"
+    fi
     echo -e "${GREEN}  ✓ ~/.config/$target_name${NC}"
 done
 
