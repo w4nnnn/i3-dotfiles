@@ -217,14 +217,14 @@ class ControlCenter(Gtk.Window):
             background-color: transparent;
         }
         #main-container {
-            background-color: #1e1e2e;
+            background-color: rgba(30, 30, 46, 0.82);
             border: 2px solid #cba6f7;
             border-radius: 16px;
             padding: 16px;
             min-width: 350px;
         }
         .avatar-badge {
-            background-color: #313244;
+            background-color: rgba(49, 50, 68, 0.85);
             color: #cba6f7;
             border-radius: 10px;
             font-family: 'lucide', 'JetBrainsMono Nerd Font';
@@ -250,7 +250,7 @@ class ControlCenter(Gtk.Window):
             font-family: 'JetBrainsMono Nerd Font';
         }
         .header-btn {
-            background-color: #313244;
+            background-color: rgba(49, 50, 68, 0.85);
             color: #cdd6f4;
             border: none;
             border-radius: 10px;
@@ -274,8 +274,8 @@ class ControlCenter(Gtk.Window):
             color: #11111b;
         }
         .tile-btn {
-            background-color: #313244;
-            border: 1px solid #45475a;
+            background-color: rgba(49, 50, 68, 0.75);
+            border: 1px solid rgba(69, 71, 90, 0.8);
             border-radius: 12px;
             padding: 0px 10px;
             min-height: 52px;
@@ -314,7 +314,7 @@ class ControlCenter(Gtk.Window):
             color: #313244;
         }
         .slider-row {
-            background-color: #313244;
+            background-color: rgba(49, 50, 68, 0.75);
             border-radius: 12px;
             padding: 4px 12px;
             min-height: 44px;
@@ -358,7 +358,7 @@ class ControlCenter(Gtk.Window):
             min-height: 14px;
         }
         .media-card {
-            background-color: #313244;
+            background-color: rgba(49, 50, 68, 0.75);
             border-radius: 12px;
             padding: 8px 12px;
             min-height: 44px;
