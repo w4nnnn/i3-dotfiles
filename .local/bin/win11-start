@@ -136,7 +136,7 @@ class Win11StartMenu(Gtk.Window):
             background-color: transparent;
         }
         #start-window {
-            background-color: #1e1e2ef5;
+            background-color: rgba(30, 30, 46, 0.96);
             border: 1.5px solid #cba6f7;
             border-radius: 18px;
             padding: 0px;
@@ -194,7 +194,6 @@ class Win11StartMenu(Gtk.Window):
             border: 1px solid transparent;
             border-radius: 8px;
             padding: 8px 4px;
-            transition: all 150ms ease;
         }
         .app-tile:hover {
             background-color: #313244;
