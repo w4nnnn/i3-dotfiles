@@ -19,6 +19,7 @@ fi
 
 exec /usr/bin/i3lock \
   -i "$WALLPAPER" \
+  --fill \
   --blur 3 \
   --clock \
   --indicator \
