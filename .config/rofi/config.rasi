@@ -1,116 +1,136 @@
 /**
- * Rofi Configuration - Windows 11 Grid Style (Catppuccin Mocha)
+ * ROFI Theme - Windows 11 Grid (Catppuccin Mocha)
+ * Adapted from: https://github.com/newmanls/rofi-themes-collection (windows11-grid-dark.rasi)
  **/
 
 configuration {
-    modi:                       "drun,run,window";
-    font:                       "JetBrainsMono Nerd Font 10";
-    show-icons:                 true;
-    icon-theme:                 "Papirus-Dark";
-    display-drun:               "";
-    display-run:                "";
-    display-window:             "";
-    drun-display-format:        "{name}";
-    window-format:              "{w} · {c} · {t}";
+  modi:                       "drun,run,window";
+  show-icons:                 true;
+  icon-theme:                 "Papirus-Dark";
+  font:                       "JetBrainsMono Nerd Font 10";
+  drun-display-format:        "{name}";
+  window-format:              "{w} · {c} · {t}";
 }
 
 * {
-    bg-col:         #1e1e2e;
-    surface0:       #313244;
-    surface1:       #45475a;
-    border-col:     #cba6f7;
-    fg-col:         #cdd6f4;
-    grey:           #6c7086;
-    mauve:          #cba6f7;
-    blue:           #89b4fa;
-    crust:          #11111b;
+  font: "JetBrainsMono Nerd Font 10";
+
+  bg0    : #181825cc;
+  bg1    : #1e1e2ee6;
+  bg2    : #313244;
+  bg3    : #45475a;
+  fg0    : #cdd6f4;
+  fg1    : #a6adc8;
+  accent : #cba6f7;
+  urgent : #f38ba8;
+
+  background-color : transparent;
+  text-color       : @fg0;
+
+  margin  : 0;
+  padding : 0;
+  spacing : 0;
+}
+
+element-icon, element-text, scrollbar {
+  cursor: pointer;
 }
 
 window {
-    transparency:       "real";
-    location:           center;
-    anchor:             center;
-    fullscreen:         false;
-    width:              680px;
-    height:             540px;
-    border:             2px solid;
-    border-color:       @border-col;
-    border-radius:      20px;
-    background-color:   @bg-col;
-    padding:            22px;
+  location : center;
+  width    : 660px;
+  height   : 580px;
+
+  background-color : @bg1;
+  border           : 2px solid;
+  border-color     : @accent;
+  border-radius    : 16px;
 }
 
 mainbox {
-    background-color:   transparent;
-    spacing:            16px;
-    children:           [ "inputbar", "listview" ];
+  padding : 24px;
+  spacing : 20px;
+  children: [ inputbar, listview ];
 }
 
-/* --- Search Bar Pill --- */
 inputbar {
-    background-color:   @surface0;
-    border-radius:      12px;
-    padding:            10px 16px;
-    spacing:            10px;
-    children:           [ "prompt", "entry" ];
+  padding          : 10px 14px;
+  spacing          : 10px;
+  children         : [ icon-search, entry ];
+  border           : 0 0 2px 0 solid;
+  border-color     : @accent;
+  border-radius    : 8px;
+  background-color : @bg0;
 }
 
-prompt {
-    background-color:   transparent;
-    text-color:         @mauve;
-    font:               "JetBrainsMono Nerd Font Bold 12";
-    vertical-align:     0.5;
+icon-search, entry, element-icon, element-text {
+  vertical-align: 0.5;
+}
+
+icon-search {
+  expand   : false;
+  filename : "search-symbolic";
+  size     : 20px;
 }
 
 entry {
-    background-color:   transparent;
-    text-color:         @fg-col;
-    font:               "JetBrainsMono Nerd Font 10.5";
-    placeholder:        "Search for apps, settings, and documents...";
-    placeholder-color:  @grey;
-    vertical-align:     0.5;
+  font              : "JetBrainsMono Nerd Font 11";
+  placeholder       : "Type here to search";
+  placeholder-color : @fg1;
 }
 
-/* --- Windows 11 App Grid (5 columns x 4 rows) --- */
+textbox {
+  padding          : 6px 10px;
+  background-color : @bg2;
+  border-radius    : 6px;
+}
+
 listview {
-    background-color:   transparent;
-    columns:            5;
-    lines:              4;
-    spacing:            10px;
-    cycle:              true;
-    dynamic:            true;
-    layout:             vertical;
-    flow:               horizontal;
+  columns       : 6;
+  lines         : 4;
+  spacing       : 10px;
+  fixed-height  : true;
+  fixed-columns : true;
 }
 
 element {
-    background-color:   transparent;
-    text-color:         @fg-col;
-    border-radius:      12px;
-    padding:            14px 6px;
-    orientation:        vertical;
-    cursor:             pointer;
+  orientation   : vertical;
+  spacing       : 6px;
+  padding       : 12px 6px;
+  border-radius : 8px;
+}
+
+element normal urgent {
+  text-color: @urgent;
+}
+
+element normal active {
+  text-color: @accent;
+}
+
+element alternate active {
+  text-color: @accent;
+}
+
+element selected active {
+  text-color: @accent;
+}
+
+element selected {
+  background-color: @bg3;
+  text-color: @accent;
+}
+
+element selected urgent {
+  background-color: @urgent;
 }
 
 element-icon {
-    size:               44px;
-    horizontal-align:   0.5;
-    background-color:   transparent;
-    cursor:             inherit;
+  size: 40px;
+  horizontal-align: 0.5;
 }
 
 element-text {
-    font:               "JetBrainsMono Nerd Font 10";
-    background-color:   transparent;
-    text-color:         inherit;
-    horizontal-align:   0.5;
-    cursor:             inherit;
-    margin:             8px 0px 0px 0px;
-}
-
-element selected.normal {
-    background-color:   @surface0;
-    text-color:         @mauve;
-    border:             1.5px solid;
-    border-color:       @mauve;
+  text-color       : inherit;
+  horizontal-align : 0.5;
 }
