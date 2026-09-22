@@ -113,6 +113,7 @@ class Win11StartMenu(Gtk.Window):
 
         # Events
         self.connect("key-press-event", self.on_key_press)
+        self.connect("focus-out-event", self.on_focus_out)
         self.connect("size-allocate", self.on_size_allocate)
         self.connect("destroy", self.cleanup)
 
@@ -402,6 +403,10 @@ class Win11StartMenu(Gtk.Window):
         if event.keyval == Gdk.KEY_Escape:
             self.close_and_exit()
             return True
+        return False
+
+    def on_focus_out(self, widget, event):
+        self.close_and_exit()
         return False
 
     def close_and_exit(self):
