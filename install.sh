@@ -3,8 +3,6 @@
 # Catppuccin Mocha i3wm Rice - Automated Installer for Arch Linux
 # ==============================================================================
 
-set -e
-
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -87,7 +85,7 @@ OFFICIAL_PKGS=(
     cairo
     gcc
     make
-    pkg-config
+    pkgconf
     libx11
     libxfixes
     libxcursor
@@ -97,7 +95,7 @@ OFFICIAL_PKGS=(
     nemo
     file-roller
     nemo-fileroller
-    p7zip
+    7zip
     unrar
     nemo-terminal
     ffmpegthumbnailer
@@ -148,9 +146,10 @@ if [ -z "$AUR_HELPER" ]; then
     sudo pacman -S --needed --noconfirm git base-devel
     BUILD_DIR="/tmp/yay-bin"
     rm -rf "$BUILD_DIR"
-    git clone https://aur.archlinux.org/yay-bin.git "$BUILD_DIR"
-    (cd "$BUILD_DIR" && makepkg -si --noconfirm)
-    rm -rf "$BUILD_DIR"
+    if git clone https://aur.archlinux.org/yay-bin.git "$BUILD_DIR"; then
+        (cd "$BUILD_DIR" && makepkg -si --noconfirm) || true
+        rm -rf "$BUILD_DIR"
+    fi
     if command -v yay >/dev/null 2>&1; then
         AUR_HELPER="yay"
         echo -e "${GREEN}'yay' installed successfully!${NC}"
@@ -167,7 +166,7 @@ if [ -n "$AUR_HELPER" ]; then
     done
     if [ ${#AUR_TO_INSTALL[@]} -gt 0 ]; then
         echo -e "${BLUE}Installing via $AUR_HELPER: ${AUR_TO_INSTALL[*]}${NC}"
-        $AUR_HELPER -S --needed --noconfirm "${AUR_TO_INSTALL[@]}"
+        $AUR_HELPER -S --needed --noconfirm "${AUR_TO_INSTALL[@]}" || echo -e "${YELLOW}[!] Some AUR packages could not be installed automatically. Continuing...${NC}"
     else
         echo -e "${GREEN}AUR packages are already installed.${NC}"
     fi
@@ -278,8 +277,11 @@ fi
 echo -e "\n${CYAN}${BOLD}[5/7] Deploying configuration files...${NC}"
 
 # Clean up deprecated ~/.i3 directory to prevent i3 from loading the default config
+if [ -d "$HOME/.i3" ]; then
+    echo -e "${YELLOW}Backing up deprecated ~/.i3 to ~/.i3.bak...${NC}"
+    mv "$HOME/.i3" "$HOME/.i3.bak" 2>/dev/null || true
+fi
 if [ -f "$HOME/.i3/config" ]; then
-    echo -e "${YELLOW}Backing up deprecated ~/.i3/config to ~/.i3/config.bak...${NC}"
     mv "$HOME/.i3/config" "$HOME/.i3/config.bak" 2>/dev/null || true
 fi
 
@@ -289,9 +291,9 @@ for cfg in "$DIR/.config/"*; do
     target_name=$(basename "$cfg")
     if [ -d "$cfg" ]; then
         mkdir -p "$HOME/.config/$target_name"
-        cp -r "$cfg/"* "$HOME/.config/$target_name/"
+        cp -rf "$cfg/"* "$HOME/.config/$target_name/"
     else
-        cp "$cfg" "$HOME/.config/$target_name"
+        cp -f "$cfg" "$HOME/.config/$target_name"
     fi
     echo -e "${GREEN}  ✓ ~/.config/$target_name${NC}"
 done
@@ -300,25 +302,27 @@ done
 chmod +x "$HOME/.config/polybar/launch.sh" 2>/dev/null || true
 
 # .local/bin scripts
+mkdir -p "$HOME/.local/bin"
 for bin in "$DIR/.local/bin/"*; do
     if [ -f "$bin" ]; then
         target_name=$(basename "$bin")
-        cp "$bin" "$HOME/.local/bin/$target_name"
+        cp -f "$bin" "$HOME/.local/bin/$target_name"
         chmod +x "$HOME/.local/bin/$target_name"
         echo -e "${GREEN}  ✓ ~/.local/bin/$target_name${NC}"
     fi
 done
+chmod +x "$HOME/.local/bin/"* 2>/dev/null || true
 
 # Wallpapers
 mkdir -p "$HOME/Pictures/Wallpapers"
 if [ -d "$DIR/Pictures/Wallpapers" ]; then
-    cp -r "$DIR/Pictures/Wallpapers/"* "$HOME/Pictures/Wallpapers/"
+    cp -rf "$DIR/Pictures/Wallpapers/"* "$HOME/Pictures/Wallpapers/"
     echo -e "${GREEN}  ✓ ~/Pictures/Wallpapers (Wallpapers collection)${NC}"
 fi
 
 # Home configuration files (.xinitrc, .xprofile, .Xresources, .gtkrc-2.0, .zshrc)
 if [ -d "$DIR/home" ]; then
-    cp -r "$DIR/home/".* "$HOME/" 2>/dev/null || true
+    cp -rf "$DIR/home/".* "$HOME/" 2>/dev/null || true
     chmod +x "$HOME/.xinitrc" "$HOME/.xprofile" 2>/dev/null || true
     echo -e "${GREEN}  ✓ Home config files (.xinitrc, .xprofile, .Xresources, .gtkrc-2.0, .zshrc)${NC}"
 fi
@@ -326,6 +330,12 @@ fi
 # Ensure ~/.local/bin is in PATH in ~/.bashrc
 if ! grep -q 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.bashrc" 2>/dev/null; then
     echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+fi
+
+# Set Zsh as default user shell if installed
+if command -v zsh >/dev/null 2>&1 && [ "$SHELL" != "$(which zsh)" ]; then
+    echo -e "${BLUE}Setting Zsh as default user shell...${NC}"
+    chsh -s "$(which zsh)" "$USER" 2>/dev/null || sudo chsh -s "$(which zsh)" "$USER" 2>/dev/null || true
 fi
 
 # ------------------------------------------------------------------------------
