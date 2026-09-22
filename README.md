@@ -15,7 +15,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
   - **Control Center & System Tray**: Native tray support for background apps (e.g. 9router, Discord, Steam).
 - **Control Center (Quick Settings)**: Floating GTK3 card (`Super + c`) inspired by Android / Windows 11:
   - Interactive volume & brightness sliders with live feedback.
-  - Quick toggle tiles: Network, Do Not Disturb (DND), Screenshot Area, Task Manager, Wallpaper Picker, and Power Menu.
+  - Quick toggle tiles: Network, Do Not Disturb (DND), Wallpaper, and Screenshot.
   - Mini media player with album/title controls (`playerctl`).
 - **Wallpaper & Lockscreen Sync**: Dynamic wallpaper selector (`Super + Shift + w`) via Rofi with live thumbnails that syncs both the active desktop and the lockscreen automatically.
 - **Lockscreen**: `i3lock-color` featuring soft blurred wallpaper, high-contrast clock, and a responsive emerald/peach/blue feedback indicator ring.
@@ -73,16 +73,6 @@ The selector script dynamically reads files, so adding wallpapers requires zero 
    ~/Pictures/Wallpapers/
    ```
 2. Press **`Super + Shift + w`** — your new image will immediately show up in the menu!
-
-### 3. Syncing New Wallpapers to GitHub Dotfiles
-To save newly added wallpapers to your dotfiles repository:
-```bash
-cp ~/Pictures/Wallpapers/* ~/dotfiles/Pictures/Wallpapers/
-cd ~/dotfiles
-git add Pictures/Wallpapers/
-git commit -m "feat(wallpapers): add new wallpapers"
-git push
-```
 
 ---
 
