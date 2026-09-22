@@ -132,6 +132,21 @@ fi
 # ------------------------------------------------------------------------------
 echo -e "\n${CYAN}${BOLD}[2/7] Checking AUR packages (betterlockscreen, i3lock-color, nemo-preview, sddm-silent-theme)...${NC}"
 
+# If no AUR helper found, automatically bootstrap yay-bin
+if [ -z "$AUR_HELPER" ]; then
+    echo -e "${BLUE}No AUR helper found. Bootstrapping 'yay' automatically...${NC}"
+    sudo pacman -S --needed --noconfirm git base-devel
+    BUILD_DIR="/tmp/yay-bin"
+    rm -rf "$BUILD_DIR"
+    git clone https://aur.archlinux.org/yay-bin.git "$BUILD_DIR"
+    (cd "$BUILD_DIR" && makepkg -si --noconfirm)
+    rm -rf "$BUILD_DIR"
+    if command -v yay >/dev/null 2>&1; then
+        AUR_HELPER="yay"
+        echo -e "${GREEN}'yay' installed successfully!${NC}"
+    fi
+fi
+
 if [ -n "$AUR_HELPER" ]; then
     AUR_PKGS=(betterlockscreen i3lock-color nemo-preview sddm-silent-theme)
     AUR_TO_INSTALL=()
@@ -147,7 +162,7 @@ if [ -n "$AUR_HELPER" ]; then
         echo -e "${GREEN}AUR packages are already installed.${NC}"
     fi
 else
-    echo -e "${YELLOW}[!] No AUR helper found (yay/paru). Please install 'i3lock-color' and 'betterlockscreen' manually if desired.${NC}"
+    echo -e "${YELLOW}[!] Could not setup AUR helper. Please install AUR packages manually if desired.${NC}"
 fi
 
 # ------------------------------------------------------------------------------
@@ -313,6 +328,9 @@ if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.cinnamon.desktop.interface gtk-theme 'catppuccin-mocha-mauve-standard+default' 2>/dev/null || true
     gsettings set org.cinnamon.desktop.interface icon-theme 'Papirus-Dark' 2>/dev/null || true
     gsettings set org.cinnamon.desktop.interface font-name 'JetBrainsMono Nerd Font 10' 2>/dev/null || true
+    gsettings set org.cinnamon.desktop.default-applications.terminal exec 'kitty' 2>/dev/null || true
+    gsettings set org.cinnamon.desktop.default-applications.terminal exec-arg '-e' 2>/dev/null || true
+    gsettings set org.nemo.extensions.nemo-terminal terminal-shell '/usr/bin/zsh' 2>/dev/null || true
 fi
 
 # Set initial wallpaper
