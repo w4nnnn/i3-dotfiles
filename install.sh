@@ -17,6 +17,14 @@ NC='\033[0m' # No Color
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Prevent running as root/sudo (common mistake that installs files into /root)
+if [ "$EUID" -eq 0 ]; then
+    echo -e "${RED}${BOLD}[!] ERROR: Jangan jalankan script ini dengan 'sudo ./install.sh'!${NC}"
+    echo -e "${YELLOW}Jalankan sebagai user biasa:${NC} ${BOLD}./install.sh${NC}"
+    echo -e "Script akan otomatis meminta password sudo saat dibutuhkan untuk instalasi paket sistem."
+    exit 1
+fi
+
 echo -e "${PURPLE}${BOLD}"
 cat << "EOF"
    ____      _                                _        _ _____ 
@@ -268,6 +276,12 @@ fi
 # ------------------------------------------------------------------------------
 echo -e "\n${CYAN}${BOLD}[5/7] Deploying configuration files...${NC}"
 
+# Clean up deprecated ~/.i3 directory to prevent i3 from loading the default config
+if [ -f "$HOME/.i3/config" ]; then
+    echo -e "${YELLOW}Backing up deprecated ~/.i3/config to ~/.i3/config.bak...${NC}"
+    mv "$HOME/.i3/config" "$HOME/.i3/config.bak" 2>/dev/null || true
+fi
+
 # .config files & directories
 mkdir -p "$HOME/.config"
 for cfg in "$DIR/.config/"*; do
@@ -280,6 +294,9 @@ for cfg in "$DIR/.config/"*; do
     fi
     echo -e "${GREEN}  ✓ ~/.config/$target_name${NC}"
 done
+
+# Ensure polybar launch script is executable
+chmod +x "$HOME/.config/polybar/launch.sh" 2>/dev/null || true
 
 # .local/bin scripts
 for bin in "$DIR/.local/bin/"*; do
@@ -298,10 +315,11 @@ if [ -d "$DIR/Pictures/Wallpapers" ]; then
     echo -e "${GREEN}  ✓ ~/Pictures/Wallpapers (Wallpapers collection)${NC}"
 fi
 
-# Home configuration files
+# Home configuration files (.xinitrc, .xprofile, .Xresources, .gtkrc-2.0, .zshrc)
 if [ -d "$DIR/home" ]; then
     cp -r "$DIR/home/".* "$HOME/" 2>/dev/null || true
-    echo -e "${GREEN}  ✓ Home config files (.xprofile, .Xresources, .gtkrc-2.0)${NC}"
+    chmod +x "$HOME/.xinitrc" "$HOME/.xprofile" 2>/dev/null || true
+    echo -e "${GREEN}  ✓ Home config files (.xinitrc, .xprofile, .Xresources, .gtkrc-2.0, .zshrc)${NC}"
 fi
 
 # Ensure ~/.local/bin is in PATH in ~/.bashrc
@@ -312,7 +330,7 @@ fi
 # ------------------------------------------------------------------------------
 # 6. Apply System Themes & GSettings
 # ------------------------------------------------------------------------------
-echo -e "\n${CYAN}${BOLD}[6/7] Applying GTK themes and preferences...${NC}"
+echo -e "\n${CYAN}${BOLD}[6/7] Applying GTK themes, SDDM & preferences...${NC}"
 
 xrdb -merge "$HOME/.Xresources" 2>/dev/null || true
 "$HOME/.local/bin/set-root-cursor" 2>/dev/null || true
@@ -340,11 +358,18 @@ if [ -f "$INITIAL_WALL" ]; then
     mkdir -p "$HOME/.cache"
     ln -sf "$INITIAL_WALL" "$HOME/.cache/current_wallpaper"
     feh --bg-fill "$INITIAL_WALL" 2>/dev/null || true
+    magick "$INITIAL_WALL" -resize 1920x1080^ -gravity center -extent 1920x1080 -blur 0x12 "$HOME/.cache/lockscreen_blur.png" 2>/dev/null || true
+fi
+
+# Ensure SilentSDDM theme is installed
+if [ ! -d /usr/share/sddm/themes/silent ]; then
+    echo -e "${BLUE}Downloading SilentSDDM theme to /usr/share/sddm/themes/silent...${NC}"
+    sudo git clone -b main --depth=1 https://github.com/uiriansan/SilentSDDM /usr/share/sddm/themes/silent 2>/dev/null || true
 fi
 
 # Configure SilentSDDM Theme (Catppuccin Mocha)
 if [ -d /usr/share/sddm/themes/silent ]; then
-    echo -e "\n${CYAN}${BOLD}Configuring SilentSDDM (Catppuccin Mocha)...${NC}"
+    echo -e "${GREEN}Configuring SilentSDDM (Catppuccin Mocha)...${NC}"
     if [ -f "$DIR/sddm/sddm.conf" ]; then
         sudo cp "$DIR/sddm/sddm.conf" /etc/sddm.conf 2>/dev/null || true
     fi
@@ -358,12 +383,13 @@ if [ -d /usr/share/sddm/themes/silent ]; then
         sudo cp "$INITIAL_WALL" /usr/share/sddm/themes/silent/backgrounds/wallpaper.jpg 2>/dev/null || true
         sudo chown "$USER:$USER" /usr/share/sddm/themes/silent/backgrounds/wallpaper.jpg 2>/dev/null || true
     fi
-
-    # Switch display manager to SDDM
-    sudo systemctl disable lightdm 2>/dev/null || true
-    sudo systemctl enable sddm 2>/dev/null || true
-    echo -e "${GREEN}SilentSDDM configured and enabled!${NC}"
 fi
+
+# Enable Graphical boot target & SDDM display manager
+echo -e "${BLUE}Setting up graphical display manager (SDDM)...${NC}"
+sudo systemctl set-default graphical.target 2>/dev/null || true
+sudo systemctl disable lightdm 2>/dev/null || true
+sudo systemctl enable sddm 2>/dev/null || true
 
 # ------------------------------------------------------------------------------
 # 7. Finishing up
