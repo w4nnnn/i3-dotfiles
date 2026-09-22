@@ -1,5 +1,29 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# Catppuccin Mocha - Network Status Quick Info
+# ==============================================================================
 
-IP=$(ip -4 -brief address | grep -v "^lo" | awk '{print $1 ": " $3}' | tr '\n' ' ')
-SPEED=$(cat /sys/class/net/enp0s31f6/speed 2>/dev/null)
-notify-send -i network-wired "Network Status" "Connected: enp0s31f6\nIP: ${IP:-No IP}\nSpeed: ${SPEED:-N/A} Mbps"
+DEFAULT_DEV=$(ip route 2>/dev/null | grep '^default' | awk '{print $5}' | head -n 1)
+
+if [ -z "$DEFAULT_DEV" ]; then
+    notify-send -a "Network" -i "network-offline" "Network Status" "Status: Disconnected\nNo active internet connection."
+    exit 0
+fi
+
+IP=$(ip -4 addr show "$DEFAULT_DEV" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
+DEV_TYPE=$(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep "^${DEFAULT_DEV}:" | cut -d: -f2)
+
+if [ "$DEV_TYPE" = "wifi" ]; then
+    WIFI_INFO=$(nmcli -t -f ACTIVE,SSID,SIGNAL dev wifi 2>/dev/null | grep '^yes:')
+    SSID=$(echo "$WIFI_INFO" | cut -d: -f2)
+    SIGNAL=$(echo "$WIFI_INFO" | cut -d: -f3)
+    notify-send -a "Network" -i "network-wireless" "Network Status" "Connected: ${SSID:-Wi-Fi} ($DEFAULT_DEV)\nSignal: ${SIGNAL:-0}%\nIP: ${IP:-No IP}"
+else
+    SPEED=$(cat "/sys/class/net/$DEFAULT_DEV/speed" 2>/dev/null)
+    CONN_NAME=$(nmcli -t -f DEVICE,CONNECTION dev 2>/dev/null | grep "^${DEFAULT_DEV}:" | cut -d: -f2)
+    SPEED_STR=""
+    if [ -n "$SPEED" ] && [ "$SPEED" -gt 0 ] 2>/dev/null; then
+        SPEED_STR="Speed: ${SPEED} Mbps\n"
+    fi
+    notify-send -a "Network" -i "network-wired" "Network Status" "Connected: ${CONN_NAME:-Ethernet} ($DEFAULT_DEV)\n${SPEED_STR}IP: ${IP:-No IP}"
+fi
