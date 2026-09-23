@@ -154,6 +154,9 @@ dotfiles/
 │   ├── i3-autotile         # Hyprland-style automatic spiral tiling daemon
 │   ├── lockscreen          # Lockscreen launcher
 │   ├── network-info        # Network details notifier
+│   ├── network-menu        # Rofi NetworkManager menu with captive portal support
+│   ├── network-status-bar  # Dynamic Polybar network speed & interface status helper
+│   ├── portal-login        # Captive portal detection and browser login assistant
 │   ├── powermenu           # Horizontal rofi power menu
 │   ├── screenshot          # maim + slop screenshot helper
 │   ├── toggle-htop         # Smart toggle for task manager

@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# Catppuccin Mocha - Captive Portal Helper & Auto-Login Assistant
+# ==============================================================================
+
+# Function to get default gateway IP
+get_gateway() {
+    ip route 2>/dev/null | awk '/^default/ {print $3}' | head -n 1
+}
+
+# Function to detect redirect / portal URL
+detect_portal_url() {
+    local gateway="$1"
+    local redirect_url=""
+    
+    # 1. Probe Firefox detection endpoint (captures Location header on HTTP redirect)
+    redirect_url=$(curl -sI -m 4 "http://detectportal.firefox.com/success.txt" 2>/dev/null | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+    
+    # 2. Probe Google 204 endpoint if not found
+    if [ -z "$redirect_url" ]; then
+        redirect_url=$(curl -sI -m 4 "http://connectivitycheck.gstatic.com/generate_204" 2>/dev/null | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+    fi
+
+    # 3. Probe Apple captive endpoint if not found
+    if [ -z "$redirect_url" ]; then
+        redirect_url=$(curl -sI -m 4 "http://captive.apple.com/hotspot-detect.html" 2>/dev/null | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+    fi
+
+    # 4. If a valid HTTP/HTTPS URL was detected in Location header, return it
+    if [[ "$redirect_url" =~ ^https?:// ]]; then
+        echo "$redirect_url"
+        return 0
+    fi
+
+    # 5. Default fallback: neverssl.com (unencrypted HTTP designed to trigger portal intercepts)
+    echo "http://neverssl.com"
+}
+
+# Function to check connectivity state
+check_portal() {
+    # Method 1: Check NetworkManager connectivity status
+    local conn
+    conn=$(nmcli -t -f CONNECTIVITY general status 2>/dev/null)
+    if [ "$conn" = "portal" ]; then
+        return 0 # Portal detected
+    fi
+    
+    # Method 2: HTTP probe check
+    local probe
+    probe=$(curl -s -m 4 "http://detectportal.firefox.com/success.txt" 2>/dev/null)
+    if [ "$probe" != "success" ] && [ -n "$(get_gateway)" ]; then
+        return 0 # Portal detected (redirected or altered response)
+    fi
+    
+    return 1 # Normal internet or no portal detected
+}
+
+# Function to launch browser
+open_browser() {
+    local target_url="$1"
+    
+    if command -v brave >/dev/null 2>&1; then
+        brave "$target_url" >/dev/null 2>&1 &
+    elif [ -n "$BROWSER" ] && command -v "$BROWSER" >/dev/null 2>&1; then
+        "$BROWSER" "$target_url" >/dev/null 2>&1 &
+    elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$target_url" >/dev/null 2>&1 &
+    else
+        notify-send -a "Network" -u critical -i network-error "Browser Not Found" "Tidak dapat menemukan browser (Brave / xdg-open)."
+        return 1
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# Argument Handling
+# ------------------------------------------------------------------------------
+
+# 1. Auto mode: wait briefly for DHCP and launch if portal is detected
+if [ "$1" = "--auto" ]; then
+    sleep 3
+    if check_portal; then
+        GATEWAY=$(get_gateway)
+        PORTAL_URL=$(detect_portal_url "$GATEWAY")
+        notify-send -a "Network" -u critical -i network-wireless \
+            "Captive Portal Terdeteksi" \
+            "Wi-Fi memerlukan login web.\nMembuka browser: ${PORTAL_URL}"
+        open_browser "$PORTAL_URL"
+    fi
+    exit 0
+fi
+
+# 2. Check mode: print status and exit code
+if [ "$1" = "--check" ]; then
+    if check_portal; then
+        echo "portal"
+        exit 0
+    else
+        echo "online"
+        exit 1
+    fi
+fi
+
+# 3. Manual invocation: always trigger login
+GATEWAY=$(get_gateway)
+if [ -z "$GATEWAY" ]; then
+    notify-send -a "Network" -u critical -i network-offline \
+        "Tidak Terhubung" \
+        "Tidak ada koneksi jaringan atau gateway aktif."
+    exit 1
+fi
+
+PORTAL_URL=$(detect_portal_url "$GATEWAY")
+
+notify-send -a "Network" -i network-wireless \
+    "Captive Portal Login" \
+    "Membuka halaman autentikasi Wi-Fi di browser:\n${PORTAL_URL}"
+
+open_browser "$PORTAL_URL"
+exit 0

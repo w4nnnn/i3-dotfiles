@@ -12,12 +12,18 @@ fi
 
 IP=$(ip -4 addr show "$DEFAULT_DEV" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
 DEV_TYPE=$(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep "^${DEFAULT_DEV}:" | cut -d: -f2)
+CONN_STATE=$(nmcli -t -f CONNECTIVITY general status 2>/dev/null)
+
+PORTAL_NOTE=""
+if [ "$CONN_STATE" = "portal" ]; then
+    PORTAL_NOTE="Status: 󰖟 Captive Portal (Login Needed)\n"
+fi
 
 if [ "$DEV_TYPE" = "wifi" ]; then
     WIFI_INFO=$(nmcli -t -f ACTIVE,SSID,SIGNAL dev wifi 2>/dev/null | grep '^yes:')
     SSID=$(echo "$WIFI_INFO" | cut -d: -f2)
     SIGNAL=$(echo "$WIFI_INFO" | cut -d: -f3)
-    notify-send -a "Network" -i "network-wireless" "Network Status" "Connected: ${SSID:-Wi-Fi} ($DEFAULT_DEV)\nSignal: ${SIGNAL:-0}%\nIP: ${IP:-No IP}"
+    notify-send -a "Network" -i "network-wireless" "Network Status" "Connected: ${SSID:-Wi-Fi} ($DEFAULT_DEV)\n${PORTAL_NOTE}Signal: ${SIGNAL:-0}%\nIP: ${IP:-No IP}"
 else
     SPEED=$(cat "/sys/class/net/$DEFAULT_DEV/speed" 2>/dev/null)
     CONN_NAME=$(nmcli -t -f DEVICE,CONNECTION dev 2>/dev/null | grep "^${DEFAULT_DEV}:" | cut -d: -f2)
@@ -25,5 +31,5 @@ else
     if [ -n "$SPEED" ] && [ "$SPEED" -gt 0 ] 2>/dev/null; then
         SPEED_STR="Speed: ${SPEED} Mbps\n"
     fi
-    notify-send -a "Network" -i "network-wired" "Network Status" "Connected: ${CONN_NAME:-Ethernet} ($DEFAULT_DEV)\n${SPEED_STR}IP: ${IP:-No IP}"
+    notify-send -a "Network" -i "network-wired" "Network Status" "Connected: ${CONN_NAME:-Ethernet} ($DEFAULT_DEV)\n${PORTAL_NOTE}${SPEED_STR}IP: ${IP:-No IP}"
 fi

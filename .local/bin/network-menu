@@ -36,8 +36,12 @@ WIFI_RADIO=""
 
 # 5. Build status message
 STATUS_MESG=""
+CONN_STATE=$(nmcli -t -f CONNECTIVITY general status 2>/dev/null)
+
 if [ -n "$ACTIVE_DEV" ]; then
-    if [ "$ACTIVE_TYPE" = "wifi" ]; then
+    if [ "$CONN_STATE" = "portal" ]; then
+        STATUS_MESG="󰖟 Captive Portal Detected • Login Required! • $ACTIVE_IP"
+    elif [ "$ACTIVE_TYPE" = "wifi" ]; then
         STATUS_MESG="󰤨 Connected: $ACTIVE_NAME • $ACTIVE_IP"
     else
         STATUS_MESG="󰈀 Connected: ${ACTIVE_NAME:-Ethernet} • $ACTIVE_IP"
@@ -62,6 +66,7 @@ fi
 
 if [ -n "$ACTIVE_DEV" ] && [ -n "$ACTIVE_NAME" ]; then
     MENU+="󰅖  Disconnect (${ACTIVE_NAME})\n"
+    MENU+="󰖟  Login Captive Portal (Browser)\n"
 fi
 
 MENU+="󰢻  Network Connections (nmtui)\n"
@@ -99,7 +104,7 @@ if [ -n "$WIFI_DEV" ] && [ "$WIFI_RADIO" = "enabled" ]; then
         display_line="${active_mark}${icon}  ${ssid}${lock}"
         SSID_MAP["$display_line"]="$ssid"
         MENU+="${display_line}\n"
-    done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list 2>/dev/null)
+    done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list --rescan no 2>/dev/null)
 fi
 
 # 7. Launch Rofi
@@ -139,6 +144,10 @@ case "$CHOSEN" in
         kitty --class floating_terminal -e nmtui &
         exit 0
         ;;
+    "󰖟  Login Captive Portal (Browser)")
+        portal-login
+        exit 0
+        ;;
 esac
 
 # 9. Handle Wi-Fi connection
@@ -153,6 +162,7 @@ if [ -n "$TARGET_SSID" ]; then
         notify-send -a "Network" -i network-wireless "Connecting..." "Connecting to saved network: $TARGET_SSID"
         if nmcli con up id "$TARGET_SSID" 2>&1; then
             notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
+            portal-login --auto &
         else
             notify-send -a "Network" -i network-error "Connection Failed" "Failed to connect to $TARGET_SSID."
         fi
@@ -169,6 +179,7 @@ if [ -n "$TARGET_SSID" ]; then
         notify-send -a "Network" -i network-wireless "Connecting..." "Authenticating with $TARGET_SSID..."
         if nmcli dev wifi connect "$TARGET_SSID" password "$PASS" 2>&1; then
             notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
+            portal-login --auto &
         else
             notify-send -a "Network" -i network-error "Connection Failed" "Incorrect password or failed to connect to $TARGET_SSID."
         fi
@@ -176,6 +187,7 @@ if [ -n "$TARGET_SSID" ]; then
         notify-send -a "Network" -i network-wireless "Connecting..." "Connecting to open network: $TARGET_SSID"
         if nmcli dev wifi connect "$TARGET_SSID" 2>&1; then
             notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
+            portal-login --auto &
         else
             notify-send -a "Network" -i network-error "Connection Failed" "Failed to connect to $TARGET_SSID."
         fi
