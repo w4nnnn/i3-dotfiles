@@ -1,195 +1,356 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 # ==============================================================================
-# Catppuccin Mocha - Network Manager Menu (NetworkManager + Rofi)
+# Catppuccin Mocha - Network Manager Menu (HyprWiFi RofiView Style)
+# Inspired by RofiView.tsx design
 # ==============================================================================
+import os
+import sys
+import subprocess
+import shutil
+import re
 
-RASI="$HOME/.config/rofi/network.rasi"
+RASI_THEME = os.path.expanduser("~/.config/rofi/network.rasi")
 
-# 1. Toggle behavior: close rofi if already open
-if pgrep -x rofi >/dev/null 2>&1; then
-    killall -q rofi
-    exit 0
-fi
+def run_cmd(cmd, check=False, text=True):
+    try:
+        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=text).strip()
+    except Exception:
+        if check:
+            raise
+        return ""
 
-# 2. Check NetworkManager status
-if ! systemctl is-active --quiet NetworkManager; then
-    notify-send -a "Network" -i network-error "NetworkManager Inactive" "NetworkManager service is not running."
-    exit 1
-fi
+def notify(title, message, icon="network-wireless", urgency="normal"):
+    subprocess.Popen([
+        "notify-send",
+        "-a", "Network",
+        "-i", icon,
+        "-u", urgency,
+        title,
+        message
+    ])
 
-# 3. Detect active connections & IP
-ACTIVE_DEV=$(ip route 2>/dev/null | grep '^default' | awk '{print $5}' | head -n 1)
-ACTIVE_IP=""
-ACTIVE_NAME=""
-ACTIVE_TYPE=""
+def main():
+    # 1. Toggle behavior: close rofi if already open
+    pgrep_out = run_cmd(["pgrep", "-x", "rofi"])
+    if pgrep_out:
+        subprocess.run(["killall", "-q", "rofi"])
+        sys.exit(0)
 
-if [ -n "$ACTIVE_DEV" ]; then
-    ACTIVE_IP=$(ip -4 addr show "$ACTIVE_DEV" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
-    ACTIVE_TYPE=$(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep "^${ACTIVE_DEV}:" | cut -d: -f2)
-    ACTIVE_NAME=$(nmcli -t -f DEVICE,CONNECTION dev 2>/dev/null | grep "^${ACTIVE_DEV}:" | cut -d: -f2)
-fi
+    # 2. Check NetworkManager
+    nm_active = subprocess.run(["systemctl", "is-active", "--quiet", "NetworkManager"]).returncode == 0
+    if not nm_active:
+        notify("NetworkManager Inactive", "NetworkManager service is not running.", icon="network-error")
+        sys.exit(1)
 
-# 4. Detect Wi-Fi device & radio status
-WIFI_DEV=$(nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep ':wifi$' | cut -d: -f1 | head -n 1)
-WIFI_RADIO=""
-[ -n "$WIFI_DEV" ] && WIFI_RADIO=$(nmcli radio wifi 2>/dev/null)
+    # 3. Detect active connection & IP
+    default_route = run_cmd(["ip", "route"])
+    active_dev = ""
+    for line in default_route.splitlines():
+        if line.startswith("default"):
+            parts = line.split()
+            if "dev" in parts:
+                active_dev = parts[parts.index("dev") + 1]
+                break
 
-# 5. Build status message
-STATUS_MESG=""
-CONN_STATE=$(nmcli -t -f CONNECTIVITY general status 2>/dev/null)
-
-if [ -n "$ACTIVE_DEV" ]; then
-    if [ "$CONN_STATE" = "portal" ]; then
-        STATUS_MESG="󰖟 Captive Portal Detected • Login Required! • $ACTIVE_IP"
-    elif [ "$ACTIVE_TYPE" = "wifi" ]; then
-        STATUS_MESG="󰤨 Connected: $ACTIVE_NAME • $ACTIVE_IP"
-    else
-        STATUS_MESG="󰈀 Connected: ${ACTIVE_NAME:-Ethernet} • $ACTIVE_IP"
-    fi
-else
-    STATUS_MESG="󰤮 Offline • No active connection"
-fi
-
-# 6. Build menu items
-declare -A SSID_MAP
-MENU=""
-
-# Quick actions
-if [ -n "$WIFI_DEV" ]; then
-    if [ "$WIFI_RADIO" = "enabled" ]; then
-        MENU+="󰤮  Disable Wi-Fi\n"
-        MENU+="󰑐  Rescan Wi-Fi Networks\n"
-    else
-        MENU+="󰤨  Enable Wi-Fi\n"
-    fi
-fi
-
-if [ -n "$ACTIVE_DEV" ] && [ -n "$ACTIVE_NAME" ]; then
-    MENU+="󰅖  Disconnect (${ACTIVE_NAME})\n"
-    MENU+="󰖟  Login Captive Portal (Browser)\n"
-fi
-
-MENU+="󰢻  Network Connections (nmtui)\n"
-
-# Scan & list Wi-Fi networks if Wi-Fi is enabled
-if [ -n "$WIFI_DEV" ] && [ "$WIFI_RADIO" = "enabled" ]; then
-    MENU+="--- Available Wi-Fi Networks ---\n"
-    
-    while IFS=: read -r in_use ssid signal security; do
-        [ -z "$ssid" ] && continue
-        [ -n "${SSID_MAP[$ssid]}" ] && continue
+    active_ip = ""
+    active_type = ""
+    active_name = ""
+    if active_dev:
+        ip_out = run_cmd(["ip", "-4", "addr", "show", active_dev])
+        m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", ip_out)
+        if m:
+            active_ip = m.group(1)
         
-        sig_num=$((signal + 0))
-        icon="󰤯"
-        if [ "$sig_num" -ge 75 ]; then
-            icon="󰤨"
-        elif [ "$sig_num" -ge 50 ]; then
-            icon="󰤥"
-        elif [ "$sig_num" -ge 25 ]; then
-            icon="󰤢"
-        else
-            icon="󰤟"
-        fi
-        
-        lock=""
-        if [ -n "$security" ] && [ "$security" != "--" ]; then
-            lock=" 󰌾"
-        fi
-        
-        active_mark="  "
-        if [ "$in_use" = "*" ]; then
-            active_mark="● "
-        fi
-        
-        display_line="${active_mark}${icon}  ${ssid}${lock}"
-        SSID_MAP["$display_line"]="$ssid"
-        MENU+="${display_line}\n"
-    done < <(nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY dev wifi list --rescan no 2>/dev/null)
-fi
+        dev_info = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE,CONNECTION", "dev"])
+        for line in dev_info.splitlines():
+            parts = line.split(":")
+            if len(parts) >= 3 and parts[0] == active_dev:
+                active_type = parts[1]
+                active_name = parts[2]
+                break
 
-# 7. Launch Rofi
-CHOSEN=$(printf "%b" "$MENU" | rofi -no-config -dmenu -theme "$RASI" \
-    -p "󰈀 Network" \
-    -mesg "$STATUS_MESG" \
-    -i)
+    # 4. Detect Wi-Fi device & radio status
+    wifi_dev = ""
+    dev_types = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"])
+    for line in dev_types.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 2 and parts[1] == "wifi":
+            wifi_dev = parts[0]
+            break
 
-[ -z "$CHOSEN" ] && exit 0
-[ "$CHOSEN" = "--- Available Wi-Fi Networks ---" ] && exit 0
+    wifi_radio = run_cmd(["nmcli", "radio", "wifi"]) if wifi_dev else ""
+    wifi_enabled = (wifi_radio == "enabled")
 
-# 8. Handle selected action
-case "$CHOSEN" in
-    "󰤮  Disable Wi-Fi")
-        nmcli radio wifi off
-        notify-send -a "Network" -i network-wireless-disconnected "Wi-Fi Disabled" "Wi-Fi radio turned off."
-        exit 0
-        ;;
-    "󰤨  Enable Wi-Fi")
-        nmcli radio wifi on
-        notify-send -a "Network" -i network-wireless "Wi-Fi Enabled" "Scanning for available networks..."
-        exit 0
-        ;;
-    "󰑐  Rescan Wi-Fi Networks")
-        nmcli dev wifi rescan 2>/dev/null
-        notify-send -a "Network" -i network-wireless "Wi-Fi Rescanned" "Network scan completed."
-        exec "$0"
-        ;;
-    󰅖\ \ Disconnect*)
-        if [ -n "$ACTIVE_NAME" ]; then
-            nmcli con down id "$ACTIVE_NAME" 2>/dev/null || nmcli dev disconnect "$ACTIVE_DEV" 2>/dev/null
-            notify-send -a "Network" -i network-offline "Disconnected" "Disconnected from $ACTIVE_NAME."
-        fi
-        exit 0
-        ;;
-    "󰢻  Network Connections (nmtui)")
-        kitty --class floating_terminal -e nmtui &
-        exit 0
-        ;;
-    "󰖟  Login Captive Portal (Browser)")
-        portal-login
-        exit 0
-        ;;
-esac
+    # 5. Connectivity & Captive Portal Check
+    conn_state = run_cmd(["nmcli", "-t", "-f", "CONNECTIVITY", "general", "status"])
 
-# 9. Handle Wi-Fi connection
-TARGET_SSID="${SSID_MAP[$CHOSEN]}"
-if [ -n "$TARGET_SSID" ]; then
-    if [ "$TARGET_SSID" = "$ACTIVE_NAME" ]; then
-        notify-send -a "Network" -i network-wireless "Already Connected" "You are already connected to $TARGET_SSID."
-        exit 0
-    fi
+    # 6. Format Subheader / mesg (matches RofiView.tsx quick controls bar)
+    # Left: navigation hints. Right: Wi-Fi status button
+    nav_hints = '<span foreground="#6c7086">↑/↓ Navigate   Enter: Connect   Esc: Close</span>'
+    if conn_state == "portal":
+        status_btn = '<span foreground="#f9e2af"><b>󰖟 Captive Portal Required</b></span>'
+    elif wifi_enabled:
+        status_btn = '<span foreground="#a6e3a1"><b>󰐥 Wi-Fi ON</b></span>'
+    else:
+        status_btn = '<span foreground="#f38ba8"><b>󰐥 Wi-Fi OFF</b></span>'
 
-    if nmcli -t -f NAME c show | grep -Fxq "$TARGET_SSID"; then
-        notify-send -a "Network" -i network-wireless "Connecting..." "Connecting to saved network: $TARGET_SSID"
-        if nmcli con up id "$TARGET_SSID" 2>&1; then
-            notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
-            portal-login --auto &
-        else
-            notify-send -a "Network" -i network-error "Connection Failed" "Failed to connect to $TARGET_SSID."
-        fi
-        exit 0
-    fi
+    mesg = f"{nav_hints}{' ' * 14}{status_btn}"
 
-    if [[ "$CHOSEN" == *"󰌾"* ]]; then
-        PASS=$(rofi -no-config -dmenu -password -theme "$RASI" \
-            -p "󰌾 Password" \
-            -mesg "Enter Wi-Fi password for $TARGET_SSID:" \
-            -placeholder "Password...")
-        [ -z "$PASS" ] && exit 0
-        
-        notify-send -a "Network" -i network-wireless "Connecting..." "Authenticating with $TARGET_SSID..."
-        if nmcli dev wifi connect "$TARGET_SSID" password "$PASS" 2>&1; then
-            notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
-            portal-login --auto &
-        else
-            notify-send -a "Network" -i network-error "Connection Failed" "Incorrect password or failed to connect to $TARGET_SSID."
-        fi
-    else
-        notify-send -a "Network" -i network-wireless "Connecting..." "Connecting to open network: $TARGET_SSID"
-        if nmcli dev wifi connect "$TARGET_SSID" 2>&1; then
-            notify-send -a "Network" -i network-wireless "Connected" "Successfully connected to $TARGET_SSID."
-            portal-login --auto &
-        else
-            notify-send -a "Network" -i network-error "Connection Failed" "Failed to connect to $TARGET_SSID."
-        fi
-    fi
-fi
+    # 7. Scan & Parse Wi-Fi Networks
+    network_items = []
+    actions = []
+
+    if wifi_dev and wifi_enabled:
+        # Fast query without hardware rescan
+        wifi_output = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list", "--rescan", "no"])
+        if not wifi_output.strip():
+            wifi_output = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list"])
+
+        raw_networks = {}
+        for line in wifi_output.splitlines():
+            if not line:
+                continue
+            parts = line.split(":")
+            if len(parts) < 5:
+                continue
+            in_use = parts[0].strip() == "*"
+            ssid = parts[1].strip()
+            if not ssid:
+                continue
+            sig_int = int(parts[2]) if parts[2].isdigit() else 0
+            sec = parts[3].strip()
+            chan_int = int(parts[4]) if parts[4].isdigit() else 1
+
+            if ssid not in raw_networks:
+                raw_networks[ssid] = {
+                    "in_use": in_use,
+                    "ssid": ssid,
+                    "signal": sig_int,
+                    "security": sec,
+                    "chan": chan_int,
+                }
+            else:
+                if in_use:
+                    raw_networks[ssid]["in_use"] = True
+                    raw_networks[ssid]["signal"] = sig_int
+                    raw_networks[ssid]["chan"] = chan_int
+                elif not raw_networks[ssid]["in_use"] and sig_int > raw_networks[ssid]["signal"]:
+                    raw_networks[ssid]["signal"] = sig_int
+                    raw_networks[ssid]["chan"] = chan_int
+
+        # Sort: connected network first, then signal strength descending
+        sorted_nets = sorted(raw_networks.values(), key=lambda x: (not x["in_use"], -x["signal"]))
+
+        for net in sorted_nets:
+            is_conn = net["in_use"]
+            sig = net["signal"]
+
+            # Icon & Color
+            if is_conn:
+                icon = '<span foreground="#a6e3a1">󰖩</span>'
+            elif sig >= 70:
+                icon = '<span foreground="#cba6f7">󰤨</span>'
+            elif sig >= 50:
+                icon = '<span foreground="#89b4fa">󰤥</span>'
+            elif sig >= 25:
+                icon = '<span foreground="#a6adc8">󰤢</span>'
+            else:
+                icon = '<span foreground="#6c7086">󰤟</span>'
+
+            # SSID (max 20 chars, padded to 20)
+            if len(net["ssid"]) > 20:
+                disp_ssid = net["ssid"][:18] + ".."
+            else:
+                disp_ssid = net["ssid"]
+            disp_ssid_padded = f"{disp_ssid:<20}"
+
+            # Connected Badge (11 chars)
+            if is_conn:
+                badge_markup = '<span weight="bold" foreground="#a6e3a1" background="#233d32"> CONNECTED </span>'
+            else:
+                badge_markup = "           "
+
+            # Band (4 chars)
+            band_str = "5GHz" if net["chan"] > 14 else "2.4G"
+            band_markup = f'<span foreground="#7f849c">{band_str}</span>'
+
+            # Security (4 chars)
+            is_open = (not net["security"] or net["security"] == "--" or net["security"].lower() == "open")
+            if is_open:
+                sec_markup = '<span foreground="#a6adc8">OPEN</span>'
+            else:
+                sec_markup = '<span foreground="#f9e2af">SEC </span>'
+
+            # Signal (4 chars)
+            sig_markup = f'<span weight="bold" foreground="#ffffff">{sig:>3}%</span>'
+
+            row_text = f"{icon}  <b>{disp_ssid_padded}</b>  {badge_markup}  {band_markup}  {sec_markup}  {sig_markup}"
+
+            network_items.append({
+                "type": "wifi",
+                "ssid": net["ssid"],
+                "is_conn": is_conn,
+                "is_open": is_open,
+                "display": row_text
+            })
+
+    # 8. Build Action Rows
+    if active_dev and active_name:
+        actions.append({
+            "type": "disconnect",
+            "name": active_name,
+            "dev": active_dev,
+            "display": f'<span foreground="#f38ba8">󰅖</span>  <b>Disconnect          </b>  <span foreground="#6c7086">({active_name})</span>'
+        })
+        actions.append({
+            "type": "portal",
+            "display": '<span foreground="#89b4fa">󰖟</span>  <b>Captive Portal      </b>  <span weight="bold" foreground="#89b4fa" background="#1e2b44"> BROWSER </span>'
+        })
+
+    if wifi_dev:
+        if wifi_enabled:
+            actions.append({
+                "type": "wifi_off",
+                "display": '<span foreground="#cba6f7">󰤮</span>  <b>Disable Wi-Fi       </b>  <span foreground="#6c7086">[Turn Off Radio]</span>'
+            })
+            actions.append({
+                "type": "rescan",
+                "display": '<span foreground="#b4befe">󰑐</span>  <b>Rescan Networks     </b>  <span foreground="#6c7086">[Refresh List]</span>'
+            })
+        else:
+            actions.append({
+                "type": "wifi_on",
+                "display": '<span foreground="#a6e3a1">󰤨</span>  <b>Enable Wi-Fi        </b>  <span foreground="#6c7086">[Turn On Radio]</span>'
+            })
+
+    actions.append({
+        "type": "nmtui",
+        "display": '<span foreground="#89b4fa">󰢻</span>  <b>Network Settings    </b>  <span foreground="#6c7086">[nmtui]</span>'
+    })
+
+    # Combine all items
+    all_entries = network_items + actions
+    if not all_entries:
+        notify("Network", "No network interfaces or Wi-Fi devices found.", icon="network-offline")
+        sys.exit(0)
+
+    input_payload = "\n".join([item["display"] for item in all_entries]) + "\n"
+
+    # 9. Launch Rofi
+    rofi_proc = subprocess.Popen([
+        "rofi",
+        "-no-config",
+        "-dmenu",
+        "-format", "i",
+        "-theme", RASI_THEME,
+        "-p", "󰖩",
+        "-mesg", mesg,
+        "-markup-rows",
+        "-i"
+    ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+
+    stdout, _ = rofi_proc.communicate(input=input_payload)
+    if rofi_proc.returncode != 0 or not stdout.strip().isdigit():
+        sys.exit(0)
+
+    chosen_idx = int(stdout.strip())
+    if chosen_idx < 0 or chosen_idx >= len(all_entries):
+        sys.exit(0)
+
+    chosen = all_entries[chosen_idx]
+    c_type = chosen["type"]
+
+    # 10. Execute Chosen Action
+    if c_type == "disconnect":
+        target_name = chosen["name"]
+        target_dev = chosen["dev"]
+        down_res = subprocess.run(["nmcli", "con", "down", "id", target_name], capture_output=True)
+        if down_res.returncode != 0:
+            subprocess.run(["nmcli", "dev", "disconnect", target_dev])
+        notify("Disconnected", f"Disconnected from {target_name}.", icon="network-offline")
+        sys.exit(0)
+
+    elif c_type == "portal":
+        portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
+        subprocess.Popen([portal_bin])
+        sys.exit(0)
+
+    elif c_type == "wifi_off":
+        subprocess.run(["nmcli", "radio", "wifi", "off"])
+        notify("Wi-Fi Disabled", "Wi-Fi radio turned off.", icon="network-wireless-disconnected")
+        sys.exit(0)
+
+    elif c_type == "wifi_on":
+        subprocess.run(["nmcli", "radio", "wifi", "on"])
+        notify("Wi-Fi Enabled", "Scanning for available networks...", icon="network-wireless")
+        os.execv(sys.argv[0], sys.argv)
+
+    elif c_type == "rescan":
+        subprocess.run(["nmcli", "dev", "wifi", "rescan"])
+        notify("Wi-Fi Rescanned", "Network scan completed.", icon="network-wireless")
+        os.execv(sys.argv[0], sys.argv)
+
+    elif c_type == "nmtui":
+        subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
+        sys.exit(0)
+
+    elif c_type == "wifi":
+        target_ssid = chosen["ssid"]
+        if chosen["is_conn"]:
+            notify("Already Connected", f"You are already connected to {target_ssid}.", icon="network-wireless")
+            sys.exit(0)
+
+        # Check if already saved in NetworkManager connections
+        saved_cons = run_cmd(["nmcli", "-t", "-f", "NAME", "c", "show"]).splitlines()
+        if target_ssid in saved_cons:
+            notify("Connecting...", f"Connecting to saved network: {target_ssid}", icon="network-wireless")
+            res = subprocess.run(["nmcli", "con", "up", "id", target_ssid], capture_output=True)
+            if res.returncode == 0:
+                notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
+                portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
+                subprocess.Popen([portal_bin, "--auto"])
+            else:
+                notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
+            sys.exit(0)
+
+        # If open network, connect directly
+        if chosen["is_open"]:
+            notify("Connecting...", f"Connecting to open network: {target_ssid}", icon="network-wireless")
+            res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid], capture_output=True)
+            if res.returncode == 0:
+                notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
+                portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
+                subprocess.Popen([portal_bin, "--auto"])
+            else:
+                notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
+            sys.exit(0)
+
+        # Prompt password using compact modal
+        pass_proc = subprocess.Popen([
+            "rofi",
+            "-no-config",
+            "-dmenu",
+            "-password",
+            "-theme", RASI_THEME,
+            "-theme-str", 'listview { lines: 0; padding: 0; } window { width: 480px; } entry { placeholder: "Password..."; }',
+            "-p", "󰌾",
+            "-mesg", f"Enter Wi-Fi password for {target_ssid}"
+        ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+
+        pass_out, _ = pass_proc.communicate()
+        if pass_proc.returncode != 0 or not pass_out.strip():
+            sys.exit(0)
+
+        password = pass_out.strip()
+        notify("Connecting...", f"Authenticating with {target_ssid}...", icon="network-wireless")
+        res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid, "password", password], capture_output=True)
+        if res.returncode == 0:
+            notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
+            portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
+            subprocess.Popen([portal_bin, "--auto"])
+        else:
+            notify("Connection Failed", f"Incorrect password or failed to connect to {target_ssid}.", icon="network-error")
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()

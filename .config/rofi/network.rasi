@@ -1,121 +1,128 @@
 /**
- * Catppuccin Mocha - Network Manager Menu (NetworkManager + Rofi)
+ * Catppuccin Mocha - Network Manager Menu (HyprWiFi RofiView Style)
  **/
 
 configuration {
     show-icons:                 false;
-    font:                       "JetBrainsMono Nerd Font 10.5";
+    font:                       "JetBrainsMono Nerd Font 10";
 }
 
 * {
-    bg:             #1e1e2ed0;
-    surface0:       #313244d0;
-    surface1:       #45475a;
-    border-col:     #cba6f7;
-    fg:             #cdd6f4;
-    subtext:        #a6adc8;
-    overlay:        #6c7086;
-    mauve:          #cba6f7;
-    blue:           #89b4fa;
-    green:          #a6e3a1;
-    red:            #f38ba8;
-    crust:          #11111b;
+    bg:                         #1e1e2ef8;
+    surface0:                   #26273b;
+    surface1:                   #36374d;
+    surface-active:             #313244;
+    border-active:              #45475a;
+    mauve:                      #cba6f7;
+    fg:                         #cdd6f4;
+    overlay:                    #6c7086;
+    crust:                      #181825;
+    green:                      #a6e3a1;
+    red:                        #f38ba8;
+    blue:                       #89b4fa;
 
-    background-color:   transparent;
-    text-color:         @fg;
-    margin:             0;
-    padding:            0;
-    spacing:            0;
+    background-color:           transparent;
+    text-color:                 @fg;
+    margin:                     0;
+    padding:                    0;
+    spacing:                    0;
 }
 
 window {
-    transparency:       "real";
-    location:           center;
-    anchor:             center;
-    fullscreen:         false;
-    width:              560px;
-    border:             2px solid;
-    border-color:       @mauve;
-    border-radius:      16px;
-    background-color:   @bg;
-    padding:            18px;
+    transparency:               "real";
+    location:                   center;
+    anchor:                     center;
+    fullscreen:                 false;
+    width:                      620px;
+    border:                     2px solid;
+    border-color:               @mauve;
+    border-radius:              16px;
+    background-color:           @bg;
+    padding:                    0px;
 }
 
 mainbox {
-    background-color:   transparent;
-    spacing:            12px;
-    children:           [ "inputbar", "message", "listview" ];
+    background-color:           transparent;
+    spacing:                    0px;
+    children:                   [ "inputbar", "message", "listview" ];
 }
 
 inputbar {
-    background-color:   @surface0;
-    border-radius:      10px;
-    padding:            10px 14px;
-    spacing:            10px;
-    children:           [ "prompt", "entry" ];
+    background-color:           @surface0;
+    border:                     0px 0px 1px 0px;
+    border-color:               @surface1;
+    padding:                    12px 16px;
+    spacing:                    12px;
+    children:                   [ "prompt", "entry" ];
 }
 
 prompt {
-    background-color:   transparent;
-    text-color:         @mauve;
-    font:               "JetBrainsMono Nerd Font Bold 11";
-    vertical-align:     0.5;
+    background-color:           transparent;
+    text-color:                 @mauve;
+    font:                       "JetBrainsMono Nerd Font Bold 12";
+    vertical-align:             0.5;
 }
 
 entry {
-    background-color:   transparent;
-    text-color:         @fg;
-    placeholder:        "Search networks or enter command...";
-    placeholder-color:  @overlay;
-    font:               "JetBrainsMono Nerd Font 10.5";
-    vertical-align:     0.5;
+    background-color:           transparent;
+    text-color:                 #ffffff;
+    placeholder:                "Type to filter Wi-Fi networks (Rofi/Wofi dmenu)...";
+    placeholder-color:          @overlay;
+    font:                       "JetBrainsMono Nerd Font 10";
+    vertical-align:             0.5;
 }
 
 message {
-    background-color:   @surface0;
-    border-radius:      8px;
-    padding:            8px 12px;
+    background-color:           @crust;
+    border:                     0px 0px 1px 0px;
+    border-color:               @surface1;
+    padding:                    7px 16px;
 }
 
 textbox {
-    background-color:   transparent;
-    text-color:         @blue;
-    font:               "JetBrainsMono Nerd Font 10";
-    horizontal-align:   0.0;
+    background-color:           transparent;
+    text-color:                 #a6adc8;
+    font:                       "JetBrainsMono Nerd Font 9.5";
+    horizontal-align:           0.0;
+    vertical-align:             0.5;
+    wrap:                       false;
 }
 
 listview {
-    background-color:   transparent;
-    columns:            1;
-    lines:              8;
-    spacing:            6px;
-    cycle:              true;
-    dynamic:            true;
-    scrollbar:          false;
+    background-color:           transparent;
+    padding:                    8px 10px;
+    spacing:                    4px;
+    columns:                    1;
+    lines:                      9;
+    cycle:                      true;
+    dynamic:                    true;
+    fixed-height:               false;
+    scrollbar:                  false;
 }
 
 element {
-    background-color:   transparent;
-    text-color:         @fg;
-    border-radius:      10px;
-    padding:            8px 12px;
-    cursor:             pointer;
+    background-color:           transparent;
+    text-color:                 @fg;
+    border-radius:              8px;
+    padding:                    7px 12px;
+    cursor:                     pointer;
 }
 
 element-text {
-    font:               "JetBrainsMono Nerd Font 10.5";
-    background-color:   transparent;
-    text-color:         inherit;
-    cursor:             inherit;
-    vertical-align:     0.5;
-    highlight:          bold underline #cba6f7;
+    font:                       "JetBrainsMono Nerd Font 10";
+    background-color:           transparent;
+    text-color:                 inherit;
+    cursor:                     inherit;
+    vertical-align:             0.5;
 }
 
 element selected.normal {
-    background-color:   @mauve;
-    text-color:         @crust;
+    background-color:           @surface-active;
+    border:                     1px solid;
+    border-color:               @border-active;
+    text-color:                 #ffffff;
 }
 
 element selected.normal element-text {
-    text-color:         @crust;
+    text-color:                 #ffffff;
 }
