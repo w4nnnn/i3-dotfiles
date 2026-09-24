@@ -148,6 +148,8 @@ dotfiles/
 │   ├── rofi/               # Rofi app launcher, powermenu & wallpaper rasi
 │   └── starship.toml       # Starship prompt configuration
 ├── .local/bin/             # Custom utility scripts
+│   ├── battery-alert       # Background daemon for battery low & charging alerts
+│   ├── battery-info        # Detailed battery statistics & health notifier
 │   ├── calendar-popup      # Interactive floating calendar widget
 │   ├── control-center      # GTK Quick Settings control center
 │   ├── generate-lock-bg    # Lockscreen canvas renderer

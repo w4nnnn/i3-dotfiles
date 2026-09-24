@@ -132,6 +132,38 @@ def get_media_info():
     except Exception:
         return "Stopped", "No media playing"
 
+def get_battery_status():
+    """Detect battery on laptop. Returns (has_bat, icon, cap_str, status_str)"""
+    ps_dir = "/sys/class/power_supply"
+    if not os.path.isdir(ps_dir):
+        return False, "", "", ""
+    for entry in sorted(os.listdir(ps_dir)):
+        p = os.path.join(ps_dir, entry)
+        type_file = os.path.join(p, "type")
+        if os.path.isfile(type_file):
+            try:
+                with open(type_file) as f:
+                    if f.read().strip() == "Battery":
+                        cap_file = os.path.join(p, "capacity")
+                        stat_file = os.path.join(p, "status")
+                        cap = int(open(cap_file).read().strip()) if os.path.isfile(cap_file) else 0
+                        status = open(stat_file).read().strip() if os.path.isfile(stat_file) else "Unknown"
+
+                        if status == "Charging":
+                            icon = ""
+                        elif cap >= 80:
+                            icon = ""
+                        elif cap >= 50:
+                            icon = ""
+                        elif cap >= 20:
+                            icon = ""
+                        else:
+                            icon = ""
+                        return True, icon, f"{cap}%", status
+            except Exception:
+                pass
+    return False, "", "", ""
+
 # ---------------------------------------------------------
 # Control Center GUI
 # ---------------------------------------------------------
@@ -273,6 +305,10 @@ class ControlCenter(Gtk.Window):
         }
         .power-btn:hover {
             background-color: #f38ba8;
+            color: #11111b;
+        }
+        .battery-btn:hover {
+            background-color: #fab387;
             color: #11111b;
         }
         .tile-btn {
@@ -426,13 +462,31 @@ class ControlCenter(Gtk.Window):
         info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         user_lbl = Gtk.Label(label=get_username(), xalign=0)
         user_lbl.get_style_context().add_class("user-title")
-        uptime_lbl = Gtk.Label(label=f"Uptime: {get_uptime()}", xalign=0)
+
+        has_bat, bat_icon, bat_cap, bat_status = get_battery_status()
+        uptime_text = f"Uptime: {get_uptime()}"
+        if has_bat:
+            uptime_text += f"  ·  {bat_cap} ({bat_status})"
+
+        uptime_lbl = Gtk.Label(label=uptime_text, xalign=0)
         uptime_lbl.get_style_context().add_class("uptime-sub")
         info_box.pack_start(user_lbl, False, False, 0)
         info_box.pack_start(uptime_lbl, False, False, 0)
         box.pack_start(info_box, True, True, 0)
 
         bin_dir = os.path.expanduser("~/.local/bin")
+
+        # Battery button (if battery detected on laptop)
+        if has_bat:
+            bat_btn = Gtk.Button(label=bat_icon)
+            bat_btn.get_style_context().add_class("header-btn")
+            bat_btn.get_style_context().add_class("battery-btn")
+            if bat_btn.get_child():
+                bat_btn.get_child().set_halign(Gtk.Align.CENTER)
+                bat_btn.get_child().set_valign(Gtk.Align.CENTER)
+            bat_btn.set_tooltip_text(f"Battery: {bat_cap} ({bat_status})\nClick for full stats")
+            bat_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "battery-info")])))
+            box.pack_start(bat_btn, False, False, 0)
 
         # Lock button (fixed 36x36, Lucide lock icon)
         lock_btn = Gtk.Button(label="")

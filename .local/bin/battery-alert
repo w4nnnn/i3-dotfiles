@@ -1,0 +1,120 @@
+#!/usr/bin/env python3
+# ==============================================================================
+# Catppuccin Mocha - Battery Level & AC Event Alert Daemon
+# Lightweight background daemon for laptop power notifications
+# ==============================================================================
+import os
+import sys
+import time
+import signal
+import subprocess
+
+PID_FILE = "/tmp/catppuccin_battery_alert.pid"
+
+def sig_handler(signum, frame):
+    if os.path.exists(PID_FILE):
+        try:
+            os.remove(PID_FILE)
+        except Exception:
+            pass
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, sig_handler)
+signal.signal(signal.SIGINT, sig_handler)
+
+def find_primary_battery():
+    ps_dir = "/sys/class/power_supply"
+    if not os.path.isdir(ps_dir):
+        return None
+    for entry in sorted(os.listdir(ps_dir)):
+        p = os.path.join(ps_dir, entry)
+        type_file = os.path.join(p, "type")
+        if os.path.isfile(type_file):
+            try:
+                with open(type_file, "r") as f:
+                    if f.read().strip() == "Battery":
+                        return p
+            except Exception:
+                pass
+    return None
+
+def read_val(bat_path, key):
+    p = os.path.join(bat_path, key)
+    if os.path.isfile(p):
+        try:
+            with open(p, "r") as f:
+                return f.read().strip()
+        except Exception:
+            pass
+    return None
+
+def notify(title, message, icon="battery", urgency="normal"):
+    subprocess.Popen([
+        "notify-send",
+        "-a", "Power",
+        "-i", icon,
+        "-u", urgency,
+        title,
+        message
+    ])
+
+def main():
+    bat_path = find_primary_battery()
+    # If no battery found (Desktop PC), exit immediately
+    if not bat_path:
+        sys.exit(0)
+
+    # Single instance management
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            os.kill(old_pid, signal.SIGTERM)
+        except Exception:
+            pass
+
+    with open(PID_FILE, "w") as f:
+        f.write(str(os.getpid()))
+
+    prev_status = read_val(bat_path, "status")
+    alerted_low = False
+    alerted_critical = False
+
+    while True:
+        try:
+            status = read_val(bat_path, "status") or "Unknown"
+            cap_str = read_val(bat_path, "capacity")
+            cap = int(cap_str) if cap_str and cap_str.isdigit() else 50
+
+            # AC connect / disconnect events
+            if prev_status and prev_status != status:
+                if status == "Charging":
+                    notify("Charger Connected", f"Battery is charging ({cap}%).", icon="battery-charging", urgency="low")
+                elif prev_status == "Charging" and status in ("Discharging", "Not charging"):
+                    notify("Charger Disconnected", f"Running on battery ({cap}%).", icon="battery-good", urgency="low")
+            prev_status = status
+
+            # Low & Critical alerts
+            if status == "Discharging":
+                if cap <= 10:
+                    if not alerted_critical:
+                        notify("Battery Critical!", f"Battery level is at {cap}%. Connect charger immediately!", icon="battery-caution", urgency="critical")
+                        alerted_critical = True
+                elif cap <= 20:
+                    if not alerted_low:
+                        notify("Battery Low", f"Battery level is at {cap}%. Please connect your charger.", icon="battery-low", urgency="normal")
+                        alerted_low = True
+
+            # Reset alert flags when battery charges back up
+            if cap > 20:
+                alerted_low = False
+            if cap > 10:
+                alerted_critical = False
+
+        except Exception:
+            pass
+
+        time.sleep(30)
+
+if __name__ == "__main__":
+    main()

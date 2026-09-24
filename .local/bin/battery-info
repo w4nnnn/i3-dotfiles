@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+# ==============================================================================
+# Catppuccin Mocha - Battery Quick Info Notifier
+# Inspects sysfs directly with zero external dependencies
+# ==============================================================================
+import os
+import sys
+import subprocess
+
+def find_primary_battery():
+    ps_dir = "/sys/class/power_supply"
+    if not os.path.isdir(ps_dir):
+        return None
+    for entry in sorted(os.listdir(ps_dir)):
+        p = os.path.join(ps_dir, entry)
+        type_file = os.path.join(p, "type")
+        if os.path.isfile(type_file):
+            try:
+                with open(type_file, "r") as f:
+                    if f.read().strip() == "Battery":
+                        return p
+            except Exception:
+                pass
+    return None
+
+def read_sysfs(bat_dir, key):
+    path = os.path.join(bat_dir, key)
+    if os.path.isfile(path):
+        try:
+            with open(path, "r") as f:
+                return f.read().strip()
+        except Exception:
+            pass
+    return None
+
+def main():
+    bat_path = find_primary_battery()
+    if not bat_path:
+        subprocess.run([
+            "notify-send",
+            "-a", "Power",
+            "-i", "battery-missing",
+            "Battery Status",
+            "No battery detected (Desktop mode)."
+        ])
+        sys.exit(0)
+
+    status = read_sysfs(bat_path, "status") or "Unknown"
+    capacity = int(read_sysfs(bat_path, "capacity") or 0)
+
+    # Read energy (µWh) or charge (µAh)
+    energy_now = float(read_sysfs(bat_path, "energy_now") or read_sysfs(bat_path, "charge_now") or 0)
+    energy_full = float(read_sysfs(bat_path, "energy_full") or read_sysfs(bat_path, "charge_full") or 0)
+    energy_design = float(read_sysfs(bat_path, "energy_full_design") or read_sysfs(bat_path, "charge_full_design") or 0)
+    power_now = float(read_sysfs(bat_path, "power_now") or read_sysfs(bat_path, "current_now") or 0)
+
+    manufacturer = read_sysfs(bat_path, "manufacturer") or ""
+    model = read_sysfs(bat_path, "model_name") or ""
+    cycles = read_sysfs(bat_path, "cycle_count")
+
+    # Time remaining calculation
+    time_str = ""
+    if power_now > 1000:
+        if status == "Discharging":
+            hours = energy_now / power_now
+            hrs = int(hours)
+            mins = int((hours - hrs) * 60)
+            time_str = f"~{hrs}h {mins}m remaining"
+        elif status == "Charging" and energy_full > energy_now:
+            hours = (energy_full - energy_now) / power_now
+            hrs = int(hours)
+            mins = int((hours - hrs) * 60)
+            time_str = f"~{hrs}h {mins}m until full"
+
+    # Select appropriate notification icon & urgency
+    urgency = "normal"
+    if status == "Charging":
+        icon = "battery-charging"
+    elif capacity >= 90:
+        icon = "battery-full"
+    elif capacity >= 40:
+        icon = "battery-good"
+    elif capacity >= 20:
+        icon = "battery-low"
+    else:
+        icon = "battery-caution"
+        urgency = "critical"
+
+    # Build message body
+    lines = [f"Level: {capacity}% ({status})"]
+    if time_str:
+        lines.append(f"Estimate: {time_str}")
+
+    if power_now > 1000:
+        watts = power_now / 1e6
+        lines.append(f"Power Draw: {watts:.1f} W")
+
+    if energy_full > 0:
+        wh_now = energy_now / 1e6
+        wh_full = energy_full / 1e6
+        if energy_design > 0:
+            health = (energy_full / energy_design) * 100
+            lines.append(f"Capacity: {wh_now:.1f} / {wh_full:.1f} Wh ({health:.0f}% health)")
+        else:
+            lines.append(f"Capacity: {wh_now:.1f} / {wh_full:.1f} Wh")
+
+    device_str = f"{manufacturer} {model}".strip()
+    if device_str:
+        if cycles and cycles != "0":
+            device_str += f" ({cycles} cycles)"
+        lines.append(f"Hardware: {device_str}")
+
+    msg = "\n".join(lines)
+    subprocess.run([
+        "notify-send",
+        "-a", "Power",
+        "-i", icon,
+        "-u", urgency,
+        "Battery Status",
+        msg
+    ])
+
+if __name__ == "__main__":
+    main()
