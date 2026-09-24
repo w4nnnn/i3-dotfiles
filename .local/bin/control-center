@@ -2,48 +2,197 @@
 import sys
 import os
 import re
+import time
 import signal
 import subprocess
 import math
 import cairo
+import socket
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib, Pango
+gi.require_version("Gdk", "3.0")
+gi.require_version("Pango", "1.0")
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo, GdkPixbuf
 
 # ---------------------------------------------------------
-# Single instance toggle
+# Themes Configuration (from panel-widget.html)
 # ---------------------------------------------------------
+THEMES = {
+    "catppuccin": {
+        "name": "Catppuccin Mocha",
+        "bg_card": "rgba(24, 24, 37, 0.94)",
+        "bg_surface": "#1e1e2e",
+        "bg_hover": "#313244",
+        "border_color": "rgba(203, 166, 247, 0.20)",
+        "border_active": "#cba6f7",
+        "text_primary": "#cdd6f4",
+        "text_secondary": "#a6adc8",
+        "text_muted": "#6c7086",
+        "accent": "#cba6f7",
+        "accent_rgb": (203/255, 166/255, 247/255),
+        "accent_secondary": "#89b4fa",
+        "accent_contrast": "#11111b",
+        "danger": "#f38ba8",
+        "danger_bg": "rgba(243, 139, 168, 0.15)",
+        "success": "#a6e3a1",
+        "warning": "#f9e2af",
+        "trough": "#181825",
+        "meter_trough_rgb": (49/255, 50/255, 68/255),
+        "cover_grad1": "#4338ca",
+        "cover_grad2": "#6d28d9",
+    },
+    "tokyo-night": {
+        "name": "Tokyo Night",
+        "bg_card": "rgba(26, 27, 38, 0.94)",
+        "bg_surface": "#24283b",
+        "bg_hover": "#2f3549",
+        "border_color": "rgba(122, 162, 247, 0.22)",
+        "border_active": "#7aa2f7",
+        "text_primary": "#c0caf5",
+        "text_secondary": "#a9b1d6",
+        "text_muted": "#565f89",
+        "accent": "#7aa2f7",
+        "accent_rgb": (122/255, 162/255, 247/255),
+        "accent_secondary": "#bb9af7",
+        "accent_contrast": "#16161e",
+        "danger": "#f7768e",
+        "danger_bg": "rgba(247, 118, 142, 0.15)",
+        "success": "#9ece6a",
+        "warning": "#e0af68",
+        "trough": "#1a1b26",
+        "meter_trough_rgb": (47/255, 53/255, 73/255),
+        "cover_grad1": "#3d59a1",
+        "cover_grad2": "#7aa2f7",
+    },
+    "nord": {
+        "name": "Nordic Frost",
+        "bg_card": "rgba(46, 52, 64, 0.94)",
+        "bg_surface": "#3b4252",
+        "bg_hover": "#434c5e",
+        "border_color": "rgba(136, 192, 208, 0.22)",
+        "border_active": "#88c0d0",
+        "text_primary": "#eceff4",
+        "text_secondary": "#d8dee9",
+        "text_muted": "#4c566a",
+        "accent": "#88c0d0",
+        "accent_rgb": (136/255, 192/255, 208/255),
+        "accent_secondary": "#81a1c1",
+        "accent_contrast": "#242933",
+        "danger": "#bf616a",
+        "danger_bg": "rgba(191, 97, 106, 0.15)",
+        "success": "#a3be8c",
+        "warning": "#ebcb8b",
+        "trough": "#2e3440",
+        "meter_trough_rgb": (67/255, 76/255, 94/255),
+        "cover_grad1": "#5e81ac",
+        "cover_grad2": "#88c0d0",
+    },
+    "oled": {
+        "name": "OLED Pitch Black",
+        "bg_card": "rgba(9, 9, 11, 0.97)",
+        "bg_surface": "#141418",
+        "bg_hover": "#222228",
+        "border_color": "rgba(56, 189, 248, 0.25)",
+        "border_active": "#38bdf8",
+        "text_primary": "#ffffff",
+        "text_secondary": "#a1a1aa",
+        "text_muted": "#52525b",
+        "accent": "#38bdf8",
+        "accent_rgb": (56/255, 189/255, 248/255),
+        "accent_secondary": "#34d399",
+        "accent_contrast": "#000000",
+        "danger": "#f43f5e",
+        "danger_bg": "rgba(244, 63, 94, 0.15)",
+        "success": "#10b981",
+        "warning": "#f59e0b",
+        "trough": "#0a0a0c",
+        "meter_trough_rgb": (34/255, 34/255, 40/255),
+        "cover_grad1": "#0284c7",
+        "cover_grad2": "#38bdf8",
+    },
+    "light": {
+        "name": "Paper Light",
+        "bg_card": "rgba(255, 255, 255, 0.96)",
+        "bg_surface": "#f8fafc",
+        "bg_hover": "#e2e8f0",
+        "border_color": "rgba(15, 23, 42, 0.12)",
+        "border_active": "#0284c7",
+        "text_primary": "#0f172a",
+        "text_secondary": "#475569",
+        "text_muted": "#94a3b8",
+        "accent": "#0284c7",
+        "accent_rgb": (2/255, 132/255, 199/255),
+        "accent_secondary": "#6366f1",
+        "accent_contrast": "#ffffff",
+        "danger": "#ef4444",
+        "danger_bg": "rgba(239, 68, 68, 0.15)",
+        "success": "#10b981",
+        "warning": "#f59e0b",
+        "trough": "#cbd5e1",
+        "meter_trough_rgb": (226/255, 232/255, 240/255),
+        "cover_grad1": "#0284c7",
+        "cover_grad2": "#6366f1",
+    }
+}
+
+THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
+NIGHT_LIGHT_FILE = "/tmp/nightlight_state"
 PID_FILE = "/tmp/catppuccin_control_center.pid"
-if os.path.exists(PID_FILE):
+
+def load_saved_theme():
+    if os.path.exists(THEME_PREF_FILE):
+        try:
+            with open(THEME_PREF_FILE) as f:
+                th = f.read().strip()
+                if th in THEMES:
+                    return th
+        except Exception:
+            pass
+    return "catppuccin"
+
+def save_theme(theme_name):
     try:
-        with open(PID_FILE, "r") as f:
-            old_pid = int(f.read().strip())
-        os.remove(PID_FILE)
-        os.kill(old_pid, signal.SIGTERM)
-        sys.exit(0)
+        os.makedirs(os.path.dirname(THEME_PREF_FILE), exist_ok=True)
+        with open(THEME_PREF_FILE, "w") as f:
+            f.write(theme_name)
     except Exception:
         pass
 
-with open(PID_FILE, "w") as f:
-    f.write(str(os.getpid()))
+def hex_to_rgb(h):
+    h = h.lstrip("#")
+    if len(h) == 6:
+        return tuple(int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+    return (0.5, 0.5, 0.5)
 
 # ---------------------------------------------------------
 # System Helpers
 # ---------------------------------------------------------
 def get_username():
-    return os.getenv("USER", "User")
+    return os.getenv("USER", "user")
+
+def get_hostname():
+    try:
+        return socket.gethostname()
+    except Exception:
+        return "archlinux"
 
 def get_uptime():
     try:
-        out = subprocess.check_output(["uptime", "-p"], text=True).strip()
-        return out.replace("up ", "")
+        out = subprocess.check_output(["uptime", "-p"], stderr=subprocess.DEVNULL, text=True).strip()
+        out = out.replace("up ", "")
+        out = re.sub(r" hours?", "j", out)
+        out = re.sub(r" minutes?", "m", out)
+        out = re.sub(r" days?", "d", out)
+        out = out.replace(",", "")
+        return out
     except Exception:
-        return "Running"
+        return "Aktif"
 
 def get_volume():
     try:
-        out = subprocess.check_output(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], text=True)
+        out = subprocess.check_output(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], stderr=subprocess.DEVNULL, text=True)
         m = re.search(r'/\s*(\d+)%', out)
         if m:
             return int(m.group(1))
@@ -51,118 +200,327 @@ def get_volume():
         pass
     return 50
 
-def get_mute():
+def get_sink_mute():
     try:
-        out = subprocess.check_output(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], text=True)
+        out = subprocess.check_output(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], stderr=subprocess.DEVNULL, text=True)
         return "yes" in out.lower()
     except Exception:
         return False
 
 def set_volume(val):
-    subprocess.run(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{int(val)}%"])
+    subprocess.run(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{int(val)}%"], stderr=subprocess.DEVNULL)
 
-def toggle_mute():
-    subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"])
+def toggle_sink_mute():
+    subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"], stderr=subprocess.DEVNULL)
+
+def get_mic_volume():
+    try:
+        out = subprocess.check_output(["pamixer", "--default-source", "--get-volume"], stderr=subprocess.DEVNULL, text=True).strip()
+        if out.isdigit():
+            return int(out)
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output(["pactl", "get-source-volume", "@DEFAULT_SOURCE@"], stderr=subprocess.DEVNULL, text=True)
+        m = re.search(r'/\s*(\d+)%', out)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return 60
+
+def get_mic_mute():
+    try:
+        out = subprocess.check_output(["pamixer", "--default-source", "--get-mute"], stderr=subprocess.DEVNULL, text=True).strip()
+        return "true" in out.lower()
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output(["pactl", "get-source-mute", "@DEFAULT_SOURCE@"], stderr=subprocess.DEVNULL, text=True)
+        return "yes" in out.lower()
+    except Exception:
+        return False
+
+def set_mic_volume(val):
+    val = int(val)
+    subprocess.run(["pamixer", "--default-source", "--set-volume", str(val)], stderr=subprocess.DEVNULL)
+    subprocess.run(["pactl", "set-source-volume", "@DEFAULT_SOURCE@", f"{val}%"], stderr=subprocess.DEVNULL)
+
+def toggle_mic_mute():
+    subprocess.run(["pactl", "set-source-mute", "@DEFAULT_SOURCE@", "toggle"], stderr=subprocess.DEVNULL)
 
 def get_brightness():
     try:
-        out = subprocess.check_output(["brightnessctl", "-m", "info"], text=True)
+        out = subprocess.check_output(["brightnessctl", "-m", "info"], stderr=subprocess.DEVNULL, text=True)
         for line in out.strip().split("\n"):
             parts = line.split(",")
             if len(parts) >= 4 and "backlight" in parts[1]:
                 return int(parts[3].replace("%", ""))
     except Exception:
         pass
-    try:
-        out = subprocess.check_output(["xrandr", "--verbose"], text=True)
-        m = re.search(r'Brightness:\s*([\d\.]+)', out)
-        if m:
-            return int(float(m.group(1)) * 100)
-    except Exception:
-        pass
-    return 100
+    return 80
 
 def set_brightness(val):
-    pct = max(10, min(100, int(val)))
+    pct = max(5, min(100, int(val)))
+    subprocess.run(["brightnessctl", "set", f"{pct}%"], stderr=subprocess.DEVNULL)
+
+def get_wifi_status():
     try:
-        out = subprocess.check_output(["brightnessctl", "-m", "info"], text=True)
-        if any("backlight" in line for line in out.splitlines()):
-            subprocess.run(["brightnessctl", "set", f"{pct}%"])
-            return
+        out = subprocess.check_output(["nmcli", "radio", "wifi"], stderr=subprocess.DEVNULL, text=True).strip()
+        return out.lower() == "enabled"
     except Exception:
-        pass
+        return False
+
+def toggle_wifi():
+    is_on = get_wifi_status()
+    new_state = "off" if is_on else "on"
+    subprocess.run(["nmcli", "radio", "wifi", new_state], stderr=subprocess.DEVNULL)
+    return not is_on
+
+def get_bluetooth_status():
     try:
-        b_val = round(pct / 100.0, 2)
-        subprocess.run(["xrandr", "--output", "DP-0", "--brightness", str(b_val)])
+        out = subprocess.check_output(["bluetoothctl", "show"], stderr=subprocess.DEVNULL, text=True)
+        return "Powered: yes" in out
     except Exception:
-        pass
+        return False
+
+def toggle_bluetooth():
+    is_on = get_bluetooth_status()
+    cmd = "off" if is_on else "on"
+    subprocess.run(["bluetoothctl", "power", cmd], stderr=subprocess.DEVNULL)
+    return not is_on
 
 def get_dnd():
     try:
-        out = subprocess.check_output(["dunstctl", "is-paused"], text=True).strip()
+        out = subprocess.check_output(["dunstctl", "is-paused"], stderr=subprocess.DEVNULL, text=True).strip()
         return out.lower() == "true"
     except Exception:
         return False
 
 def toggle_dnd():
-    subprocess.run(["dunstctl", "set-paused", "toggle"])
+    subprocess.run(["dunstctl", "set-paused", "toggle"], stderr=subprocess.DEVNULL)
+    return get_dnd()
 
-def get_network_info():
+def get_connected_outputs():
     try:
-        out = subprocess.check_output(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev"], text=True)
-        for line in out.strip().split("\n"):
-            parts = line.split(":")
-            if len(parts) >= 4 and parts[2] == "connected" and parts[0] != "lo":
-                icon = "" if parts[1] == "ethernet" else ""
-                name = parts[3] if parts[3] else parts[0]
-                return icon, name, True
+        out = subprocess.check_output(["xrandr", "--query"], stderr=subprocess.DEVNULL, text=True)
+        outs = []
+        for line in out.splitlines():
+            if " connected" in line:
+                outs.append(line.split()[0])
+        return outs if outs else ["eDP-1"]
+    except Exception:
+        return ["eDP-1"]
+
+def get_night_light():
+    if os.path.exists(NIGHT_LIGHT_FILE):
+        try:
+            with open(NIGHT_LIGHT_FILE) as f:
+                return f.read().strip() == "on"
+        except Exception:
+            pass
+    return False
+
+def toggle_night_light():
+    is_on = get_night_light()
+    outputs = get_connected_outputs()
+    if is_on:
+        for o in outputs:
+            subprocess.run(["xrandr", "--output", o, "--gamma", "1.0:1.0:1.0"], stderr=subprocess.DEVNULL)
+        try:
+            with open(NIGHT_LIGHT_FILE, "w") as f:
+                f.write("off")
+        except Exception:
+            pass
+        return False
+    else:
+        for o in outputs:
+            subprocess.run(["xrandr", "--output", o, "--gamma", "1.0:0.85:0.7"], stderr=subprocess.DEVNULL)
+        try:
+            with open(NIGHT_LIGHT_FILE, "w") as f:
+                f.write("on")
+        except Exception:
+            pass
+        return True
+
+def get_game_mode():
+    try:
+        res = subprocess.run(["pgrep", "-x", "picom"], stdout=subprocess.DEVNULL)
+        return res.returncode != 0
+    except Exception:
+        return False
+
+def toggle_game_mode():
+    is_game = get_game_mode()
+    if is_game:
+        subprocess.Popen(["picom", "-b"], stderr=subprocess.DEVNULL)
+        return False
+    else:
+        subprocess.run(["killall", "picom"], stderr=subprocess.DEVNULL)
+        return True
+
+def get_power_profile():
+    try:
+        out = subprocess.check_output(["powerprofilesctl", "get"], stderr=subprocess.DEVNULL, text=True).strip()
+        return out
+    except Exception:
+        return "balanced"
+
+def set_power_profile(profile):
+    subprocess.run(["powerprofilesctl", "set", profile], stderr=subprocess.DEVNULL)
+
+# ---------------------------------------------------------
+# Telemetry Helpers
+# ---------------------------------------------------------
+_prev_idle = 0
+_prev_total = 0
+
+def get_cpu_info():
+    global _prev_idle, _prev_total
+    try:
+        with open("/proc/stat") as f:
+            fields = [float(x) for x in f.readline().strip().split()[1:]]
+        idle = fields[3] + fields[4]
+        total = sum(fields)
+        if _prev_total > 0:
+            d_idle = idle - _prev_idle
+            d_total = total - _prev_total
+            usage = int((1.0 - d_idle / d_total) * 100) if d_total > 0 else 0
+        else:
+            usage = 18
+        _prev_idle, _prev_total = idle, total
+        usage = max(0, min(100, usage))
+    except Exception:
+        usage = 20
+
+    cpu_brand = "CPU"
+    try:
+        with open("/proc/cpuinfo") as f:
+            for line in f:
+                if "model name" in line:
+                    m = line.split(":", 1)[1].strip()
+                    if "Intel" in m:
+                        cpu_brand = "Intel"
+                    elif "AMD" in m:
+                        cpu_brand = "AMD"
+                    else:
+                        cpu_brand = m.split()[0]
+                    break
     except Exception:
         pass
-    return "", "Offline", False
+    return usage, cpu_brand
 
+def get_ram_info():
+    try:
+        mem = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                parts = line.split(":")
+                if len(parts) == 2:
+                    mem[parts[0].strip()] = int(parts[1].strip().split()[0])
+        total = mem.get("MemTotal", 1) / (1024 * 1024)
+        avail = mem.get("MemAvailable", mem.get("MemFree", 0)) / (1024 * 1024)
+        used = total - avail
+        pct = int((used / total) * 100) if total > 0 else 0
+        return f"{used:.1f} GB", pct, used / total
+    except Exception:
+        return "2.0 GB", 25, 0.25
+
+def get_battery_and_temp():
+    bat_cap = 100
+    bat_stat = "Full"
+    has_bat = False
+    ps = "/sys/class/power_supply"
+    if os.path.exists(ps):
+        for entry in sorted(os.listdir(ps)):
+            if entry.startswith("BAT"):
+                try:
+                    cap_f = os.path.join(ps, entry, "capacity")
+                    stat_f = os.path.join(ps, entry, "status")
+                    if os.path.exists(cap_f):
+                        bat_cap = int(open(cap_f).read().strip())
+                        has_bat = True
+                    if os.path.exists(stat_f):
+                        bat_stat = open(stat_f).read().strip()
+                    break
+                except Exception:
+                    pass
+
+    temp_c = 45
+    tz = "/sys/class/thermal"
+    if os.path.exists(tz):
+        for zone in os.listdir(tz):
+            if zone.startswith("thermal_zone"):
+                try:
+                    t = int(open(os.path.join(tz, zone, "temp")).read().strip()) // 1000
+                    if 20 <= t <= 115:
+                        temp_c = t
+                        break
+                except Exception:
+                    pass
+
+    return has_bat, bat_cap, bat_stat, temp_c
+
+# ---------------------------------------------------------
+# MPRIS Player Helpers
+# ---------------------------------------------------------
 def get_media_info():
     try:
         status = subprocess.check_output(["playerctl", "status"], stderr=subprocess.DEVNULL, text=True).strip()
-        title = subprocess.check_output(["playerctl", "metadata", "--format", "{{title}}"], stderr=subprocess.DEVNULL, text=True).strip()
-        artist = subprocess.check_output(["playerctl", "metadata", "--format", "{{artist}}"], stderr=subprocess.DEVNULL, text=True).strip()
-        text = f"{title}"
-        if artist:
-            text += f" - {artist}"
-        return status, text or "Playing"
     except Exception:
-        return "Stopped", "No media playing"
+        status = "Stopped"
 
-def get_battery_status():
-    """Detect battery on laptop. Returns (has_bat, icon, cap_str, status_str)"""
-    ps_dir = "/sys/class/power_supply"
-    if not os.path.isdir(ps_dir):
-        return False, "", "", ""
-    for entry in sorted(os.listdir(ps_dir)):
-        p = os.path.join(ps_dir, entry)
-        type_file = os.path.join(p, "type")
-        if os.path.isfile(type_file):
-            try:
-                with open(type_file) as f:
-                    if f.read().strip() == "Battery":
-                        cap_file = os.path.join(p, "capacity")
-                        stat_file = os.path.join(p, "status")
-                        cap = int(open(cap_file).read().strip()) if os.path.isfile(cap_file) else 0
-                        status = open(stat_file).read().strip() if os.path.isfile(stat_file) else "Unknown"
+    if status in ("Playing", "Paused"):
+        try:
+            out = subprocess.check_output(
+                ["playerctl", "metadata", "--format", "{{playerName}}|{{title}}|{{artist}}|{{mpris:artUrl}}|{{mpris:length}}"],
+                stderr=subprocess.DEVNULL, text=True
+            ).strip()
+            parts = out.split("|")
+            player = parts[0] if len(parts) > 0 and parts[0] else "MPRIS"
+            title = parts[1] if len(parts) > 1 and parts[1] else "Unknown Title"
+            artist = parts[2] if len(parts) > 2 and parts[2] else "Unknown Artist"
+            art_url = parts[3] if len(parts) > 3 else ""
+            length_us = int(parts[4]) if len(parts) > 4 and parts[4].isdigit() else 0
+            duration_sec = length_us // 1000000
+        except Exception:
+            player = "MPRIS"
+            title = "Playing"
+            artist = ""
+            art_url = ""
+            duration_sec = 0
 
-                        if status == "Charging":
-                            icon = ""
-                        elif cap >= 80:
-                            icon = ""
-                        elif cap >= 50:
-                            icon = ""
-                        elif cap >= 20:
-                            icon = ""
-                        else:
-                            icon = ""
-                        return True, icon, f"{cap}%", status
-            except Exception:
-                pass
-    return False, "", "", ""
+        try:
+            pos_out = subprocess.check_output(["playerctl", "position"], stderr=subprocess.DEVNULL, text=True).strip()
+            pos_sec = int(float(pos_out))
+        except Exception:
+            pos_sec = 0
+
+        return {
+            "status": status,
+            "player": player,
+            "title": title,
+            "artist": artist,
+            "art_url": art_url,
+            "position": pos_sec,
+            "duration": duration_sec
+        }
+
+    return {
+        "status": "Stopped",
+        "player": "MPRIS",
+        "title": "No media playing",
+        "artist": "Desktop Audio · Idle",
+        "art_url": "",
+        "position": 0,
+        "duration": 0
+    }
+
+def format_time(sec):
+    sec = max(0, int(sec))
+    m = sec // 60
+    s = sec % 60
+    return f"{m:02d}:{s:02d}"
 
 # ---------------------------------------------------------
 # Control Center GUI
@@ -178,45 +536,83 @@ class ControlCenter(Gtk.Window):
         self.set_keep_above(True)
         self.set_resizable(False)
         self.taking_screenshot = False
+        self.is_scrubbing = False
 
-        # Support true RGBA transparency on X11
+        # Load Theme
+        self.current_theme_key = load_saved_theme()
+        self.current_theme = THEMES.get(self.current_theme_key, THEMES["catppuccin"])
+
+        # Telemetry meter fractions
+        self.cpu_frac = 0.18
+        self.ram_frac = 0.25
+        self.bat_frac = 0.85
+
+        # RGBA Visual for true transparency on X11
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
         if visual:
             self.set_visual(visual)
 
-        # Apply strictly consistent styling
-        self.apply_css()
+        # Style provider
+        self.css_provider = Gtk.CssProvider()
+        Gtk.StyleContext.add_provider_for_screen(
+            screen,
+            self.css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_USER
+        )
+        self.apply_theme_css()
 
-        # Main box with fixed width
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        main_box.set_name("main-container")
-        main_box.set_size_request(350, -1)
+        # Cache media data & album art pixbuf
+        self.media_data = get_media_info()
+        self.album_pixbuf = None
+        self.load_album_art()
+
+        # Build Main Layout (Compact and elegant, 380px fixed width)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        main_box.set_name("main-panel")
+        main_box.set_size_request(380, -1)
         self.add(main_box)
 
-        # 1. Header (User, Uptime, Lock & Power buttons)
+        # 1. Header Bar
         main_box.pack_start(self.create_header(), False, False, 0)
 
-        # 2. Quick Toggle Tiles (2x3 Grid with homogeneous sizing)
-        main_box.pack_start(self.create_toggles(), False, False, 0)
+        # 2. Prominent Music Player (Prioritas Utama)
+        main_box.pack_start(self.create_music_player(), False, False, 0)
 
-        # 3. Sliders (Volume & Brightness with identical structure)
+        # 3. Sliders Box (Audio Volume, Microphone, Display Brightness)
         main_box.pack_start(self.create_sliders(), False, False, 0)
 
-        # 4. Media Controller Card
-        main_box.pack_start(self.create_media_player(), False, False, 0)
+        # 4. Quick Toggles Grid (4x2 = 8 tiles)
+        main_box.pack_start(self.create_toggles(), False, False, 0)
 
-        # Events
+        # 5. System Telemetry Row (CPU, RAM, BAT/TEMP)
+        main_box.pack_start(self.create_telemetry(), False, False, 0)
+
+        # 6. Power Profiles (Performance, Balanced, Hemat Daya)
+        main_box.pack_start(self.create_power_profiles(), False, False, 0)
+
+        # 7. Footer Metadata
+        main_box.pack_start(self.create_footer(), False, False, 0)
+
+        # Window Events
         self.connect("key-press-event", self.on_key_press)
         self.connect("map-event", self.on_map_event)
         self.connect("button-press-event", self.on_button_press)
         self.connect("size-allocate", self.on_size_allocate)
         self.connect("destroy", self.cleanup)
 
+        # Timers
+        GLib.timeout_add(70, self.on_visualizer_tick)
+        GLib.timeout_add(1000, self.on_media_tick)
+        GLib.timeout_add(2500, self.on_telemetry_tick)
+
         self.show_all()
         self.position_top_right()
         self.apply_cursor()
 
+    # -----------------------------------------------------
+    # Window Shape & Positioning
+    # -----------------------------------------------------
     def on_size_allocate(self, widget, alloc):
         w, h = alloc.width, alloc.height
         r = 16
@@ -237,206 +633,6 @@ class ControlCenter(Gtk.Window):
         region = Gdk.cairo_region_create_from_surface(surf)
         widget.shape_combine_region(region)
 
-    def apply_cursor(self):
-        display = Gdk.Display.get_default()
-        cursor = Gdk.Cursor.new_from_name(display, "default")
-        if not cursor:
-            cursor = Gdk.Cursor.new_from_name(display, "left_ptr")
-        if cursor and self.get_window():
-            self.get_window().set_cursor(cursor)
-
-    def apply_css(self):
-        css = b"""
-        window {
-            background-color: transparent;
-        }
-        #main-container {
-            background-color: rgba(30, 30, 46, 0.75);
-            border: 2px solid #cba6f7;
-            border-radius: 16px;
-            padding: 16px;
-            min-width: 350px;
-        }
-        .avatar-badge {
-            background-color: rgba(49, 50, 68, 0.50);
-            color: #cba6f7;
-            border-radius: 10px;
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 14pt;
-            min-width: 36px;
-            min-height: 36px;
-            padding: 0;
-            margin: 0;
-        }
-        .avatar-badge label {
-            margin: 0;
-            padding: 0;
-        }
-        .user-title {
-            color: #cdd6f4;
-            font-size: 11pt;
-            font-weight: bold;
-            font-family: 'JetBrainsMono Nerd Font';
-        }
-        .uptime-sub {
-            color: #a6adc8;
-            font-size: 8.5pt;
-            font-family: 'JetBrainsMono Nerd Font';
-        }
-        .header-btn {
-            background-color: rgba(49, 50, 68, 0.50);
-            color: #cdd6f4;
-            border: none;
-            border-radius: 10px;
-            min-width: 36px;
-            min-height: 36px;
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 14pt;
-            padding: 0;
-            margin: 0;
-        }
-        .header-btn label {
-            margin: 0;
-            padding: 0;
-        }
-        .header-btn:hover {
-            background-color: #45475a;
-            color: #cba6f7;
-        }
-        .power-btn:hover {
-            background-color: #f38ba8;
-            color: #11111b;
-        }
-        .battery-btn:hover {
-            background-color: #fab387;
-            color: #11111b;
-        }
-        .tile-btn {
-            background-color: rgba(49, 50, 68, 0.40);
-            border: 1px solid rgba(203, 166, 247, 0.25);
-            border-radius: 12px;
-            padding: 0px 10px;
-            min-height: 52px;
-        }
-        .tile-btn:hover {
-            background-color: rgba(69, 71, 90, 0.65);
-        }
-        .tile-btn.active {
-            background-color: #cba6f7;
-            border-color: #cba6f7;
-        }
-        .tile-icon {
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 17pt;
-            min-width: 28px;
-            color: #89b4fa;
-        }
-        .tile-btn.active .tile-icon {
-            color: #11111b;
-        }
-        .tile-title {
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 9.5pt;
-            font-weight: bold;
-            color: #cdd6f4;
-        }
-        .tile-btn.active .tile-title {
-            color: #11111b;
-        }
-        .tile-sub {
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-            color: #a6adc8;
-        }
-        .tile-btn.active .tile-sub {
-            color: #313244;
-        }
-        .slider-row {
-            background-color: rgba(49, 50, 68, 0.40);
-            border-radius: 12px;
-            padding: 4px 12px;
-            min-height: 44px;
-        }
-        .slider-btn {
-            background-color: transparent;
-            border: none;
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 14pt;
-            color: #89b4fa;
-            min-width: 28px;
-            min-height: 28px;
-            padding: 0;
-        }
-        .slider-btn:hover {
-            color: #cba6f7;
-        }
-        .slider-btn-bright {
-            color: #f9e2af;
-        }
-        .slider-val {
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 9pt;
-            font-weight: bold;
-            color: #cdd6f4;
-            min-width: 36px;
-        }
-        scale trough {
-            background-color: #181825;
-            border-radius: 6px;
-            min-height: 8px;
-        }
-        scale highlight {
-            background-color: #cba6f7;
-            border-radius: 6px;
-        }
-        scale slider {
-            background-color: #f5e0dc;
-            border-radius: 50%;
-            min-width: 14px;
-            min-height: 14px;
-        }
-        .media-card {
-            background-color: rgba(49, 50, 68, 0.40);
-            border-radius: 12px;
-            padding: 8px 12px;
-            min-height: 44px;
-        }
-        .media-icon {
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 14pt;
-            color: #f5c2e7;
-            min-width: 24px;
-        }
-        .media-title {
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.5pt;
-            font-weight: bold;
-            color: #cdd6f4;
-        }
-        .media-btn {
-            background-color: transparent;
-            border: none;
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
-            color: #cdd6f4;
-            min-width: 26px;
-            min-height: 26px;
-            padding: 0;
-            border-radius: 6px;
-        }
-        .media-btn:hover {
-            background-color: #45475a;
-            color: #cba6f7;
-        }
-        """
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css)
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(),
-            provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-
     def position_top_right(self):
         display = Gdk.Display.get_default()
         monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
@@ -446,318 +642,1072 @@ class ControlCenter(Gtk.Window):
         pos_y = geom.y + 44
         self.move(pos_x, pos_y)
 
-    def create_header(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+    def apply_cursor(self):
+        display = Gdk.Display.get_default()
+        cursor = Gdk.Cursor.new_from_name(display, "default")
+        if not cursor:
+            cursor = Gdk.Cursor.new_from_name(display, "left_ptr")
+        if cursor and self.get_window():
+            self.get_window().set_cursor(cursor)
 
-        # Avatar badge (fixed 36x36, Lucide user icon)
+    # -----------------------------------------------------
+    # Theme & CSS
+    # -----------------------------------------------------
+    def apply_theme_css(self):
+        t = self.current_theme
+        css = f"""
+        window {{
+            background-color: transparent;
+        }}
+        #main-panel {{
+            background-color: {t["bg_card"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 16px;
+            padding: 12px;
+            min-width: 380px;
+        }}
+        .distro-avatar {{
+            background-color: {t["accent"]};
+            color: {t["accent_contrast"]};
+            border-radius: 8px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 14pt;
+            font-weight: bold;
+            min-width: 32px;
+            min-height: 32px;
+        }}
+        .host-title {{
+            color: {t["text_primary"]};
+            font-size: 9.5pt;
+            font-weight: bold;
+            font-family: 'JetBrainsMono Nerd Font';
+        }}
+        .host-meta {{
+            color: {t["text_muted"]};
+            font-size: 7.5pt;
+            font-family: 'JetBrainsMono Nerd Font';
+        }}
+        .header-btn {{
+            background-color: {t["bg_surface"]};
+            color: {t["text_primary"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 8px;
+            min-width: 30px;
+            min-height: 30px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 11pt;
+            padding: 0;
+        }}
+        .header-btn:hover {{
+            background-color: {t["bg_hover"]};
+            color: {t["accent"]};
+        }}
+        .power-btn {{
+            background-color: {t["danger_bg"]};
+            color: {t["danger"]};
+            border-color: transparent;
+        }}
+        .power-btn:hover {{
+            background-color: {t["danger"]};
+            color: {t["accent_contrast"]};
+        }}
+        combobox {{
+            background-color: {t["bg_surface"]};
+            color: {t["text_primary"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 8px;
+            padding: 1px 4px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+        }}
+        combobox button {{
+            background-color: transparent;
+            border: none;
+            color: {t["text_primary"]};
+            box-shadow: none;
+            padding: 1px 2px;
+        }}
+        combobox menu {{
+            background-color: {t["bg_surface"]};
+            color: {t["text_primary"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 8px;
+        }}
+
+        /* Music Card */
+        .music-widget {{
+            background-color: {t["bg_surface"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 12px;
+            padding: 10px;
+        }}
+        .source-badge {{
+            color: {t["accent"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7pt;
+            font-weight: bold;
+        }}
+        .track-title {{
+            color: {t["text_primary"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 9.5pt;
+            font-weight: bold;
+        }}
+        .track-artist {{
+            color: {t["text_secondary"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+        }}
+        .time-label {{
+            color: {t["text_muted"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7.5pt;
+        }}
+        .ctrl-btn {{
+            background-color: transparent;
+            border: none;
+            color: {t["text_primary"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 11pt;
+            min-width: 28px;
+            min-height: 28px;
+            border-radius: 6px;
+            padding: 0;
+        }}
+        .ctrl-btn:hover {{
+            background-color: {t["bg_hover"]};
+            color: {t["accent"]};
+        }}
+        .ctrl-btn.active {{
+            color: {t["accent"]};
+        }}
+        .play-btn {{
+            background-color: {t["accent"]};
+            color: {t["accent_contrast"]};
+            border: none;
+            border-radius: 8px;
+            min-width: 32px;
+            min-height: 32px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 12pt;
+            padding: 0;
+        }}
+        .play-btn:hover {{
+            opacity: 0.92;
+        }}
+
+        /* Scale / Sliders */
+        scale {{
+            margin: 0;
+            padding: 0;
+            min-height: 10px;
+        }}
+        scale trough {{
+            background-color: {t["trough"]};
+            border-radius: 999px;
+            min-height: 4px;
+            margin: 0;
+            padding: 0;
+        }}
+        scale highlight,
+        scale trough highlight {{
+            background-color: {t["accent"]};
+            background-image: none;
+            border-radius: 999px;
+        }}
+        scale slider {{
+            background-color: {t["text_primary"]};
+            background-image: none;
+            border: 2px solid {t["bg_card"]};
+            box-shadow: none;
+            border-radius: 50%;
+            min-width: 10px;
+            min-height: 10px;
+            margin: -3px 0;
+        }}
+
+        /* Sliders Box */
+        .sliders-box {{
+            background-color: {t["bg_surface"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 12px;
+            padding: 6px 10px;
+        }}
+        .slider-row {{
+            min-height: 24px;
+        }}
+        .slider-icon-btn {{
+            background-color: transparent;
+            border: none;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 11pt;
+            color: {t["accent"]};
+            min-width: 22px;
+            min-height: 22px;
+            padding: 0;
+        }}
+        .slider-icon-btn:hover {{
+            color: {t["text_primary"]};
+        }}
+        .slider-icon-bright {{
+            color: {t["warning"]};
+        }}
+        .slider-val {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+            font-weight: bold;
+            color: {t["text_secondary"]};
+            min-width: 32px;
+        }}
+
+        /* Toggles Grid */
+        .toggle-tile {{
+            background-color: {t["bg_surface"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 8px;
+            padding: 4px 2px;
+            min-height: 42px;
+        }}
+        .toggle-tile:hover {{
+            background-color: {t["bg_hover"]};
+        }}
+        .toggle-tile.active {{
+            background-color: {t["accent"]};
+            border-color: {t["accent"]};
+        }}
+        .toggle-icon {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            color: {t["accent_secondary"]};
+        }}
+        .toggle-tile.active .toggle-icon {{
+            color: {t["accent_contrast"]};
+        }}
+        .toggle-label {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7.5pt;
+            font-weight: 500;
+            color: {t["text_secondary"]};
+        }}
+        .toggle-tile.active .toggle-label {{
+            color: {t["accent_contrast"]};
+            font-weight: bold;
+        }}
+
+        /* Telemetry Row */
+        .stat-badge {{
+            background-color: {t["bg_surface"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 8px;
+            padding: 5px 8px;
+        }}
+        .stat-name {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7pt;
+            font-weight: bold;
+            color: {t["text_muted"]};
+        }}
+        .stat-sub {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7pt;
+            color: {t["text_muted"]};
+        }}
+        .stat-val {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 9.5pt;
+            font-weight: bold;
+            color: {t["text_primary"]};
+        }}
+
+        /* Power Profiles */
+        .power-profiles {{
+            background-color: {t["bg_surface"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 8px;
+            padding: 2px;
+        }}
+        .profile-pill {{
+            background-color: transparent;
+            border: none;
+            color: {t["text_secondary"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+            font-weight: 500;
+            border-radius: 6px;
+            padding: 3px 6px;
+        }}
+        .profile-pill:hover {{
+            background-color: {t["bg_hover"]};
+        }}
+        .profile-pill.active {{
+            background-color: {t["accent"]};
+            color: {t["accent_contrast"]};
+            font-weight: bold;
+        }}
+
+        /* Footer */
+        .panel-footer {{
+            border-top: 1px solid {t["border_color"]};
+            padding-top: 4px;
+        }}
+        .footer-text {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7.5pt;
+            color: {t["text_muted"]};
+        }}
+        """
+        self.css_provider.load_from_data(css.encode())
+
+    def on_theme_selected(self, combo):
+        key = combo.get_active_id()
+        if key in THEMES and key != self.current_theme_key:
+            self.current_theme_key = key
+            self.current_theme = THEMES[key]
+            save_theme(key)
+            self.apply_theme_css()
+            self.cover_area.queue_draw()
+            self.vis_area.queue_draw()
+            self.cpu_meter.queue_draw()
+            self.ram_meter.queue_draw()
+            self.bat_meter.queue_draw()
+
+    # -----------------------------------------------------
+    # 1. Header Bar
+    # -----------------------------------------------------
+    def create_header(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+
+        # Distro avatar (32x32, Arch icon)
         avatar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        avatar.get_style_context().add_class("avatar-badge")
-        avatar_lbl = Gtk.Label(label="")
+        avatar.get_style_context().add_class("distro-avatar")
+        avatar_lbl = Gtk.Label(label="󰣇")
         avatar_lbl.set_halign(Gtk.Align.CENTER)
         avatar_lbl.set_valign(Gtk.Align.CENTER)
         avatar.pack_start(avatar_lbl, True, True, 0)
         box.pack_start(avatar, False, False, 0)
 
-        # User info
-        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        user_lbl = Gtk.Label(label=get_username(), xalign=0)
-        user_lbl.get_style_context().add_class("user-title")
-
-        has_bat, bat_icon, bat_cap, bat_status = get_battery_status()
-        uptime_text = f"Uptime: {get_uptime()}"
-        if has_bat:
-            uptime_text += f"  ·  {bat_cap} ({bat_status})"
-
-        uptime_lbl = Gtk.Label(label=uptime_text, xalign=0)
-        uptime_lbl.get_style_context().add_class("uptime-sub")
-        info_box.pack_start(user_lbl, False, False, 0)
-        info_box.pack_start(uptime_lbl, False, False, 0)
+        # Host info
+        info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        info_box.set_valign(Gtk.Align.CENTER)
+        host_title = Gtk.Label(label=f"{get_username()}@{get_hostname()}", xalign=0)
+        host_title.get_style_context().add_class("host-title")
+        self.host_meta_lbl = Gtk.Label(label=f"X11 · Up {get_uptime()}", xalign=0)
+        self.host_meta_lbl.get_style_context().add_class("host-meta")
+        info_box.pack_start(host_title, False, False, 0)
+        info_box.pack_start(self.host_meta_lbl, False, False, 0)
         box.pack_start(info_box, True, True, 0)
+
+        # Header actions
+        actions_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        # Theme Dropdown
+        theme_combo = Gtk.ComboBoxText()
+        for k, v in THEMES.items():
+            theme_combo.append(k, v["name"])
+        theme_combo.set_active_id(self.current_theme_key)
+        theme_combo.connect("changed", self.on_theme_selected)
+        actions_box.pack_start(theme_combo, False, False, 0)
 
         bin_dir = os.path.expanduser("~/.local/bin")
 
-        # Battery button (if battery detected on laptop)
-        if has_bat:
-            bat_btn = Gtk.Button(label=bat_icon)
-            bat_btn.get_style_context().add_class("header-btn")
-            bat_btn.get_style_context().add_class("battery-btn")
-            if bat_btn.get_child():
-                bat_btn.get_child().set_halign(Gtk.Align.CENTER)
-                bat_btn.get_child().set_valign(Gtk.Align.CENTER)
-            bat_btn.set_tooltip_text(f"Battery: {bat_cap} ({bat_status})\nClick for full stats")
-            bat_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "battery-info")])))
-            box.pack_start(bat_btn, False, False, 0)
-
-        # Lock button (fixed 36x36, Lucide lock icon)
-        lock_btn = Gtk.Button(label="")
+        # Lock button
+        lock_btn = Gtk.Button(label="󰌾")
         lock_btn.get_style_context().add_class("header-btn")
         if lock_btn.get_child():
             lock_btn.get_child().set_halign(Gtk.Align.CENTER)
             lock_btn.get_child().set_valign(Gtk.Align.CENTER)
+        lock_btn.set_tooltip_text("Kunci Layar")
         lock_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "lockscreen")])))
-        box.pack_start(lock_btn, False, False, 0)
+        actions_box.pack_start(lock_btn, False, False, 0)
 
-        # Power button (fixed 36x36, Lucide power icon)
-        power_btn = Gtk.Button(label="")
+        # Power button
+        power_btn = Gtk.Button(label="󰐥")
         power_btn.get_style_context().add_class("header-btn")
         power_btn.get_style_context().add_class("power-btn")
         if power_btn.get_child():
             power_btn.get_child().set_halign(Gtk.Align.CENTER)
             power_btn.get_child().set_valign(Gtk.Align.CENTER)
+        power_btn.set_tooltip_text("Menu Daya")
         power_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "powermenu")])))
-        box.pack_start(power_btn, False, False, 0)
+        actions_box.pack_start(power_btn, False, False, 0)
 
+        box.pack_start(actions_box, False, False, 0)
         return box
 
-    def create_toggles(self):
-        grid = Gtk.Grid()
-        grid.set_column_spacing(10)
-        grid.set_row_spacing(10)
-        grid.set_column_homogeneous(True)
-        grid.set_row_homogeneous(True)
+    # -----------------------------------------------------
+    # 2. Prominent Music Player (Prioritas Utama)
+    # -----------------------------------------------------
+    def create_music_player(self):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        card.get_style_context().add_class("music-widget")
 
-        # 1. Network Tile (Lucide network)
-        net_icon, net_name, net_ok = get_network_info()
-        self.net_btn = Gtk.Button()
-        self.net_btn.get_style_context().add_class("tile-btn")
-        if net_ok:
-            self.net_btn.get_style_context().add_class("active")
-        net_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        net_box.set_valign(Gtk.Align.CENTER)
-        self.net_icon_lbl = Gtk.Label(label=net_icon)
-        self.net_icon_lbl.get_style_context().add_class("tile-icon")
-        self.net_icon_lbl.set_valign(Gtk.Align.CENTER)
-        net_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        net_text_box.set_valign(Gtk.Align.CENTER)
-        net_title = Gtk.Label(label="Network", xalign=0)
-        net_title.get_style_context().add_class("tile-title")
-        self.net_sub = Gtk.Label(label=net_name, xalign=0)
-        self.net_sub.set_ellipsize(Pango.EllipsizeMode.END)
-        self.net_sub.set_max_width_chars(11)
-        self.net_sub.get_style_context().add_class("tile-sub")
-        net_text_box.pack_start(net_title, False, False, 0)
-        net_text_box.pack_start(self.net_sub, False, False, 0)
-        net_box.pack_start(self.net_icon_lbl, False, False, 0)
-        net_box.pack_start(net_text_box, True, True, 0)
-        self.net_btn.add(net_box)
-        self.net_btn.connect("clicked", self.on_network_clicked)
-        grid.attach(self.net_btn, 0, 0, 1, 1)
+        # Top row: Cover art & track metadata
+        top_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        top_row.set_valign(Gtk.Align.CENTER)
 
-        # 2. Do Not Disturb (Lucide bell / bell-off)
-        is_dnd = get_dnd()
-        self.dnd_btn = Gtk.Button()
-        self.dnd_btn.get_style_context().add_class("tile-btn")
-        if is_dnd:
-            self.dnd_btn.get_style_context().add_class("active")
-        dnd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        dnd_box.set_valign(Gtk.Align.CENTER)
-        self.dnd_icon_lbl = Gtk.Label(label="" if is_dnd else "")
-        self.dnd_icon_lbl.get_style_context().add_class("tile-icon")
-        self.dnd_icon_lbl.set_valign(Gtk.Align.CENTER)
-        dnd_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        dnd_text_box.set_valign(Gtk.Align.CENTER)
-        dnd_title = Gtk.Label(label="DND Mode", xalign=0)
-        dnd_title.get_style_context().add_class("tile-title")
-        self.dnd_sub = Gtk.Label(label="Active" if is_dnd else "Off", xalign=0)
-        self.dnd_sub.get_style_context().add_class("tile-sub")
-        dnd_text_box.pack_start(dnd_title, False, False, 0)
-        dnd_text_box.pack_start(self.dnd_sub, False, False, 0)
-        dnd_box.pack_start(self.dnd_icon_lbl, False, False, 0)
-        dnd_box.pack_start(dnd_text_box, True, True, 0)
-        self.dnd_btn.add(dnd_box)
-        self.dnd_btn.connect("clicked", self.on_dnd_clicked)
-        grid.attach(self.dnd_btn, 1, 0, 1, 1)
+        self.cover_area = Gtk.DrawingArea()
+        self.cover_area.set_size_request(46, 46)
+        self.cover_area.connect("draw", self.on_album_cover_draw)
+        top_row.pack_start(self.cover_area, False, False, 0)
 
-        bin_dir = os.path.expanduser("~/.local/bin")
+        meta_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        meta_box.set_valign(Gtk.Align.CENTER)
 
-        # 3. Wallpaper Selector Tile (Lucide image)
-        wall_btn = Gtk.Button()
-        wall_btn.get_style_context().add_class("tile-btn")
-        wall_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        wall_box.set_valign(Gtk.Align.CENTER)
-        wall_icon = Gtk.Label(label="")
-        wall_icon.get_style_context().add_class("tile-icon")
-        wall_icon.set_valign(Gtk.Align.CENTER)
-        wall_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        wall_text_box.set_valign(Gtk.Align.CENTER)
-        wall_title = Gtk.Label(label="Wallpaper", xalign=0)
-        wall_title.get_style_context().add_class("tile-title")
-        wall_sub = Gtk.Label(label="Select image", xalign=0)
-        wall_sub.get_style_context().add_class("tile-sub")
-        wall_text_box.pack_start(wall_title, False, False, 0)
-        wall_text_box.pack_start(wall_sub, False, False, 0)
-        wall_box.pack_start(wall_icon, False, False, 0)
-        wall_box.pack_start(wall_text_box, True, True, 0)
-        wall_btn.add(wall_box)
-        wall_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "wallpaper-selector")])))
-        grid.attach(wall_btn, 0, 1, 1, 1)
+        # Source badge
+        badge_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        dot_lbl = Gtk.Label(label="●")
+        dot_lbl.get_style_context().add_class("source-badge")
+        self.source_lbl = Gtk.Label(label=f"{self.media_data['player'].upper()} (MPRIS)", xalign=0)
+        self.source_lbl.get_style_context().add_class("source-badge")
+        badge_box.pack_start(dot_lbl, False, False, 0)
+        badge_box.pack_start(self.source_lbl, False, False, 0)
+        meta_box.pack_start(badge_box, False, False, 0)
 
-        # 4. Screenshot Tool (Lucide camera)
-        sc_btn = Gtk.Button()
-        sc_btn.get_style_context().add_class("tile-btn")
-        sc_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        sc_box.set_valign(Gtk.Align.CENTER)
-        sc_icon = Gtk.Label(label="")
-        sc_icon.get_style_context().add_class("tile-icon")
-        sc_icon.set_valign(Gtk.Align.CENTER)
-        sc_text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        sc_text_box.set_valign(Gtk.Align.CENTER)
-        sc_title = Gtk.Label(label="Screenshot", xalign=0)
-        sc_title.get_style_context().add_class("tile-title")
-        sc_sub = Gtk.Label(label="Area capture", xalign=0)
-        sc_sub.get_style_context().add_class("tile-sub")
-        sc_text_box.pack_start(sc_title, False, False, 0)
-        sc_text_box.pack_start(sc_sub, False, False, 0)
-        sc_box.pack_start(sc_icon, False, False, 0)
-        sc_box.pack_start(sc_text_box, True, True, 0)
-        sc_btn.add(sc_box)
-        sc_btn.connect("clicked", self.on_screenshot_clicked)
-        grid.attach(sc_btn, 1, 1, 1, 1)
+        self.track_title_lbl = Gtk.Label(label=self.media_data["title"], xalign=0)
+        self.track_title_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        self.track_title_lbl.set_max_width_chars(28)
+        self.track_title_lbl.get_style_context().add_class("track-title")
+        meta_box.pack_start(self.track_title_lbl, False, False, 0)
 
-        return grid
+        self.track_artist_lbl = Gtk.Label(label=self.media_data["artist"], xalign=0)
+        self.track_artist_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+        self.track_artist_lbl.set_max_width_chars(28)
+        self.track_artist_lbl.get_style_context().add_class("track-artist")
+        meta_box.pack_start(self.track_artist_lbl, False, False, 0)
 
-    def on_network_clicked(self, widget):
-        self.close_and_exit()
-        bin_dir = os.path.expanduser("~/.local/bin")
-        subprocess.Popen([os.path.join(bin_dir, "network-menu")])
+        top_row.pack_start(meta_box, True, True, 0)
+        card.pack_start(top_row, False, False, 0)
 
-    def on_dnd_clicked(self, widget):
-        toggle_dnd()
-        is_dnd = get_dnd()
-        if is_dnd:
-            self.dnd_btn.get_style_context().add_class("active")
-            self.dnd_icon_lbl.set_text("")
-            self.dnd_sub.set_text("Active")
+        # Scrubber seek bar
+        scrub_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+        dur = max(1, self.media_data["duration"])
+        pos = min(self.media_data["position"], dur)
+        self.scrubber = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, dur, 1)
+        self.scrubber.set_value(pos)
+        self.scrubber.set_draw_value(False)
+        self.scrubber.connect("button-press-event", self.on_scrubber_press)
+        self.scrubber.connect("button-release-event", self.on_scrubber_release)
+        self.scrubber.connect("value-changed", self.on_scrubber_changed)
+        scrub_box.pack_start(self.scrubber, False, False, 0)
+
+        time_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.time_cur_lbl = Gtk.Label(label=format_time(pos), xalign=0)
+        self.time_cur_lbl.get_style_context().add_class("time-label")
+        self.time_dur_lbl = Gtk.Label(label=format_time(self.media_data["duration"]), xalign=1)
+        self.time_dur_lbl.get_style_context().add_class("time-label")
+        time_box.pack_start(self.time_cur_lbl, True, True, 0)
+        time_box.pack_start(self.time_dur_lbl, False, False, 0)
+        scrub_box.pack_start(time_box, False, False, 0)
+
+        card.pack_start(scrub_box, False, False, 0)
+
+        # Controls row
+        ctrls_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        ctrls_box.set_homogeneous(True)
+        ctrls_box.set_valign(Gtk.Align.CENTER)
+
+        # Shuffle
+        self.shuffle_btn = Gtk.Button(label="󰒟")
+        self.shuffle_btn.get_style_context().add_class("ctrl-btn")
+        self.shuffle_btn.connect("clicked", self.on_shuffle_clicked)
+        ctrls_box.pack_start(self.shuffle_btn, True, True, 0)
+
+        # Previous
+        prev_btn = Gtk.Button(label="󰒮")
+        prev_btn.get_style_context().add_class("ctrl-btn")
+        prev_btn.connect("clicked", self.on_media_prev)
+        ctrls_box.pack_start(prev_btn, True, True, 0)
+
+        # Play / Pause (Prominent center button)
+        self.play_btn = Gtk.Button(label="󰏤" if self.media_data["status"] == "Playing" else "󰐊")
+        self.play_btn.get_style_context().add_class("play-btn")
+        self.play_btn.connect("clicked", self.on_media_play)
+        ctrls_box.pack_start(self.play_btn, True, True, 0)
+
+        # Next
+        next_btn = Gtk.Button(label="󰒭")
+        next_btn.get_style_context().add_class("ctrl-btn")
+        next_btn.connect("clicked", self.on_media_next)
+        ctrls_box.pack_start(next_btn, True, True, 0)
+
+        # Repeat / Loop
+        self.repeat_btn = Gtk.Button(label="󰑖")
+        self.repeat_btn.get_style_context().add_class("ctrl-btn")
+        self.repeat_btn.connect("clicked", self.on_repeat_clicked)
+        ctrls_box.pack_start(self.repeat_btn, True, True, 0)
+
+        card.pack_start(ctrls_box, False, False, 0)
+
+        # Equalizer visualizer strip (Cava emulation)
+        self.vis_area = Gtk.DrawingArea()
+        self.vis_area.set_size_request(-1, 12)
+        self.vis_area.connect("draw", self.on_visualizer_draw)
+        card.pack_start(self.vis_area, False, False, 0)
+
+        return card
+
+    def load_album_art(self):
+        url = self.media_data.get("art_url", "")
+        self.album_pixbuf = None
+        if url.startswith("file://"):
+            p = url[7:]
+            if os.path.isfile(p):
+                try:
+                    self.album_pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(p, 46, 46, False)
+                except Exception:
+                    self.album_pixbuf = None
+        elif url.startswith("/") and os.path.isfile(url):
+            try:
+                self.album_pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(url, 46, 46, False)
+            except Exception:
+                self.album_pixbuf = None
+
+    def on_album_cover_draw(self, widget, cr):
+        w = widget.get_allocated_width()
+        h = widget.get_allocated_height()
+        r = 8
+
+        cr.new_sub_path()
+        cr.arc(w - r, r, r, -math.pi / 2, 0)
+        cr.arc(w - r, h - r, r, 0, math.pi / 2)
+        cr.arc(r, h - r, r, math.pi / 2, math.pi)
+        cr.arc(r, r, r, math.pi, 3 * math.pi / 2)
+        cr.close_path()
+        cr.clip()
+
+        if self.album_pixbuf:
+            Gdk.cairo_set_source_pixbuf(cr, self.album_pixbuf, 0, 0)
+            cr.paint()
         else:
-            self.dnd_btn.get_style_context().remove_class("active")
-            self.dnd_icon_lbl.set_text("")
-            self.dnd_sub.set_text("Off")
+            pat = cairo.LinearGradient(0, 0, w, h)
+            c1 = self.current_theme.get("cover_grad1", "#4338ca")
+            c2 = self.current_theme.get("cover_grad2", "#6d28d9")
+            r1, g1, b1 = hex_to_rgb(c1)
+            r2, g2, b2 = hex_to_rgb(c2)
+            pat.add_color_stop_rgb(0, r1, g1, b1)
+            pat.add_color_stop_rgb(1, r2, g2, b2)
+            cr.set_source(pat)
+            cr.paint()
 
-    def on_screenshot_clicked(self, widget):
-        self.hide()
-        bin_dir = os.path.expanduser("~/.local/bin")
-        GLib.timeout_add(150, lambda: (subprocess.Popen([os.path.join(bin_dir, "screenshot"), "select"]), self.close_and_exit()))
+            layout = self.create_pango_layout("󰎆")
+            desc = Pango.FontDescription("JetBrainsMono Nerd Font 16")
+            layout.set_font_description(desc)
+            ink, log = layout.get_pixel_extents()
+            cr.set_source_rgba(1, 1, 1, 0.95)
+            cr.move_to((w - log.width) / 2, (h - log.height) / 2)
+            PangoCairo.show_layout(cr, layout)
 
+    def on_visualizer_draw(self, widget, cr):
+        w = widget.get_allocated_width()
+        h = widget.get_allocated_height()
+        num_bars = 18
+        gap = 4
+        bar_w = max(2.0, (w - (num_bars - 1) * gap) / num_bars)
+
+        r, g, b = self.current_theme.get("accent_rgb", (0.8, 0.65, 0.97))
+        cr.set_source_rgba(r, g, b, 0.85)
+
+        now = time.time()
+        for i in range(num_bars):
+            if self.media_data["status"] == "Playing":
+                s1 = math.sin(now * 8.0 + i * 0.65)
+                s2 = math.cos(now * 11.5 + i * 1.25)
+                val = (s1 * 0.5 + 0.5) * 0.6 + (s2 * 0.5 + 0.5) * 0.4
+                bar_h = max(2.5, val * (h - 2) + 2)
+            else:
+                bar_h = 2.5
+
+            bx = i * (bar_w + gap)
+            by = h - bar_h
+            rad = min(bar_w / 2.0, 1.5)
+            cr.new_sub_path()
+            cr.arc(bx + rad, by + rad, rad, math.pi, 3 * math.pi / 2)
+            cr.arc(bx + bar_w - rad, by + rad, rad, 3 * math.pi / 2, 2 * math.pi)
+            cr.arc(bx + bar_w - rad, h - rad, rad, 0, math.pi / 2)
+            cr.arc(bx + rad, h - rad, rad, math.pi / 2, math.pi)
+            cr.close_path()
+            cr.fill()
+
+    def on_visualizer_tick(self):
+        if self.media_data["status"] == "Playing":
+            self.vis_area.queue_draw()
+        return True
+
+    def on_media_tick(self):
+        self.update_media_state()
+        return True
+
+    def update_media_state(self):
+        old_url = self.media_data.get("art_url", "")
+        self.media_data = get_media_info()
+        self.source_lbl.set_text(f"{self.media_data['player'].upper()} (MPRIS)")
+        self.track_title_lbl.set_text(self.media_data["title"])
+        self.track_artist_lbl.set_text(self.media_data["artist"])
+        self.play_btn.set_label("󰏤" if self.media_data["status"] == "Playing" else "󰐊")
+
+        if self.media_data.get("art_url") != old_url:
+            self.load_album_art()
+            self.cover_area.queue_draw()
+
+        if not self.is_scrubbing:
+            dur = max(1, self.media_data["duration"])
+            pos = min(self.media_data["position"], dur)
+            self.scrubber.set_range(0, dur)
+            self.scrubber.set_value(pos)
+            self.time_cur_lbl.set_text(format_time(pos))
+            self.time_dur_lbl.set_text(format_time(self.media_data["duration"]))
+
+    def on_scrubber_press(self, widget, event):
+        self.is_scrubbing = True
+        return False
+
+    def on_scrubber_release(self, widget, event):
+        val = int(self.scrubber.get_value())
+        subprocess.run(["playerctl", "position", str(val)], stderr=subprocess.DEVNULL)
+        self.is_scrubbing = False
+        return False
+
+    def on_scrubber_changed(self, scale):
+        if self.is_scrubbing:
+            val = int(scale.get_value())
+            self.time_cur_lbl.set_text(format_time(val))
+
+    def on_media_play(self, btn):
+        subprocess.run(["playerctl", "play-pause"], stderr=subprocess.DEVNULL)
+        self.update_media_state()
+
+    def on_media_prev(self, btn):
+        subprocess.run(["playerctl", "previous"], stderr=subprocess.DEVNULL)
+        self.update_media_state()
+
+    def on_media_next(self, btn):
+        subprocess.run(["playerctl", "next"], stderr=subprocess.DEVNULL)
+        self.update_media_state()
+
+    def on_shuffle_clicked(self, btn):
+        subprocess.run(["playerctl", "shuffle", "toggle"], stderr=subprocess.DEVNULL)
+        try:
+            out = subprocess.check_output(["playerctl", "shuffle"], stderr=subprocess.DEVNULL, text=True).strip()
+            if out.lower() == "on":
+                btn.get_style_context().add_class("active")
+            else:
+                btn.get_style_context().remove_class("active")
+        except Exception:
+            pass
+
+    def on_repeat_clicked(self, btn):
+        try:
+            mode = subprocess.check_output(["playerctl", "loop"], stderr=subprocess.DEVNULL, text=True).strip()
+            new_mode = "Track" if mode == "None" else ("Playlist" if mode == "Track" else "None")
+            subprocess.run(["playerctl", "loop", new_mode], stderr=subprocess.DEVNULL)
+            if new_mode in ("Track", "Playlist"):
+                btn.get_style_context().add_class("active")
+            else:
+                btn.get_style_context().remove_class("active")
+        except Exception:
+            pass
+
+    # -----------------------------------------------------
+    # 3. Sliders Box (Volume, Microphone, Brightness)
+    # -----------------------------------------------------
     def create_sliders(self):
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        box.get_style_context().add_class("sliders-box")
 
-        # 1. Volume Card (Lucide volume-2 / volume-x)
-        vol_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        vol_box.get_style_context().add_class("slider-row")
-
+        # Master Audio
+        vol_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        vol_row.get_style_context().add_class("slider-row")
         vol_val = get_volume()
-        is_muted = get_mute()
+        vol_mute = get_sink_mute()
 
-        self.vol_btn = Gtk.Button(label="" if is_muted else "")
-        self.vol_btn.get_style_context().add_class("slider-btn")
-        self.vol_btn.connect("clicked", self.on_mute_clicked)
-        vol_box.pack_start(self.vol_btn, False, False, 0)
+        self.vol_btn = Gtk.Button(label="󰝟" if vol_mute else "󰕾")
+        self.vol_btn.get_style_context().add_class("slider-icon-btn")
+        self.vol_btn.connect("clicked", self.on_vol_mute_clicked)
+        vol_row.pack_start(self.vol_btn, False, False, 0)
 
         self.vol_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
-        self.vol_scale.set_value(0 if is_muted else vol_val)
+        self.vol_scale.set_value(0 if vol_mute else vol_val)
         self.vol_scale.set_draw_value(False)
-        self.vol_scale.connect("value-changed", self.on_volume_changed)
-        vol_box.pack_start(self.vol_scale, True, True, 0)
+        self.vol_scale.connect("value-changed", self.on_vol_changed)
+        vol_row.pack_start(self.vol_scale, True, True, 0)
 
         self.vol_lbl = Gtk.Label(label=f"{vol_val}%", xalign=1)
         self.vol_lbl.get_style_context().add_class("slider-val")
-        vol_box.pack_start(self.vol_lbl, False, False, 0)
+        vol_row.pack_start(self.vol_lbl, False, False, 0)
+        box.pack_start(vol_row, False, False, 0)
 
-        vbox.pack_start(vol_box, False, False, 0)
+        # Microphone Input
+        mic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        mic_row.get_style_context().add_class("slider-row")
+        mic_val = get_mic_volume()
+        mic_mute = get_mic_mute()
 
-        # 2. Brightness Card (Lucide sun)
-        br_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        br_box.get_style_context().add_class("slider-row")
+        self.mic_btn = Gtk.Button(label="󰍭" if mic_mute else "󰍬")
+        self.mic_btn.get_style_context().add_class("slider-icon-btn")
+        self.mic_btn.connect("clicked", self.on_mic_mute_clicked)
+        mic_row.pack_start(self.mic_btn, False, False, 0)
 
-        br_btn = Gtk.Button(label="")
-        br_btn.get_style_context().add_class("slider-btn")
-        br_btn.get_style_context().add_class("slider-btn-bright")
-        br_box.pack_start(br_btn, False, False, 0)
+        self.mic_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+        self.mic_scale.set_value(0 if mic_mute else mic_val)
+        self.mic_scale.set_draw_value(False)
+        self.mic_scale.connect("value-changed", self.on_mic_changed)
+        mic_row.pack_start(self.mic_scale, True, True, 0)
 
+        self.mic_lbl = Gtk.Label(label=f"{mic_val}%", xalign=1)
+        self.mic_lbl.get_style_context().add_class("slider-val")
+        mic_row.pack_start(self.mic_lbl, False, False, 0)
+        box.pack_start(mic_row, False, False, 0)
+
+        # Display Brightness
+        br_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        br_row.get_style_context().add_class("slider-row")
         br_val = get_brightness()
-        self.br_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 10, 100, 1)
+
+        br_btn = Gtk.Button(label="󰃠")
+        br_btn.get_style_context().add_class("slider-icon-btn")
+        br_btn.get_style_context().add_class("slider-icon-bright")
+        br_row.pack_start(br_btn, False, False, 0)
+
+        self.br_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 5, 100, 1)
         self.br_scale.set_value(br_val)
         self.br_scale.set_draw_value(False)
         self.br_scale.connect("value-changed", self.on_brightness_changed)
-        br_box.pack_start(self.br_scale, True, True, 0)
+        br_row.pack_start(self.br_scale, True, True, 0)
 
         self.br_lbl = Gtk.Label(label=f"{br_val}%", xalign=1)
         self.br_lbl.get_style_context().add_class("slider-val")
-        br_box.pack_start(self.br_lbl, False, False, 0)
+        br_row.pack_start(self.br_lbl, False, False, 0)
+        box.pack_start(br_row, False, False, 0)
 
-        vbox.pack_start(br_box, False, False, 0)
+        return box
 
-        return vbox
+    def on_vol_mute_clicked(self, btn):
+        toggle_sink_mute()
+        muted = get_sink_mute()
+        val = get_volume()
+        self.vol_btn.set_label("󰝟" if muted else "󰕾")
+        self.vol_scale.set_value(0 if muted else val)
+        self.vol_lbl.set_text(f"{val}%")
 
-    def on_mute_clicked(self, widget):
-        toggle_mute()
-        muted = get_mute()
-        vol = get_volume()
-        self.vol_btn.set_label("" if muted else "")
-        self.vol_lbl.set_text("0%" if muted else f"{vol}%")
-        self.vol_scale.set_value(0 if muted else vol)
-
-    def on_volume_changed(self, scale):
+    def on_vol_changed(self, scale):
         val = int(scale.get_value())
         set_volume(val)
         self.vol_lbl.set_text(f"{val}%")
         if val > 0:
-            self.vol_btn.set_label("")
+            self.vol_btn.set_label("󰕾")
+
+    def on_mic_mute_clicked(self, btn):
+        toggle_mic_mute()
+        muted = get_mic_mute()
+        val = get_mic_volume()
+        self.mic_btn.set_label("󰍭" if muted else "󰍬")
+        self.mic_scale.set_value(0 if muted else val)
+        self.mic_lbl.set_text(f"{val}%")
+
+    def on_mic_changed(self, scale):
+        val = int(scale.get_value())
+        set_mic_volume(val)
+        self.mic_lbl.set_text(f"{val}%")
+        if val > 0:
+            self.mic_btn.set_label("󰍬")
 
     def on_brightness_changed(self, scale):
         val = int(scale.get_value())
         set_brightness(val)
         self.br_lbl.set_text(f"{val}%")
 
-    def create_media_player(self):
-        card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        card.get_style_context().add_class("media-card")
+    # -----------------------------------------------------
+    # 4. Quick Toggles Grid (4x2 = 8 tiles)
+    # -----------------------------------------------------
+    def create_toggles(self):
+        grid = Gtk.Grid()
+        grid.set_column_spacing(6)
+        grid.set_row_spacing(6)
+        grid.set_column_homogeneous(True)
+        grid.set_row_homogeneous(True)
 
-        icon = Gtk.Label(label="")
-        icon.get_style_context().add_class("media-icon")
-        card.pack_start(icon, False, False, 0)
+        # 1. Wi-Fi
+        is_wifi = get_wifi_status()
+        self.wifi_btn, self.wifi_icon_lbl = self.make_toggle_tile("󰤨" if is_wifi else "󰤭", "Wi-Fi", is_wifi)
+        self.wifi_btn.connect("button-press-event", self.on_wifi_press)
+        grid.attach(self.wifi_btn, 0, 0, 1, 1)
 
-        status, text = get_media_info()
-        self.media_title_lbl = Gtk.Label(label=text, xalign=0)
-        self.media_title_lbl.set_ellipsize(Pango.EllipsizeMode.END)
-        self.media_title_lbl.set_max_width_chars(20)
-        self.media_title_lbl.get_style_context().add_class("media-title")
-        card.pack_start(self.media_title_lbl, True, True, 0)
+        # 2. Bluetooth
+        is_bt = get_bluetooth_status()
+        self.bt_btn, self.bt_icon_lbl = self.make_toggle_tile("󰂯" if is_bt else "󰂲", "Bluetooth", is_bt)
+        self.bt_btn.connect("clicked", self.on_bluetooth_clicked)
+        grid.attach(self.bt_btn, 1, 0, 1, 1)
 
-        prev_btn = Gtk.Button(label="")
-        prev_btn.get_style_context().add_class("media-btn")
-        prev_btn.connect("clicked", self.on_media_prev)
-        card.pack_start(prev_btn, False, False, 0)
+        # 3. Hening / DND
+        is_dnd = get_dnd()
+        self.dnd_btn, self.dnd_icon_lbl = self.make_toggle_tile("󰂛" if is_dnd else "󰂚", "Hening", is_dnd)
+        self.dnd_btn.connect("clicked", self.on_dnd_clicked)
+        grid.attach(self.dnd_btn, 2, 0, 1, 1)
 
-        self.play_btn = Gtk.Button(label="" if status != "Playing" else "")
-        self.play_btn.get_style_context().add_class("media-btn")
-        self.play_btn.connect("clicked", self.on_media_play)
-        card.pack_start(self.play_btn, False, False, 0)
+        # 4. Night Light / Malam
+        is_night = get_night_light()
+        self.night_btn, self.night_icon_lbl = self.make_toggle_tile("󰛨", "Malam", is_night)
+        self.night_btn.connect("clicked", self.on_night_clicked)
+        grid.attach(self.night_btn, 3, 0, 1, 1)
 
-        next_btn = Gtk.Button(label="")
-        next_btn.get_style_context().add_class("media-btn")
-        next_btn.connect("clicked", self.on_media_next)
-        card.pack_start(next_btn, False, False, 0)
+        # 5. Game Mode
+        is_game = get_game_mode()
+        self.game_btn, self.game_icon_lbl = self.make_toggle_tile("󰊴", "Game Mode", is_game)
+        self.game_btn.connect("clicked", self.on_game_clicked)
+        grid.attach(self.game_btn, 0, 1, 1, 1)
 
-        return card
+        # 6. Floating Layout
+        self.float_btn, _ = self.make_toggle_tile("󱂬", "Floating", False)
+        self.float_btn.connect("clicked", self.on_floating_clicked)
+        grid.attach(self.float_btn, 1, 1, 1, 1)
 
-    def on_media_prev(self, widget):
-        subprocess.run(["playerctl", "previous"], stderr=subprocess.DEVNULL)
-        self.update_media()
+        # 7. Screenshot / Tangkapan
+        bin_dir = os.path.expanduser("~/.local/bin")
+        sc_btn, _ = self.make_toggle_tile("󰹑", "Tangkapan", False)
+        sc_btn.connect("clicked", lambda w: (self.hide(), GLib.timeout_add(150, lambda: (subprocess.Popen([os.path.join(bin_dir, "screenshot"), "select"]), self.close_and_exit()))))
+        grid.attach(sc_btn, 2, 1, 1, 1)
 
-    def on_media_play(self, widget):
-        subprocess.run(["playerctl", "play-pause"], stderr=subprocess.DEVNULL)
-        self.update_media()
+        # 8. Wallpaper
+        wall_btn, _ = self.make_toggle_tile("󰸉", "Wallpaper", False)
+        wall_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "wallpaper-selector")])))
+        grid.attach(wall_btn, 3, 1, 1, 1)
 
-    def on_media_next(self, widget):
-        subprocess.run(["playerctl", "next"], stderr=subprocess.DEVNULL)
-        self.update_media()
+        return grid
 
-    def update_media(self):
-        status, text = get_media_info()
-        self.media_title_lbl.set_text(text)
-        self.play_btn.set_label("" if status != "Playing" else "")
+    def make_toggle_tile(self, icon, label, is_active=False):
+        btn = Gtk.Button()
+        btn.get_style_context().add_class("toggle-tile")
+        if is_active:
+            btn.get_style_context().add_class("active")
 
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vbox.set_valign(Gtk.Align.CENTER)
+
+        icon_lbl = Gtk.Label(label=icon)
+        icon_lbl.get_style_context().add_class("toggle-icon")
+        vbox.pack_start(icon_lbl, False, False, 0)
+
+        text_lbl = Gtk.Label(label=label)
+        text_lbl.get_style_context().add_class("toggle-label")
+        vbox.pack_start(text_lbl, False, False, 0)
+
+        btn.add(vbox)
+        return btn, icon_lbl
+
+    def on_wifi_press(self, widget, event):
+        if event.button == 3:  # Right-click opens network-menu
+            self.close_and_exit()
+            subprocess.Popen([os.path.expanduser("~/.local/bin/network-menu")])
+            return True
+        elif event.button == 1:  # Left-click toggles wifi
+            new_state = toggle_wifi()
+            if new_state:
+                self.wifi_btn.get_style_context().add_class("active")
+                self.wifi_icon_lbl.set_text("󰤨")
+            else:
+                self.wifi_btn.get_style_context().remove_class("active")
+                self.wifi_icon_lbl.set_text("󰤭")
+            return True
+        return False
+
+    def on_bluetooth_clicked(self, btn):
+        new_state = toggle_bluetooth()
+        if new_state:
+            self.bt_btn.get_style_context().add_class("active")
+            self.bt_icon_lbl.set_text("󰂯")
+        else:
+            self.bt_btn.get_style_context().remove_class("active")
+            self.bt_icon_lbl.set_text("󰂲")
+
+    def on_dnd_clicked(self, btn):
+        new_state = toggle_dnd()
+        if new_state:
+            self.dnd_btn.get_style_context().add_class("active")
+            self.dnd_icon_lbl.set_text("󰂛")
+        else:
+            self.dnd_btn.get_style_context().remove_class("active")
+            self.dnd_icon_lbl.set_text("󰂚")
+
+    def on_night_clicked(self, btn):
+        new_state = toggle_night_light()
+        if new_state:
+            self.night_btn.get_style_context().add_class("active")
+        else:
+            self.night_btn.get_style_context().remove_class("active")
+
+    def on_game_clicked(self, btn):
+        new_state = toggle_game_mode()
+        if new_state:
+            self.game_btn.get_style_context().add_class("active")
+        else:
+            self.game_btn.get_style_context().remove_class("active")
+
+    def on_floating_clicked(self, btn):
+        subprocess.run(["i3-msg", "floating", "toggle"], stderr=subprocess.DEVNULL)
+
+    # -----------------------------------------------------
+    # 5. System Telemetry Row
+    # -----------------------------------------------------
+    def create_telemetry(self):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        row.set_homogeneous(True)
+
+        # CPU Card
+        cpu_usage, cpu_brand = get_cpu_info()
+        self.cpu_frac = cpu_usage / 100.0
+        self.cpu_val_lbl, self.cpu_meter, cpu_card = self.make_stat_card("CPU", cpu_brand, f"{cpu_usage}%", lambda: self.cpu_frac)
+        row.pack_start(cpu_card, True, True, 0)
+
+        # RAM Card
+        ram_used, ram_pct, ram_frac = get_ram_info()
+        self.ram_frac = ram_frac
+        self.ram_val_lbl, self.ram_meter, ram_card = self.make_stat_card("RAM", "DDR", ram_used, lambda: self.ram_frac)
+        row.pack_start(ram_card, True, True, 0)
+
+        # BAT / TEMP Card
+        has_bat, bat_cap, bat_stat, temp_c = get_battery_and_temp()
+        self.bat_frac = bat_cap / 100.0
+        bat_str = f"{bat_cap}% 󱐋" if "Charging" in bat_stat else f"{bat_cap}%"
+        self.bat_val_lbl, self.bat_meter, bat_card = self.make_stat_card("BAT", f"{temp_c}°C", bat_str, lambda: self.bat_frac)
+        row.pack_start(bat_card, True, True, 0)
+
+        return row
+
+    def make_stat_card(self, title, subtitle, value_str, get_frac):
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        card.get_style_context().add_class("stat-badge")
+
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        t_lbl = Gtk.Label(label=title, xalign=0)
+        t_lbl.get_style_context().add_class("stat-name")
+        s_lbl = Gtk.Label(label=subtitle, xalign=1)
+        s_lbl.get_style_context().add_class("stat-sub")
+        header.pack_start(t_lbl, True, True, 0)
+        header.pack_start(s_lbl, False, False, 0)
+        card.pack_start(header, False, False, 0)
+
+        v_lbl = Gtk.Label(label=value_str, xalign=0)
+        v_lbl.get_style_context().add_class("stat-val")
+        card.pack_start(v_lbl, False, False, 0)
+
+        # Thin 4px pill meter using Cairo DrawingArea (no 150px constraint)
+        meter = Gtk.DrawingArea()
+        meter.set_size_request(-1, 4)
+        def draw_meter(w_meter, cr):
+            w = w_meter.get_allocated_width()
+            h = w_meter.get_allocated_height()
+            rad = h / 2.0
+            # Background trough
+            tr, tg, tb = self.current_theme.get("meter_trough_rgb", (0.2, 0.2, 0.25))
+            cr.set_source_rgba(tr, tg, tb, 1.0)
+            cr.new_sub_path()
+            cr.arc(rad, rad, rad, math.pi / 2, 3 * math.pi / 2)
+            cr.arc(w - rad, rad, rad, -math.pi / 2, math.pi / 2)
+            cr.close_path()
+            cr.fill()
+
+            # Fill bar
+            frac = max(0.0, min(1.0, get_frac()))
+            fill_w = w * frac
+            if fill_w > rad * 2:
+                ar, ag, ab = self.current_theme.get("accent_rgb", (0.8, 0.65, 0.97))
+                cr.set_source_rgba(ar, ag, ab, 1.0)
+                cr.new_sub_path()
+                cr.arc(rad, rad, rad, math.pi / 2, 3 * math.pi / 2)
+                cr.arc(fill_w - rad, rad, rad, -math.pi / 2, math.pi / 2)
+                cr.close_path()
+                cr.fill()
+
+        meter.connect("draw", draw_meter)
+        card.pack_start(meter, False, False, 0)
+
+        return v_lbl, meter, card
+
+    def on_telemetry_tick(self):
+        cpu_usage, _ = get_cpu_info()
+        self.cpu_frac = cpu_usage / 100.0
+        self.cpu_val_lbl.set_text(f"{cpu_usage}%")
+        self.cpu_meter.queue_draw()
+
+        ram_used, _, ram_frac = get_ram_info()
+        self.ram_frac = ram_frac
+        self.ram_val_lbl.set_text(ram_used)
+        self.ram_meter.queue_draw()
+
+        has_bat, bat_cap, bat_stat, temp_c = get_battery_and_temp()
+        self.bat_frac = bat_cap / 100.0
+        bat_str = f"{bat_cap}% 󱐋" if "Charging" in bat_stat else f"{bat_cap}%"
+        self.bat_val_lbl.set_text(bat_str)
+        self.bat_meter.queue_draw()
+
+        self.host_meta_lbl.set_text(f"X11 · Up {get_uptime()}")
+        return True
+
+    # -----------------------------------------------------
+    # 6. Power Profiles
+    # -----------------------------------------------------
+    def create_power_profiles(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        box.get_style_context().add_class("power-profiles")
+        box.set_homogeneous(True)
+
+        current_prof = get_power_profile()
+
+        self.prof_perf_btn = Gtk.Button(label="Performance")
+        self.prof_perf_btn.get_style_context().add_class("profile-pill")
+        if current_prof == "performance":
+            self.prof_perf_btn.get_style_context().add_class("active")
+        self.prof_perf_btn.connect("clicked", lambda w: self.on_profile_set("performance"))
+        box.pack_start(self.prof_perf_btn, True, True, 0)
+
+        self.prof_bal_btn = Gtk.Button(label="Balanced")
+        self.prof_bal_btn.get_style_context().add_class("profile-pill")
+        if current_prof == "balanced":
+            self.prof_bal_btn.get_style_context().add_class("active")
+        self.prof_bal_btn.connect("clicked", lambda w: self.on_profile_set("balanced"))
+        box.pack_start(self.prof_bal_btn, True, True, 0)
+
+        self.prof_sav_btn = Gtk.Button(label="Hemat Daya")
+        self.prof_sav_btn.get_style_context().add_class("profile-pill")
+        if current_prof == "power-saver":
+            self.prof_sav_btn.get_style_context().add_class("active")
+        self.prof_sav_btn.connect("clicked", lambda w: self.on_profile_set("power-saver"))
+        box.pack_start(self.prof_sav_btn, True, True, 0)
+
+        return box
+
+    def on_profile_set(self, profile):
+        set_power_profile(profile)
+        for b in (self.prof_perf_btn, self.prof_bal_btn, self.prof_sav_btn):
+            b.get_style_context().remove_class("active")
+
+        if profile == "performance":
+            self.prof_perf_btn.get_style_context().add_class("active")
+        elif profile == "balanced":
+            self.prof_bal_btn.get_style_context().add_class("active")
+        elif profile == "power-saver":
+            self.prof_sav_btn.get_style_context().add_class("active")
+
+    # -----------------------------------------------------
+    # 7. Footer Metadata
+    # -----------------------------------------------------
+    def create_footer(self):
+        footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        footer.get_style_context().add_class("panel-footer")
+
+        l_lbl = Gtk.Label(label="i3wm · X11", xalign=0)
+        l_lbl.get_style_context().add_class("footer-text")
+        footer.pack_start(l_lbl, True, True, 0)
+
+        r_lbl = Gtk.Label(label="Mod + C", xalign=1)
+        r_lbl.get_style_context().add_class("footer-text")
+        footer.pack_start(r_lbl, False, False, 0)
+
+        return footer
+
+    # -----------------------------------------------------
+    # Window Interaction & Grab
+    # -----------------------------------------------------
     def on_key_press(self, widget, event):
         if event.keyval in (Gdk.KEY_Escape,):
             self.close_and_exit()
@@ -817,6 +1767,22 @@ class ControlCenter(Gtk.Window):
             except Exception:
                 pass
 
+# ---------------------------------------------------------
+# Entry Point
+# ---------------------------------------------------------
 if __name__ == "__main__":
+    if os.path.exists(PID_FILE):
+        try:
+            with open(PID_FILE, "r") as f:
+                old_pid = int(f.read().strip())
+            os.remove(PID_FILE)
+            os.kill(old_pid, signal.SIGTERM)
+            sys.exit(0)
+        except Exception:
+            pass
+
+    with open(PID_FILE, "w") as f:
+        f.write(str(os.getpid()))
+
     win = ControlCenter()
     Gtk.main()
