@@ -22,7 +22,7 @@ from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo, GdkPixbuf
 THEMES = {
     "catppuccin": {
         "name": "Catppuccin Mocha",
-        "bg_card": "rgba(24, 24, 37, 0.94)",
+        "bg_card": "rgba(30, 30, 46, 0.82)",
         "bg_surface": "#1e1e2e",
         "bg_hover": "#313244",
         "border_color": "rgba(203, 166, 247, 0.20)",
@@ -182,13 +182,13 @@ def get_uptime():
     try:
         out = subprocess.check_output(["uptime", "-p"], stderr=subprocess.DEVNULL, text=True).strip()
         out = out.replace("up ", "")
-        out = re.sub(r" hours?", "j", out)
+        out = re.sub(r" hours?", "h", out)
         out = re.sub(r" minutes?", "m", out)
         out = re.sub(r" days?", "d", out)
         out = out.replace(",", "")
         return out
     except Exception:
-        return "Aktif"
+        return "Active"
 
 def get_volume():
     try:
@@ -661,7 +661,7 @@ class ControlCenter(Gtk.Window):
         }}
         #main-panel {{
             background-color: {t["bg_card"]};
-            border: 1px solid {t["border_color"]};
+            border: 2px solid #cba6f7;
             border-radius: 16px;
             padding: 12px;
             min-width: 380px;
@@ -710,28 +710,6 @@ class ControlCenter(Gtk.Window):
         .power-btn:hover {{
             background-color: {t["danger"]};
             color: {t["accent_contrast"]};
-        }}
-        combobox {{
-            background-color: {t["bg_surface"]};
-            color: {t["text_primary"]};
-            border: 1px solid {t["border_color"]};
-            border-radius: 8px;
-            padding: 1px 4px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-        }}
-        combobox button {{
-            background-color: transparent;
-            border: none;
-            color: {t["text_primary"]};
-            box-shadow: none;
-            padding: 1px 2px;
-        }}
-        combobox menu {{
-            background-color: {t["bg_surface"]};
-            color: {t["text_primary"]};
-            border: 1px solid {t["border_color"]};
-            border-radius: 8px;
         }}
 
         /* Music Card */
@@ -1000,14 +978,6 @@ class ControlCenter(Gtk.Window):
         # Header actions
         actions_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
 
-        # Theme Dropdown
-        theme_combo = Gtk.ComboBoxText()
-        for k, v in THEMES.items():
-            theme_combo.append(k, v["name"])
-        theme_combo.set_active_id(self.current_theme_key)
-        theme_combo.connect("changed", self.on_theme_selected)
-        actions_box.pack_start(theme_combo, False, False, 0)
-
         bin_dir = os.path.expanduser("~/.local/bin")
 
         # Lock button
@@ -1016,7 +986,7 @@ class ControlCenter(Gtk.Window):
         if lock_btn.get_child():
             lock_btn.get_child().set_halign(Gtk.Align.CENTER)
             lock_btn.get_child().set_valign(Gtk.Align.CENTER)
-        lock_btn.set_tooltip_text("Kunci Layar")
+        lock_btn.set_tooltip_text("Lock Screen")
         lock_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "lockscreen")])))
         actions_box.pack_start(lock_btn, False, False, 0)
 
@@ -1027,7 +997,7 @@ class ControlCenter(Gtk.Window):
         if power_btn.get_child():
             power_btn.get_child().set_halign(Gtk.Align.CENTER)
             power_btn.get_child().set_valign(Gtk.Align.CENTER)
-        power_btn.set_tooltip_text("Menu Daya")
+        power_btn.set_tooltip_text("Power Menu")
         power_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "powermenu")])))
         actions_box.pack_start(power_btn, False, False, 0)
 
@@ -1438,15 +1408,15 @@ class ControlCenter(Gtk.Window):
         self.bt_btn.connect("clicked", self.on_bluetooth_clicked)
         grid.attach(self.bt_btn, 1, 0, 1, 1)
 
-        # 3. Hening / DND
+        # 3. DND
         is_dnd = get_dnd()
-        self.dnd_btn, self.dnd_icon_lbl = self.make_toggle_tile("󰂛" if is_dnd else "󰂚", "Hening", is_dnd)
+        self.dnd_btn, self.dnd_icon_lbl = self.make_toggle_tile("󰂛" if is_dnd else "󰂚", "DND", is_dnd)
         self.dnd_btn.connect("clicked", self.on_dnd_clicked)
         grid.attach(self.dnd_btn, 2, 0, 1, 1)
 
-        # 4. Night Light / Malam
+        # 4. Night Light
         is_night = get_night_light()
-        self.night_btn, self.night_icon_lbl = self.make_toggle_tile("󰛨", "Malam", is_night)
+        self.night_btn, self.night_icon_lbl = self.make_toggle_tile("󰛨", "Night Light", is_night)
         self.night_btn.connect("clicked", self.on_night_clicked)
         grid.attach(self.night_btn, 3, 0, 1, 1)
 
@@ -1461,9 +1431,9 @@ class ControlCenter(Gtk.Window):
         self.float_btn.connect("clicked", self.on_floating_clicked)
         grid.attach(self.float_btn, 1, 1, 1, 1)
 
-        # 7. Screenshot / Tangkapan
+        # 7. Screenshot
         bin_dir = os.path.expanduser("~/.local/bin")
-        sc_btn, _ = self.make_toggle_tile("󰹑", "Tangkapan", False)
+        sc_btn, _ = self.make_toggle_tile("󰹑", "Screenshot", False)
         sc_btn.connect("clicked", lambda w: (self.hide(), GLib.timeout_add(150, lambda: (subprocess.Popen([os.path.join(bin_dir, "screenshot"), "select"]), self.close_and_exit()))))
         grid.attach(sc_btn, 2, 1, 1, 1)
 
@@ -1667,7 +1637,7 @@ class ControlCenter(Gtk.Window):
         self.prof_bal_btn.connect("clicked", lambda w: self.on_profile_set("balanced"))
         box.pack_start(self.prof_bal_btn, True, True, 0)
 
-        self.prof_sav_btn = Gtk.Button(label="Hemat Daya")
+        self.prof_sav_btn = Gtk.Button(label="Power Saver")
         self.prof_sav_btn.get_style_context().add_class("profile-pill")
         if current_prof == "power-saver":
             self.prof_sav_btn.get_style_context().add_class("active")
