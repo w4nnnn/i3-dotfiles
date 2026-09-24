@@ -1,5 +1,5 @@
 /**
- * Catppuccin Mocha - Modern Clipboard Manager Theme
+ * Catppuccin Mocha - Modern Clipboard Manager Theme (Aligned Design System)
  **/
 
 configuration {
@@ -14,10 +14,10 @@ configuration {
     surface0:       #313244d0;
     surface1:       #45475a;
     border-col:     #cba6f7;
+    mauve:          #cba6f7;
     fg:             #cdd6f4;
     subtext:        #a6adc8;
     overlay:        #6c7086;
-    mauve:          #cba6f7;
     blue:           #89b4fa;
     red:            #f38ba8;
     crust:          #11111b;
@@ -39,7 +39,7 @@ window {
     border-color:       @mauve;
     border-radius:      16px;
     background-color:   @bg;
-    padding:            18px;
+    padding:            20px;
 }
 
 mainbox {
@@ -50,7 +50,7 @@ mainbox {
 
 inputbar {
     background-color:   @surface0;
-    border-radius:      10px;
+    border-radius:      12px;
     padding:            10px 14px;
     spacing:            10px;
     children:           [ "prompt", "entry" ];
@@ -74,8 +74,8 @@ entry {
 
 message {
     background-color:   @surface0;
-    border-radius:      8px;
-    padding:            6px 12px;
+    border-radius:      10px;
+    padding:            8px 14px;
 }
 
 textbox {
@@ -83,6 +83,7 @@ textbox {
     text-color:         @subtext;
     font:               "JetBrainsMono Nerd Font 9.5";
     horizontal-align:   0.0;
+    vertical-align:     0.5;
 }
 
 listview {
@@ -93,6 +94,7 @@ listview {
     cycle:              true;
     dynamic:            true;
     scrollbar:          false;
+    fixed-height:       false;
 }
 
 element {
@@ -102,6 +104,8 @@ element {
     padding:            8px 12px;
     cursor:             pointer;
     spacing:            10px;
+    border:             1.5px solid;
+    border-color:       transparent;
 }
 
 element-icon {
@@ -122,8 +126,10 @@ element-text {
 element selected.normal {
     background-color:   @mauve;
     text-color:         @crust;
+    border-color:       @mauve;
 }
 
 element selected.normal element-text {
     text-color:         @crust;
+    highlight:          bold underline #11111b;
 }
