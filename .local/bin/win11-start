@@ -126,7 +126,7 @@ class Win11StartMenu(Gtk.Window):
 
     def on_size_allocate(self, widget, alloc):
         w, h = alloc.width, alloc.height
-        r = 18
+        r = 16
         surf = cairo.ImageSurface(cairo.FORMAT_A1, w, h)
         cr = cairo.Context(surf)
         cr.set_source_rgba(0, 0, 0, 0)
@@ -166,28 +166,38 @@ class Win11StartMenu(Gtk.Window):
         }
         #start-window {
             background-color: rgba(30, 30, 46, 0.82);
-            border: 1.5px solid #cba6f7;
-            border-radius: 18px;
+            border: 2px solid #cba6f7;
+            border-radius: 16px;
             padding: 0px;
         }
         #search-wrapper {
-            padding: 22px 26px 14px 26px;
+            padding: 20px 26px 16px 26px;
+            border-bottom: 1px solid #313244;
+            margin-bottom: 8px;
         }
         #search-bar {
             background-color: rgba(24, 24, 37, 0.85);
             border: 1px solid #313244;
-            border-bottom: 2px solid #cba6f7;
             border-radius: 8px;
-            padding: 4px 14px;
+            padding: 6px 14px;
+            outline: none;
+            box-shadow: none;
+        }
+        #search-bar:focus-within {
+            border: 1px solid #45475a;
         }
         #search-icon {
             color: #cba6f7;
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 11.5pt;
         }
-        #search-entry {
+        entry,
+        #search-entry,
+        #search-entry:focus {
             background-color: transparent;
             border: none;
+            outline: none;
+            box-shadow: none;
             color: #cdd6f4;
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 10.5pt;
@@ -232,7 +242,7 @@ class Win11StartMenu(Gtk.Window):
         #footer-bar {
             background-color: rgba(24, 24, 37, 0.88);
             border-top: 1px solid #313244;
-            border-radius: 0px 0px 18px 18px;
+            border-radius: 0px 0px 16px 16px;
             padding: 12px 28px;
         }
         .avatar-circle {
