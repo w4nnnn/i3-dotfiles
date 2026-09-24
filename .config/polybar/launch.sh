@@ -41,13 +41,12 @@ fi
 # Launch Polybar, using default config location ~/.config/polybar/config.ini
 polybar main >> /tmp/polybar.log 2>&1 &
 
-# Calculate dynamic screen viewport dimensions for xcorners
-SCREEN_H=$(xrandr --current 2>/dev/null | grep '\*' | awk '{print $1}' | cut -d'x' -f2 | head -n 1)
-SCREEN_W=$(xrandr --current 2>/dev/null | grep '\*' | awk '{print $1}' | cut -d'x' -f1 | head -n 1)
-SCREEN_H=${SCREEN_H:-768}
-SCREEN_W=${SCREEN_W:-1366}
-BAR_H=36
-CORNER_H=$((SCREEN_H - BAR_H))
+# Calculate dynamic screen resolution for xcorners
+SCREEN_W=$(xrandr --current 2>/dev/null | grep -oP '\d+(?=x\d+\s+.*\*)' | head -n 1)
+SCREEN_H=$(xrandr --current 2>/dev/null | grep -oP '\d+x\K\d+(?=\s+.*\*)' | head -n 1)
+SCREEN_W="${SCREEN_W:-1366}"
+SCREEN_H="${SCREEN_H:-768}"
+VIEWPORT_H=$((SCREEN_H - 36))
 
 # Launch xcorners for rounded screen viewport corners (radius matches window corner-radius: 12)
-"$HOME/.local/bin/xcorners" -W "$SCREEN_W" -H "$CORNER_H" -y "$BAR_H" -r 12 -c 1e1e2eff -t -b -1 >/dev/null 2>&1 &
+"$HOME/.local/bin/xcorners" -W "$SCREEN_W" -H "$VIEWPORT_H" -y 36 -r 12 -c 1e1e2eff -t -b -1 >/dev/null 2>&1 &
