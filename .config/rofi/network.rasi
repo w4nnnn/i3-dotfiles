@@ -59,8 +59,9 @@ inputbar {
 prompt {
     background-color:           transparent;
     text-color:                 @mauve;
-    font:                       "JetBrainsMono Nerd Font Bold 12";
+    font:                       "lucide 12";
     vertical-align:             0.5;
+    padding:                    0px 4px 0px 2px;
 }
 
 entry {

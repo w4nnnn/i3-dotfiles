@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # ==============================================================================
 # Catppuccin Mocha - Network Manager Menu (HyprWiFi RofiView Style)
-# Inspired by RofiView.tsx design
+# Clean Wi-Fi selector with dedicated Action Menu and quick hotkey controls
 # ==============================================================================
 import os
 import sys
 import subprocess
 import shutil
 import re
+import html
 
 RASI_THEME = os.path.expanduser("~/.config/rofi/network.rasi")
 
@@ -29,20 +30,8 @@ def notify(title, message, icon="network-wireless", urgency="normal"):
         message
     ])
 
-def main():
-    # 1. Toggle behavior: close rofi if already open
-    pgrep_out = run_cmd(["pgrep", "-x", "rofi"])
-    if pgrep_out:
-        subprocess.run(["killall", "-q", "rofi"])
-        sys.exit(0)
-
-    # 2. Check NetworkManager
-    nm_active = subprocess.run(["systemctl", "is-active", "--quiet", "NetworkManager"]).returncode == 0
-    if not nm_active:
-        notify("NetworkManager Inactive", "NetworkManager service is not running.", icon="network-error")
-        sys.exit(1)
-
-    # 3. Detect active connection & IP
+def get_network_state():
+    """Detect default route, active device, connection name, IP, and Wi-Fi status"""
     default_route = run_cmd(["ip", "route"])
     active_dev = ""
     for line in default_route.splitlines():
@@ -60,7 +49,7 @@ def main():
         m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", ip_out)
         if m:
             active_ip = m.group(1)
-        
+
         dev_info = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE,CONNECTION", "dev"])
         for line in dev_info.splitlines():
             parts = line.split(":")
@@ -69,7 +58,6 @@ def main():
                 active_name = parts[2]
                 break
 
-    # 4. Detect Wi-Fi device & radio status
     wifi_dev = ""
     dev_types = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"])
     for line in dev_types.splitlines():
@@ -80,28 +68,224 @@ def main():
 
     wifi_radio = run_cmd(["nmcli", "radio", "wifi"]) if wifi_dev else ""
     wifi_enabled = (wifi_radio == "enabled")
-
-    # 5. Connectivity & Captive Portal Check
     conn_state = run_cmd(["nmcli", "-t", "-f", "CONNECTIVITY", "general", "status"])
 
-    # 6. Format Subheader / mesg (matches RofiView.tsx quick controls bar)
-    # Left: navigation hints. Right: Wi-Fi status button
-    nav_hints = '<span foreground="#6c7086">↑/↓ Navigate   Enter: Connect   Esc: Close</span>'
-    if conn_state == "portal":
-        status_btn = '<span foreground="#f9e2af"><b>󰖟 Captive Portal Required</b></span>'
-    elif wifi_enabled:
-        status_btn = '<span foreground="#a6e3a1"><b>󰐥 Wi-Fi ON</b></span>'
+    return {
+        "active_dev": active_dev,
+        "active_ip": active_ip,
+        "active_type": active_type,
+        "active_name": active_name,
+        "wifi_dev": wifi_dev,
+        "wifi_enabled": wifi_enabled,
+        "conn_state": conn_state,
+    }
+
+def disconnect_active(state):
+    active_name = state["active_name"]
+    active_dev = state["active_dev"]
+    if not active_name and not active_dev:
+        notify("Network", "No active connection to disconnect.", icon="network-offline")
+        return
+    down_res = subprocess.run(["nmcli", "con", "down", "id", active_name], capture_output=True)
+    if down_res.returncode != 0 and active_dev:
+        subprocess.run(["nmcli", "dev", "disconnect", active_dev])
+    notify("Disconnected", f"Disconnected from {active_name or active_dev}.", icon="network-offline")
+
+def open_captive_portal():
+    portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
+    subprocess.Popen([portal_bin])
+
+def toggle_wifi(state):
+    if state["wifi_enabled"]:
+        subprocess.run(["nmcli", "radio", "wifi", "off"])
+        notify("Wi-Fi Disabled", "Wi-Fi radio turned off.", icon="network-wireless-disconnected")
     else:
-        status_btn = '<span foreground="#f38ba8"><b>󰐥 Wi-Fi OFF</b></span>'
+        subprocess.run(["nmcli", "radio", "wifi", "on"])
+        notify("Wi-Fi Enabled", "Scanning for available networks...", icon="network-wireless")
 
-    mesg = f"{nav_hints}{' ' * 14}{status_btn}"
+def rescan_wifi():
+    subprocess.run(["nmcli", "dev", "wifi", "rescan"])
+    notify("Wi-Fi Rescanned", "Network scan completed.", icon="network-wireless")
 
-    # 7. Scan & Parse Wi-Fi Networks
-    network_items = []
+def show_actions_menu(state=None):
+    """Dedicated Quick Actions menu (opened via right-click or on connected network)"""
+    if state is None:
+        state = get_network_state()
+
+    active_name = state["active_name"]
+    active_ip = state["active_ip"]
+    wifi_enabled = state["wifi_enabled"]
+    conn_state = state["conn_state"]
+
     actions = []
 
+    # 1. Disconnect option
+    if active_name:
+        actions.append({
+            "action": "disconnect",
+            "display": f'<span foreground="#f38ba8">󰅖</span>  <b>Disconnect          </b>  <span foreground="#6c7086">({html.escape(active_name)})</span>'
+        })
+        # 2. Captive portal
+        actions.append({
+            "action": "portal",
+            "display": '<span foreground="#89b4fa">󰖟</span>  <b>Captive Portal      </b>  <span weight="bold" foreground="#89b4fa" background="#1e2b44"> BROWSER </span>'
+        })
+
+    # 3. Wi-Fi Toggle
+    if state["wifi_dev"]:
+        if wifi_enabled:
+            actions.append({
+                "action": "wifi_toggle",
+                "display": '<span foreground="#cba6f7">󰤮</span>  <b>Disable Wi-Fi       </b>  <span foreground="#6c7086">[Turn Off Radio]</span>'
+            })
+            actions.append({
+                "action": "rescan",
+                "display": '<span foreground="#b4befe">󰑐</span>  <b>Rescan Networks     </b>  <span foreground="#6c7086">[Refresh Scan]</span>'
+            })
+        else:
+            actions.append({
+                "action": "wifi_toggle",
+                "display": '<span foreground="#a6e3a1">󰤨</span>  <b>Enable Wi-Fi        </b>  <span foreground="#6c7086">[Turn On Radio]</span>'
+            })
+
+    # 4. View SSIDs / Return to Wi-Fi list
+    actions.append({
+        "action": "wifi_list",
+        "display": '<span foreground="#fab387"></span>  <b>Available Wi-Fi...  </b>  <span foreground="#6c7086">[View All Networks]</span>'
+    })
+
+    # 5. Network settings (nmtui)
+    actions.append({
+        "action": "nmtui",
+        "display": '<span foreground="#89b4fa">󰢻</span>  <b>Network Settings    </b>  <span foreground="#6c7086">[nmtui]</span>'
+    })
+
+    # 6. Detailed info popup
+    actions.append({
+        "action": "info",
+        "display": '<span foreground="#a6e3a1">󰌌</span>  <b>Connection Details  </b>  <span foreground="#6c7086">[IP &amp; Stats]</span>'
+    })
+
+    if active_name:
+        status_info = f'<span foreground="#a6adc8">Active: <b>{html.escape(active_name)}</b> ({active_ip or "No IP"})</span>'
+    else:
+        status_info = '<span foreground="#f38ba8"><b>Status: Disconnected</b></span>'
+
+    wifi_status_tag = '<span foreground="#a6e3a1"><b>󰐥 Wi-Fi ON</b></span>' if wifi_enabled else '<span foreground="#f38ba8"><b>󰐥 Wi-Fi OFF</b></span>'
+    mesg = f"{status_info}   ·   {wifi_status_tag}"
+
+    input_payload = "\n".join([a["display"] for a in actions]) + "\n"
+
+    theme_override = 'entry { placeholder: "Search network action..."; } listview { lines: 6; }'
+
+    rofi_proc = subprocess.Popen([
+        "rofi",
+        "-no-config",
+        "-dmenu",
+        "-format", "i",
+        "-theme", RASI_THEME,
+        "-theme-str", theme_override,
+        "-p", "",
+        "-mesg", mesg,
+        "-markup-rows",
+        "-i"
+    ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+
+    stdout, _ = rofi_proc.communicate(input=input_payload)
+    if rofi_proc.returncode != 0 or not stdout.strip().isdigit():
+        sys.exit(0)
+
+    chosen_idx = int(stdout.strip())
+    if 0 <= chosen_idx < len(actions):
+        act = actions[chosen_idx]["action"]
+        if act == "disconnect":
+            disconnect_active(state)
+        elif act == "portal":
+            open_captive_portal()
+        elif act == "wifi_toggle":
+            toggle_wifi(state)
+        elif act == "rescan":
+            rescan_wifi()
+        elif act == "wifi_list":
+            subprocess.Popen([sys.argv[0]])
+        elif act == "nmtui":
+            subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
+        elif act == "info":
+            info_bin = shutil.which("network-info") or os.path.expanduser("~/.local/bin/network-info")
+            subprocess.Popen([info_bin])
+    sys.exit(0)
+
+def main():
+    # 1. Single instance toggle
+    pgrep_out = run_cmd(["pgrep", "-x", "rofi"])
+    if pgrep_out:
+        subprocess.run(["killall", "-q", "rofi"])
+        sys.exit(0)
+
+    # 2. Check NetworkManager
+    nm_active = subprocess.run(["systemctl", "is-active", "--quiet", "NetworkManager"]).returncode == 0
+    if not nm_active:
+        notify("NetworkManager Inactive", "NetworkManager service is not running.", icon="network-error")
+        sys.exit(1)
+
+    state = get_network_state()
+
+    # If called with --actions (right-click on Polybar indicator)
+    if len(sys.argv) > 1 and sys.argv[1] in ("--actions", "-a"):
+        show_actions_menu(state)
+        return
+
+    wifi_dev = state["wifi_dev"]
+    wifi_enabled = state["wifi_enabled"]
+    active_name = state["active_name"]
+    conn_state = state["conn_state"]
+
+    # If Wi-Fi is disabled, show quick toggle screen
+    if wifi_dev and not wifi_enabled:
+        mesg = '<span foreground="#f38ba8"><b>󰐥 Wi-Fi is Disabled</b></span>   ·   <span foreground="#6c7086">Press Enter to Enable</span>'
+        items = [
+            '<span foreground="#a6e3a1">󰤨</span>  <b>Enable Wi-Fi        </b>  <span foreground="#6c7086">[Turn On Radio]</span>',
+            '<span foreground="#89b4fa">󰢻</span>  <b>Network Settings    </b>  <span foreground="#6c7086">[nmtui]</span>'
+        ]
+        rofi_proc = subprocess.Popen([
+            "rofi",
+            "-no-config",
+            "-dmenu",
+            "-format", "i",
+            "-theme", RASI_THEME,
+            "-theme-str", 'listview { lines: 2; }',
+            "-p", "",
+            "-mesg", mesg,
+            "-markup-rows",
+            "-i"
+        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        stdout, _ = rofi_proc.communicate(input="\n".join(items) + "\n")
+        if rofi_proc.returncode == 0 and stdout.strip() == "0":
+            toggle_wifi(state)
+            os.execv(sys.argv[0], sys.argv)
+        sys.exit(0)
+
+    # 3. Format Subheader / mesg right below search input
+    # Shows quick controls bar with hotkey hints
+    if active_name:
+        mesg = (
+            f'<span foreground="#f38ba8">󰅖 Alt+D</span> Disconnect   '
+            f'<span foreground="#89b4fa">󰖟 Alt+P</span> Portal   '
+            f'<span foreground="#a6e3a1">󰐥 Alt+T</span> Wi-Fi ON   '
+            f'<span foreground="#b4befe">󰑐 Alt+R</span> Rescan'
+        )
+    else:
+        mesg = (
+            f'<span foreground="#6c7086">↑/↓ Navigate · Enter Connect</span>   '
+            f'<span foreground="#a6e3a1">󰐥 Alt+T</span> Wi-Fi ON   '
+            f'<span foreground="#b4befe">󰑐 Alt+R</span> Rescan   '
+            f'<span foreground="#89b4fa">󰢻 Alt+S</span> Settings'
+        )
+
+    # 4. Scan & Parse Wi-Fi Networks (100% PURE Wi-Fi list)
+    network_items = []
+
     if wifi_dev and wifi_enabled:
-        # Fast query without hardware rescan
         wifi_output = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list", "--rescan", "no"])
         if not wifi_output.strip():
             wifi_output = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list"])
@@ -138,7 +322,7 @@ def main():
                     raw_networks[ssid]["signal"] = sig_int
                     raw_networks[ssid]["chan"] = chan_int
 
-        # Sort: connected network first, then signal strength descending
+        # Sort: connected first, then signal strength descending
         sorted_nets = sorted(raw_networks.values(), key=lambda x: (not x["in_use"], -x["signal"]))
 
         for net in sorted_nets:
@@ -157,11 +341,12 @@ def main():
             else:
                 icon = '<span foreground="#6c7086">󰤟</span>'
 
-            # SSID (max 20 chars, padded to 20)
-            if len(net["ssid"]) > 20:
-                disp_ssid = net["ssid"][:18] + ".."
+            # SSID (max 20 chars, padded)
+            ssid_clean = net["ssid"]
+            if len(ssid_clean) > 20:
+                disp_ssid = ssid_clean[:18] + ".."
             else:
-                disp_ssid = net["ssid"]
+                disp_ssid = ssid_clean
             disp_ssid_padded = f"{disp_ssid:<20}"
 
             # Connected Badge (11 chars)
@@ -184,7 +369,7 @@ def main():
             # Signal (4 chars)
             sig_markup = f'<span weight="bold" foreground="#ffffff">{sig:>3}%</span>'
 
-            row_text = f"{icon}  <b>{disp_ssid_padded}</b>  {badge_markup}  {band_markup}  {sec_markup}  {sig_markup}"
+            row_text = f"{icon}  <b>{html.escape(disp_ssid_padded)}</b>  {badge_markup}  {band_markup}  {sec_markup}  {sig_markup}"
 
             network_items.append({
                 "type": "wifi",
@@ -194,163 +379,111 @@ def main():
                 "display": row_text
             })
 
-    # 8. Build Action Rows
-    if active_dev and active_name:
-        actions.append({
-            "type": "disconnect",
-            "name": active_name,
-            "dev": active_dev,
-            "display": f'<span foreground="#f38ba8">󰅖</span>  <b>Disconnect          </b>  <span foreground="#6c7086">({active_name})</span>'
-        })
-        actions.append({
-            "type": "portal",
-            "display": '<span foreground="#89b4fa">󰖟</span>  <b>Captive Portal      </b>  <span weight="bold" foreground="#89b4fa" background="#1e2b44"> BROWSER </span>'
-        })
-
-    if wifi_dev:
-        if wifi_enabled:
-            actions.append({
-                "type": "wifi_off",
-                "display": '<span foreground="#cba6f7">󰤮</span>  <b>Disable Wi-Fi       </b>  <span foreground="#6c7086">[Turn Off Radio]</span>'
-            })
-            actions.append({
-                "type": "rescan",
-                "display": '<span foreground="#b4befe">󰑐</span>  <b>Rescan Networks     </b>  <span foreground="#6c7086">[Refresh List]</span>'
-            })
-        else:
-            actions.append({
-                "type": "wifi_on",
-                "display": '<span foreground="#a6e3a1">󰤨</span>  <b>Enable Wi-Fi        </b>  <span foreground="#6c7086">[Turn On Radio]</span>'
-            })
-
-    actions.append({
-        "type": "nmtui",
-        "display": '<span foreground="#89b4fa">󰢻</span>  <b>Network Settings    </b>  <span foreground="#6c7086">[nmtui]</span>'
-    })
-
-    # Combine all items
-    all_entries = network_items + actions
-    if not all_entries:
-        notify("Network", "No network interfaces or Wi-Fi devices found.", icon="network-offline")
+    if not network_items:
+        notify("Wi-Fi", "No Wi-Fi networks found in range.", icon="network-wireless-disconnected")
         sys.exit(0)
 
-    input_payload = "\n".join([item["display"] for item in all_entries]) + "\n"
+    input_payload = "\n".join([item["display"] for item in network_items]) + "\n"
 
-    # 9. Launch Rofi
+    # 5. Launch Rofi with hotkey bindings
     rofi_proc = subprocess.Popen([
         "rofi",
         "-no-config",
         "-dmenu",
         "-format", "i",
         "-theme", RASI_THEME,
-        "-p", "󰖩",
+        "-p", "",
         "-mesg", mesg,
         "-markup-rows",
-        "-i"
+        "-i",
+        "-kb-custom-1", "Alt+d",
+        "-kb-custom-2", "Alt+p",
+        "-kb-custom-3", "Alt+t",
+        "-kb-custom-4", "Alt+r",
+        "-kb-custom-5", "Alt+s"
     ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
 
     stdout, _ = rofi_proc.communicate(input=input_payload)
-    if rofi_proc.returncode != 0 or not stdout.strip().isdigit():
+    ret = rofi_proc.returncode
+
+    # Handle Hotkeys directly
+    if ret == 10:  # Alt+d
+        disconnect_active(state)
         sys.exit(0)
-
-    chosen_idx = int(stdout.strip())
-    if chosen_idx < 0 or chosen_idx >= len(all_entries):
+    elif ret == 11:  # Alt+p
+        open_captive_portal()
         sys.exit(0)
-
-    chosen = all_entries[chosen_idx]
-    c_type = chosen["type"]
-
-    # 10. Execute Chosen Action
-    if c_type == "disconnect":
-        target_name = chosen["name"]
-        target_dev = chosen["dev"]
-        down_res = subprocess.run(["nmcli", "con", "down", "id", target_name], capture_output=True)
-        if down_res.returncode != 0:
-            subprocess.run(["nmcli", "dev", "disconnect", target_dev])
-        notify("Disconnected", f"Disconnected from {target_name}.", icon="network-offline")
+    elif ret == 12:  # Alt+t
+        toggle_wifi(state)
         sys.exit(0)
-
-    elif c_type == "portal":
-        portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
-        subprocess.Popen([portal_bin])
-        sys.exit(0)
-
-    elif c_type == "wifi_off":
-        subprocess.run(["nmcli", "radio", "wifi", "off"])
-        notify("Wi-Fi Disabled", "Wi-Fi radio turned off.", icon="network-wireless-disconnected")
-        sys.exit(0)
-
-    elif c_type == "wifi_on":
-        subprocess.run(["nmcli", "radio", "wifi", "on"])
-        notify("Wi-Fi Enabled", "Scanning for available networks...", icon="network-wireless")
+    elif ret == 13:  # Alt+r
+        rescan_wifi()
         os.execv(sys.argv[0], sys.argv)
-
-    elif c_type == "rescan":
-        subprocess.run(["nmcli", "dev", "wifi", "rescan"])
-        notify("Wi-Fi Rescanned", "Network scan completed.", icon="network-wireless")
-        os.execv(sys.argv[0], sys.argv)
-
-    elif c_type == "nmtui":
+    elif ret == 14:  # Alt+s
         subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
         sys.exit(0)
 
-    elif c_type == "wifi":
-        target_ssid = chosen["ssid"]
-        if chosen["is_conn"]:
-            notify("Already Connected", f"You are already connected to {target_ssid}.", icon="network-wireless")
-            sys.exit(0)
+    if ret != 0 or not stdout.strip().isdigit():
+        sys.exit(0)
 
-        # Check if already saved in NetworkManager connections
-        saved_cons = run_cmd(["nmcli", "-t", "-f", "NAME", "c", "show"]).splitlines()
-        if target_ssid in saved_cons:
-            notify("Connecting...", f"Connecting to saved network: {target_ssid}", icon="network-wireless")
-            res = subprocess.run(["nmcli", "con", "up", "id", target_ssid], capture_output=True)
-            if res.returncode == 0:
-                notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-                portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
-                subprocess.Popen([portal_bin, "--auto"])
-            else:
-                notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
-            sys.exit(0)
+    chosen_idx = int(stdout.strip())
+    if chosen_idx < 0 or chosen_idx >= len(network_items):
+        sys.exit(0)
 
-        # If open network, connect directly
-        if chosen["is_open"]:
-            notify("Connecting...", f"Connecting to open network: {target_ssid}", icon="network-wireless")
-            res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid], capture_output=True)
-            if res.returncode == 0:
-                notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-                portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
-                subprocess.Popen([portal_bin, "--auto"])
-            else:
-                notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
-            sys.exit(0)
+    chosen = network_items[chosen_idx]
+    target_ssid = chosen["ssid"]
 
-        # Prompt password using compact modal
-        pass_proc = subprocess.Popen([
-            "rofi",
-            "-no-config",
-            "-dmenu",
-            "-password",
-            "-theme", RASI_THEME,
-            "-theme-str", 'listview { lines: 0; padding: 0; } window { width: 480px; } entry { placeholder: "Password..."; }',
-            "-p", "󰌾",
-            "-mesg", f"Enter Wi-Fi password for {target_ssid}"
-        ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    # 6. If selecting the already connected network, open Actions Menu for it
+    if chosen["is_conn"]:
+        show_actions_menu(state)
+        return
 
-        pass_out, _ = pass_proc.communicate()
-        if pass_proc.returncode != 0 or not pass_out.strip():
-            sys.exit(0)
-
-        password = pass_out.strip()
-        notify("Connecting...", f"Authenticating with {target_ssid}...", icon="network-wireless")
-        res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid, "password", password], capture_output=True)
+    # 7. Connect to selected network
+    saved_cons = run_cmd(["nmcli", "-t", "-f", "NAME", "c", "show"]).splitlines()
+    if target_ssid in saved_cons:
+        notify("Connecting...", f"Connecting to saved network: {target_ssid}", icon="network-wireless")
+        res = subprocess.run(["nmcli", "con", "up", "id", target_ssid], capture_output=True)
         if res.returncode == 0:
             notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-            portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
-            subprocess.Popen([portal_bin, "--auto"])
+            open_captive_portal()
         else:
-            notify("Connection Failed", f"Incorrect password or failed to connect to {target_ssid}.", icon="network-error")
+            notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
         sys.exit(0)
+
+    if chosen["is_open"]:
+        notify("Connecting...", f"Connecting to open network: {target_ssid}", icon="network-wireless")
+        res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid], capture_output=True)
+        if res.returncode == 0:
+            notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
+            open_captive_portal()
+        else:
+            notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
+        sys.exit(0)
+
+    # Prompt password
+    pass_proc = subprocess.Popen([
+        "rofi",
+        "-no-config",
+        "-dmenu",
+        "-password",
+        "-theme", RASI_THEME,
+        "-theme-str", 'listview { lines: 0; padding: 0; } window { width: 480px; } entry { placeholder: "Password..."; }',
+        "-p", "󰌾",
+        "-mesg", f"Enter Wi-Fi password for {html.escape(target_ssid)}"
+    ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+
+    pwd, _ = pass_proc.communicate()
+    pwd = pwd.strip()
+    if not pwd:
+        sys.exit(0)
+
+    notify("Connecting...", f"Connecting to {target_ssid}...", icon="network-wireless")
+    res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid, "password", pwd], capture_output=True)
+    if res.returncode == 0:
+        notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
+        open_captive_portal()
+    else:
+        notify("Connection Failed", f"Could not connect to {target_ssid}. Check password.", icon="network-error")
 
 if __name__ == "__main__":
     main()
