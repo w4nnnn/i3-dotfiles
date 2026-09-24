@@ -1,18 +1,28 @@
 /**
- * Catppuccin Mocha - Wallpaper Selector Theme
+ * Catppuccin Mocha - Wallpaper Selector Theme (Aligned Design System)
  **/
 
 configuration {
     show-icons:                 true;
-    font:                       "JetBrainsMono Nerd Font 10";
+    font:                       "JetBrainsMono Nerd Font 10.5";
 }
 
 * {
-    bg:          #1e1e2ed0;
-    surface0:    #313244d0;
-    fg:          #cdd6f4;
-    mauve:       #cba6f7;
-    crust:       #11111b;
+    bg:             #1e1e2ed0;
+    surface0:       #313244d0;
+    surface1:       #45475a;
+    border-col:     #cba6f7;
+    mauve:          #cba6f7;
+    fg:             #cdd6f4;
+    subtext:        #a6adc8;
+    overlay:        #6c7086;
+    crust:          #11111b;
+
+    background-color:   transparent;
+    text-color:         @fg;
+    margin:             0;
+    padding:            0;
+    spacing:            0;
 }
 
 window {
@@ -20,12 +30,12 @@ window {
     location:           center;
     anchor:             center;
     fullscreen:         false;
-    width:              480px;
+    width:              500px;
     border:             2px solid;
     border-color:       @mauve;
     border-radius:      16px;
     background-color:   @bg;
-    padding:            18px;
+    padding:            20px;
 }
 
 mainbox {
@@ -36,23 +46,26 @@ mainbox {
 
 inputbar {
     background-color:   @surface0;
-    border-radius:      10px;
-    padding:            8px 12px;
+    border-radius:      12px;
+    padding:            10px 14px;
+    spacing:            10px;
     children:           [ "prompt", "entry" ];
 }
 
 prompt {
     background-color:   transparent;
     text-color:         @mauve;
-    font:               "JetBrainsMono Nerd Font Bold 10";
-    margin:             0px 6px 0px 0px;
+    font:               "JetBrainsMono Nerd Font Bold 11";
+    vertical-align:     0.5;
 }
 
 entry {
     background-color:   transparent;
     text-color:         @fg;
     placeholder:        "Search wallpaper...";
-    placeholder-color:  #6c7086;
+    placeholder-color:  @overlay;
+    font:               "JetBrainsMono Nerd Font 10.5";
+    vertical-align:     0.5;
 }
 
 listview {
@@ -62,6 +75,8 @@ listview {
     spacing:            6px;
     cycle:              true;
     dynamic:            true;
+    scrollbar:          false;
+    fixed-height:       false;
 }
 
 element {
@@ -70,12 +85,16 @@ element {
     border-radius:      10px;
     padding:            8px 12px;
     cursor:             pointer;
+    spacing:            10px;
+    border:             1.5px solid;
+    border-color:       transparent;
 }
 
 element-icon {
-    size:               28px;
-    margin:             0px 10px 0px 0px;
+    size:               30px;
     background-color:   transparent;
+    vertical-align:     0.5;
+    border-radius:      6px;
 }
 
 element-text {
@@ -88,5 +107,10 @@ element-text {
 
 element selected.normal {
     background-color:   @mauve;
+    text-color:         @crust;
+    border-color:       @mauve;
+}
+
+element selected.normal element-text {
     text-color:         @crust;
 }
