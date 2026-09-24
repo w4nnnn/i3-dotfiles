@@ -39,8 +39,8 @@ window {
     width:              680px;
     height:             580px;
     border:             2px solid;
-    border-color:       @border-col;
-    border-radius:      20px;
+    border-color:       @mauve;
+    border-radius:      16px;
     background-color:   @bg;
     padding:            20px 24px;
 }
@@ -116,8 +116,10 @@ element {
     orientation:        vertical;
     spacing:            6px;
     padding:            10px 4px;
-    border-radius:      10px;
+    border-radius:      12px;
     background-color:   transparent;
+    border:             1.5px solid;
+    border-color:       transparent;
     text-color:         @fg;
     cursor:             pointer;
 }
