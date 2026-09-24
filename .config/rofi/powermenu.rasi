@@ -36,7 +36,7 @@ mainbox {
 
 message {
     background-color:   @surface0;
-    border-radius:      10px;
+    border-radius:      12px;
     padding:            10px 16px;
 }
 
@@ -64,6 +64,8 @@ element {
     border-radius:      12px;
     padding:            18px 0px;
     cursor:             pointer;
+    border:             1.5px solid;
+    border-color:       transparent;
 }
 
 element-text {
@@ -78,4 +80,5 @@ element-text {
 element selected.normal {
     background-color:   @mauve;
     text-color:         @crust;
+    border-color:       @mauve;
 }
