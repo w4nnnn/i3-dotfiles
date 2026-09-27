@@ -8,13 +8,16 @@ import subprocess
 import math
 import cairo
 import socket
+import glob
+import concurrent.futures
 import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
+gi.require_version("Gio", "2.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
-from gi.repository import Gtk, Gdk, GLib, Pango, PangoCairo, GdkPixbuf
+from gi.repository import Gtk, Gdk, Gio, GLib, Pango, PangoCairo, GdkPixbuf
 
 # ---------------------------------------------------------
 # Themes Configuration (from panel-widget.html)
@@ -180,13 +183,18 @@ def get_hostname():
 
 def get_uptime():
     try:
-        out = subprocess.check_output(["uptime", "-p"], stderr=subprocess.DEVNULL, text=True).strip()
-        out = out.replace("up ", "")
-        out = re.sub(r" hours?", "h", out)
-        out = re.sub(r" minutes?", "m", out)
-        out = re.sub(r" days?", "d", out)
-        out = out.replace(",", "")
-        return out
+        with open("/proc/uptime") as f:
+            up_sec = int(float(f.readline().split()[0]))
+        days = up_sec // 86400
+        hours = (up_sec % 86400) // 3600
+        mins = (up_sec % 3600) // 60
+        res = []
+        if days > 0:
+            res.append(f"{days}d")
+        if hours > 0:
+            res.append(f"{hours}h")
+        res.append(f"{mins}m")
+        return " ".join(res)
     except Exception:
         return "Active"
 
@@ -249,7 +257,54 @@ def set_mic_volume(val):
 def toggle_mic_mute():
     subprocess.run(["pactl", "set-source-mute", "@DEFAULT_SOURCE@", "toggle"], stderr=subprocess.DEVNULL)
 
+def get_initial_audio():
+    def get_sv():
+        try:
+            out = subprocess.check_output(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], stderr=subprocess.DEVNULL, text=True)
+            m = re.search(r'/\s*(\d+)%', out)
+            return int(m.group(1)) if m else 50
+        except Exception:
+            return 50
+
+    def get_sm():
+        try:
+            out = subprocess.check_output(["pactl", "get-sink-mute", "@DEFAULT_SINK@"], stderr=subprocess.DEVNULL, text=True)
+            return "yes" in out.lower()
+        except Exception:
+            return False
+
+    def get_mv():
+        try:
+            out = subprocess.check_output(["pactl", "get-source-volume", "@DEFAULT_SOURCE@"], stderr=subprocess.DEVNULL, text=True)
+            m = re.search(r'/\s*(\d+)%', out)
+            return int(m.group(1)) if m else 80
+        except Exception:
+            return 80
+
+    def get_mm():
+        try:
+            out = subprocess.check_output(["pactl", "get-source-mute", "@DEFAULT_SOURCE@"], stderr=subprocess.DEVNULL, text=True)
+            return "yes" in out.lower()
+        except Exception:
+            return False
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+        f_sv = ex.submit(get_sv)
+        f_sm = ex.submit(get_sm)
+        f_mv = ex.submit(get_mv)
+        f_mm = ex.submit(get_mm)
+        return f_sv.result(), f_sm.result(), f_mv.result(), f_mm.result()
+
 def get_brightness():
+    for p in glob.glob("/sys/class/backlight/*"):
+        try:
+            with open(os.path.join(p, "brightness")) as f:
+                curr = int(f.read().strip())
+            with open(os.path.join(p, "max_brightness")) as f:
+                max_b = int(f.read().strip())
+            return round((curr / max_b) * 100)
+        except Exception:
+            pass
     try:
         out = subprocess.check_output(["brightnessctl", "-m", "info"], stderr=subprocess.DEVNULL, text=True)
         for line in out.strip().split("\n"):
@@ -265,6 +320,17 @@ def set_brightness(val):
     subprocess.run(["brightnessctl", "set", f"{pct}%"], stderr=subprocess.DEVNULL)
 
 def get_wifi_status():
+    for path in glob.glob("/sys/class/rfkill/rfkill*"):
+        try:
+            with open(os.path.join(path, "type")) as f:
+                if f.read().strip() == "wlan":
+                    with open(os.path.join(path, "soft")) as sf:
+                        s = sf.read().strip() == "1"
+                    with open(os.path.join(path, "hard")) as hf:
+                        h = hf.read().strip() == "1"
+                    return not (s or h)
+        except Exception:
+            pass
     try:
         out = subprocess.check_output(["nmcli", "radio", "wifi"], stderr=subprocess.DEVNULL, text=True).strip()
         return out.lower() == "enabled"
@@ -278,6 +344,17 @@ def toggle_wifi():
     return not is_on
 
 def get_bluetooth_status():
+    for path in glob.glob("/sys/class/rfkill/rfkill*"):
+        try:
+            with open(os.path.join(path, "type")) as f:
+                if f.read().strip() == "bluetooth":
+                    with open(os.path.join(path, "soft")) as sf:
+                        s = sf.read().strip() == "1"
+                    with open(os.path.join(path, "hard")) as hf:
+                        h = hf.read().strip() == "1"
+                    return not (s or h)
+        except Exception:
+            pass
     try:
         out = subprocess.check_output(["bluetoothctl", "show"], stderr=subprocess.DEVNULL, text=True)
         return "Powered: yes" in out
@@ -345,8 +422,15 @@ def toggle_night_light():
 
 def get_game_mode():
     try:
-        res = subprocess.run(["pgrep", "-x", "picom"], stdout=subprocess.DEVNULL)
-        return res.returncode != 0
+        for pid in os.listdir("/proc"):
+            if pid.isdigit():
+                try:
+                    with open(f"/proc/{pid}/comm", "r") as f:
+                        if f.read().strip() == "picom":
+                            return False
+                except Exception:
+                    pass
+        return True
     except Exception:
         return False
 
@@ -361,13 +445,36 @@ def toggle_game_mode():
 
 def get_power_profile():
     try:
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        proxy = Gio.DBusProxy.new_sync(
+            bus, Gio.DBusProxyFlags.NONE, None,
+            "org.freedesktop.UPower.PowerProfiles",
+            "/org/freedesktop/UPower/PowerProfiles",
+            "org.freedesktop.DBus.Properties",
+            None
+        )
+        return proxy.Get("(ss)", "org.freedesktop.UPower.PowerProfiles", "ActiveProfile")
+    except Exception:
+        pass
+    try:
         out = subprocess.check_output(["powerprofilesctl", "get"], stderr=subprocess.DEVNULL, text=True).strip()
         return out
     except Exception:
         return "balanced"
 
 def set_power_profile(profile):
-    subprocess.run(["powerprofilesctl", "set", profile], stderr=subprocess.DEVNULL)
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        proxy = Gio.DBusProxy.new_sync(
+            bus, Gio.DBusProxyFlags.NONE, None,
+            "org.freedesktop.UPower.PowerProfiles",
+            "/org/freedesktop/UPower/PowerProfiles",
+            "org.freedesktop.DBus.Properties",
+            None
+        )
+        proxy.Set("(ssv)", "org.freedesktop.UPower.PowerProfiles", "ActiveProfile", GLib.Variant.new_string(profile))
+    except Exception:
+        subprocess.run(["powerprofilesctl", "set", profile], stderr=subprocess.DEVNULL)
 
 # ---------------------------------------------------------
 # Telemetry Helpers
@@ -1284,11 +1391,12 @@ class ControlCenter(Gtk.Window):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         box.get_style_context().add_class("sliders-box")
 
+        # Initial Audio Levels (parallel fetch)
+        vol_val, vol_mute, mic_val, mic_mute = get_initial_audio()
+
         # Master Audio
         vol_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         vol_row.get_style_context().add_class("slider-row")
-        vol_val = get_volume()
-        vol_mute = get_sink_mute()
 
         self.vol_btn = Gtk.Button(label="󰝟" if vol_mute else "󰕾")
         self.vol_btn.get_style_context().add_class("slider-icon-btn")
@@ -1309,8 +1417,6 @@ class ControlCenter(Gtk.Window):
         # Microphone Input
         mic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         mic_row.get_style_context().add_class("slider-row")
-        mic_val = get_mic_volume()
-        mic_mute = get_mic_mute()
 
         self.mic_btn = Gtk.Button(label="󰍭" if mic_mute else "󰍬")
         self.mic_btn.get_style_context().add_class("slider-icon-btn")
