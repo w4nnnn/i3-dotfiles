@@ -38,7 +38,7 @@ class TelemetryWidget(Gtk.Box):
         # BAT / TEMP Card
         has_bat, bat_cap, bat_stat, temp_c = get_battery_and_temp()
         self.bat_frac = bat_cap / 100.0
-        bat_str = f"{bat_cap}% 󱐋" if "Charging" in bat_stat else f"{bat_cap}%"
+        bat_str = f"{bat_cap}% " if "Charging" in bat_stat else f"{bat_cap}%"
         self.bat_val_lbl, self.bat_meter, bat_card = self.make_stat_card(
             "BAT", f"{temp_c}°C", bat_str, lambda: self.bat_frac
         )
@@ -108,6 +108,6 @@ class TelemetryWidget(Gtk.Box):
 
         has_bat, bat_cap, bat_stat, temp_c = get_battery_and_temp()
         self.bat_frac = bat_cap / 100.0
-        bat_str = f"{bat_cap}% 󱐋" if "Charging" in bat_stat else f"{bat_cap}%"
+        bat_str = f"{bat_cap}% " if "Charging" in bat_stat else f"{bat_cap}%"
         self.bat_val_lbl.set_text(bat_str)
         self.bat_meter.queue_draw()

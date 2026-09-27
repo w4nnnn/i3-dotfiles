@@ -38,7 +38,7 @@ class HeaderWidget(Gtk.Box):
         bin_dir = os.path.expanduser("~/.local/bin")
 
         # Lock button
-        lock_btn = Gtk.Button(label="󰌾")
+        lock_btn = Gtk.Button(label="")
         lock_btn.get_style_context().add_class("header-btn")
         if lock_btn.get_child():
             lock_btn.get_child().set_halign(Gtk.Align.CENTER)
@@ -48,7 +48,7 @@ class HeaderWidget(Gtk.Box):
         actions_box.pack_start(lock_btn, False, False, 0)
 
         # Power button
-        power_btn = Gtk.Button(label="󰐥")
+        power_btn = Gtk.Button(label="")
         power_btn.get_style_context().add_class("header-btn")
         power_btn.get_style_context().add_class("power-btn")
         if power_btn.get_child():

@@ -93,34 +93,39 @@ class PlayerWidget(Gtk.Box):
         ctrls_box.set_valign(Gtk.Align.CENTER)
 
         # Shuffle
-        self.shuffle_btn = Gtk.Button(label="󰒟")
+        self.shuffle_btn = Gtk.Button(label="")
         self.shuffle_btn.get_style_context().add_class("ctrl-btn")
         self.shuffle_btn.connect("clicked", self.on_shuffle_clicked)
         ctrls_box.pack_start(self.shuffle_btn, True, True, 0)
 
         # Previous
-        prev_btn = Gtk.Button(label="󰒮")
+        prev_btn = Gtk.Button(label="")
         prev_btn.get_style_context().add_class("ctrl-btn")
         prev_btn.connect("clicked", self.on_media_prev)
         ctrls_box.pack_start(prev_btn, True, True, 0)
 
         # Play / Pause (Prominent center button)
-        self.play_btn = Gtk.Button(label="󰏤" if self.media_data["status"] == "Playing" else "󰐊")
+        self.play_btn = Gtk.Button(label="" if self.media_data["status"] == "Playing" else "")
         self.play_btn.get_style_context().add_class("play-btn")
         self.play_btn.connect("clicked", self.on_media_play)
         ctrls_box.pack_start(self.play_btn, True, True, 0)
 
         # Next
-        next_btn = Gtk.Button(label="󰒭")
+        next_btn = Gtk.Button(label="")
         next_btn.get_style_context().add_class("ctrl-btn")
         next_btn.connect("clicked", self.on_media_next)
         ctrls_box.pack_start(next_btn, True, True, 0)
 
         # Repeat / Loop
-        self.repeat_btn = Gtk.Button(label="󰑖")
+        self.repeat_btn = Gtk.Button(label="")
         self.repeat_btn.get_style_context().add_class("ctrl-btn")
         self.repeat_btn.connect("clicked", self.on_repeat_clicked)
         ctrls_box.pack_start(self.repeat_btn, True, True, 0)
+
+        for b in (self.shuffle_btn, prev_btn, self.play_btn, next_btn, self.repeat_btn):
+            if b.get_child():
+                b.get_child().set_halign(Gtk.Align.CENTER)
+                b.get_child().set_valign(Gtk.Align.CENTER)
 
         self.pack_start(ctrls_box, False, False, 0)
 
@@ -173,8 +178,8 @@ class PlayerWidget(Gtk.Box):
             cr.set_source(pat)
             cr.paint()
 
-            layout = self.create_pango_layout("󰎆")
-            desc = Pango.FontDescription("JetBrainsMono Nerd Font 16")
+            layout = self.create_pango_layout("")
+            desc = Pango.FontDescription("lucide 18")
             layout.set_font_description(desc)
             ink, log = layout.get_pixel_extents()
             cr.set_source_rgba(1, 1, 1, 0.95)
@@ -227,7 +232,7 @@ class PlayerWidget(Gtk.Box):
         self.source_lbl.set_text(f"{self.media_data['player'].upper()} (MPRIS)")
         self.track_title_lbl.set_text(self.media_data["title"])
         self.track_artist_lbl.set_text(self.media_data["artist"])
-        self.play_btn.set_label("󰏤" if self.media_data["status"] == "Playing" else "󰐊")
+        self.play_btn.set_label("" if self.media_data["status"] == "Playing" else "")
 
         if self.media_data.get("art_url") != old_url:
             self.load_album_art()

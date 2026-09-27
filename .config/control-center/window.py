@@ -186,8 +186,8 @@ class ControlCenterWindow(Gtk.Window):
             border-radius: 8px;
             min-width: 30px;
             min-height: 30px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 11pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
             padding: 0;
         }}
         .header-btn:hover {{
@@ -237,8 +237,8 @@ class ControlCenterWindow(Gtk.Window):
             background-color: transparent;
             border: none;
             color: {t["text_primary"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 11pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
             min-width: 28px;
             min-height: 28px;
             border-radius: 6px;
@@ -258,8 +258,8 @@ class ControlCenterWindow(Gtk.Window):
             border-radius: 8px;
             min-width: 32px;
             min-height: 32px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 12pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 14pt;
             padding: 0;
         }}
         .play-btn:hover {{
@@ -309,11 +309,11 @@ class ControlCenterWindow(Gtk.Window):
         .slider-icon-btn {{
             background-color: transparent;
             border: none;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 11pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
             color: {t["accent"]};
-            min-width: 22px;
-            min-height: 22px;
+            min-width: 24px;
+            min-height: 24px;
             padding: 0;
         }}
         .slider-icon-btn:hover {{
@@ -335,8 +335,8 @@ class ControlCenterWindow(Gtk.Window):
             background-color: {t["bg_surface"]};
             border: 1px solid {t["border_color"]};
             border-radius: 8px;
-            padding: 4px 2px;
-            min-height: 42px;
+            padding: 5px 2px;
+            min-height: 44px;
         }}
         .toggle-tile:hover {{
             background-color: {t["bg_hover"]};
@@ -346,8 +346,8 @@ class ControlCenterWindow(Gtk.Window):
             border-color: {t["accent"]};
         }}
         .toggle-icon {{
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 15pt;
             color: {t["accent_secondary"]};
         }}
         .toggle-tile.active .toggle-icon {{
@@ -383,7 +383,7 @@ class ControlCenterWindow(Gtk.Window):
             color: {t["text_muted"]};
         }}
         .stat-val {{
-            font-family: 'JetBrainsMono Nerd Font';
+            font-family: 'JetBrainsMono Nerd Font', 'lucide';
             font-size: 9.5pt;
             font-weight: bold;
             color: {t["text_primary"]};

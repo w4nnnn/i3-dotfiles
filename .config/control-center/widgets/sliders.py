@@ -31,7 +31,7 @@ class SlidersWidget(Gtk.Box):
         vol_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         vol_row.get_style_context().add_class("slider-row")
 
-        self.vol_btn = Gtk.Button(label="󰝟" if vol_mute else "󰕾")
+        self.vol_btn = Gtk.Button(label="" if vol_mute else "")
         self.vol_btn.get_style_context().add_class("slider-icon-btn")
         self.vol_btn.connect("clicked", self.on_vol_mute_clicked)
         vol_row.pack_start(self.vol_btn, False, False, 0)
@@ -51,7 +51,7 @@ class SlidersWidget(Gtk.Box):
         mic_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         mic_row.get_style_context().add_class("slider-row")
 
-        self.mic_btn = Gtk.Button(label="󰍭" if mic_mute else "󰍬")
+        self.mic_btn = Gtk.Button(label="" if mic_mute else "")
         self.mic_btn.get_style_context().add_class("slider-icon-btn")
         self.mic_btn.connect("clicked", self.on_mic_mute_clicked)
         mic_row.pack_start(self.mic_btn, False, False, 0)
@@ -72,7 +72,7 @@ class SlidersWidget(Gtk.Box):
         br_row.get_style_context().add_class("slider-row")
         br_val = get_brightness()
 
-        br_btn = Gtk.Button(label="󰃠")
+        br_btn = Gtk.Button(label="")
         br_btn.get_style_context().add_class("slider-icon-btn")
         br_btn.get_style_context().add_class("slider-icon-bright")
         br_row.pack_start(br_btn, False, False, 0)
@@ -88,11 +88,16 @@ class SlidersWidget(Gtk.Box):
         br_row.pack_start(self.br_lbl, False, False, 0)
         self.pack_start(br_row, False, False, 0)
 
+        for b in (self.vol_btn, self.mic_btn, br_btn):
+            if b.get_child():
+                b.get_child().set_halign(Gtk.Align.CENTER)
+                b.get_child().set_valign(Gtk.Align.CENTER)
+
     def on_vol_mute_clicked(self, btn):
         toggle_sink_mute()
         muted = get_sink_mute()
         val = get_volume()
-        self.vol_btn.set_label("󰝟" if muted else "󰕾")
+        self.vol_btn.set_label("" if muted else "")
         self.vol_scale.set_value(0 if muted else val)
         self.vol_lbl.set_text(f"{val}%")
 
@@ -101,13 +106,13 @@ class SlidersWidget(Gtk.Box):
         set_volume(val)
         self.vol_lbl.set_text(f"{val}%")
         if val > 0:
-            self.vol_btn.set_label("󰕾")
+            self.vol_btn.set_label("")
 
     def on_mic_mute_clicked(self, btn):
         toggle_mic_mute()
         muted = get_mic_mute()
         val = get_mic_volume()
-        self.mic_btn.set_label("󰍭" if muted else "󰍬")
+        self.mic_btn.set_label("" if muted else "")
         self.mic_scale.set_value(0 if muted else val)
         self.mic_lbl.set_text(f"{val}%")
 
@@ -116,7 +121,7 @@ class SlidersWidget(Gtk.Box):
         set_mic_volume(val)
         self.mic_lbl.set_text(f"{val}%")
         if val > 0:
-            self.mic_btn.set_label("󰍬")
+            self.mic_btn.set_label("")
 
     def on_brightness_changed(self, scale):
         val = int(scale.get_value())

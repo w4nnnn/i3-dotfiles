@@ -78,8 +78,10 @@ class Win11StartMenu(Gtk.Window):
         search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         search_box.set_name("search-bar")
 
-        search_icon = Gtk.Label(label="")
+        search_icon = Gtk.Label(label="")
         search_icon.set_name("search-icon")
+        search_icon.set_halign(Gtk.Align.CENTER)
+        search_icon.set_valign(Gtk.Align.CENTER)
         search_box.pack_start(search_icon, False, False, 0)
 
         self.search_entry = Gtk.Entry()
@@ -89,8 +91,11 @@ class Win11StartMenu(Gtk.Window):
         self.search_entry.connect("activate", self.on_search_activate)
         search_box.pack_start(self.search_entry, True, True, 0)
 
-        close_btn = Gtk.Button(label="󰅖")
+        close_btn = Gtk.Button(label="")
         close_btn.get_style_context().add_class("close-search-btn")
+        if close_btn.get_child():
+            close_btn.get_child().set_halign(Gtk.Align.CENTER)
+            close_btn.get_child().set_valign(Gtk.Align.CENTER)
         close_btn.set_tooltip_text("Close (Esc)")
         close_btn.connect("clicked", lambda w: self.close_and_exit())
         search_box.pack_start(close_btn, False, False, 0)
@@ -188,8 +193,8 @@ class Win11StartMenu(Gtk.Window):
         }
         #search-icon {
             color: #cba6f7;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 11.5pt;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
         }
         entry,
         #search-entry,
@@ -206,9 +211,11 @@ class Win11StartMenu(Gtk.Window):
             background-color: transparent;
             border: none;
             color: #6c7086;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 11pt;
-            padding: 2px 6px;
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 12pt;
+            padding: 0;
+            min-width: 24px;
+            min-height: 24px;
             border-radius: 6px;
         }
         .close-search-btn:hover {
@@ -367,6 +374,8 @@ class Win11StartMenu(Gtk.Window):
         avatar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         avatar.get_style_context().add_class("avatar-circle")
         av_lbl = Gtk.Label(label="")
+        av_lbl.set_halign(Gtk.Align.CENTER)
+        av_lbl.set_valign(Gtk.Align.CENTER)
         avatar.pack_start(av_lbl, True, True, 0)
         footer.pack_start(avatar, False, False, 0)
 
@@ -381,6 +390,9 @@ class Win11StartMenu(Gtk.Window):
         # Power button (Lucide power)
         pwr_btn = Gtk.Button(label="")
         pwr_btn.get_style_context().add_class("footer-power-btn")
+        if pwr_btn.get_child():
+            pwr_btn.get_child().set_halign(Gtk.Align.CENTER)
+            pwr_btn.get_child().set_valign(Gtk.Align.CENTER)
         bin_dir = os.path.expanduser("~/.local/bin")
         pwr_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "powermenu")])))
         footer.pack_start(pwr_btn, False, False, 0)
