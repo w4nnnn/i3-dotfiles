@@ -273,22 +273,14 @@ def main():
             os.execv(sys.argv[0], sys.argv)
         sys.exit(0)
 
-    # 3. Format Subheader / mesg right below search input
-    # Shows quick controls bar with hotkey hints
+    # 3. Format Footer Status Bar / mesg
     if active_name:
-        mesg = (
-            f'<span foreground="#f38ba8">󰅖 Alt+D</span> Disconnect   '
-            f'<span foreground="#89b4fa">󰖟 Alt+P</span> Portal   '
-            f'<span foreground="#a6e3a1">󰐥 Alt+T</span> Wi-Fi ON   '
-            f'<span foreground="#b4befe">󰑐 Alt+R</span> Rescan'
-        )
+        status_info = f'Active: <span foreground="#a6e3a1"><b>{html.escape(active_name)}</b></span> ({active_ip or "No IP"})'
     else:
-        mesg = (
-            f'<span foreground="#6c7086">↑/↓ Navigate · Enter Connect</span>   '
-            f'<span foreground="#a6e3a1">󰐥 Alt+T</span> Wi-Fi ON   '
-            f'<span foreground="#b4befe">󰑐 Alt+R</span> Rescan   '
-            f'<span foreground="#89b4fa">󰢻 Alt+S</span> Settings'
-        )
+        status_info = '<span foreground="#f38ba8"><b>Status: Disconnected</b></span>'
+
+    wifi_status_tag = '<span foreground="#a6e3a1"><b>󰐥 Wi-Fi ON</b></span>' if wifi_enabled else '<span foreground="#f38ba8"><b>󰐥 Wi-Fi OFF</b></span>'
+    mesg = f"{status_info}   ·   {wifi_status_tag}   ·   <span foreground=\"#6c7086\">Click action button below or press Alt+key</span>"
 
     # 4. Scan & Parse Wi-Fi Networks (100% PURE Wi-Fi list)
     network_items = []
@@ -387,8 +379,37 @@ def main():
                 "display": row_text
             })
 
+    # 5. Append Interactive Action Buttons to the bottom of the list
+    if active_name:
+        network_items.append({
+            "type": "action",
+            "action": "portal",
+            "display": '<span foreground="#89b4fa">󰖟</span>  <b>Captive Portal Login  </b>  <span weight="bold" foreground="#89b4fa" background="#1e2b44"> [Alt+P] </span>  <span foreground="#6c7086">[Open Browser Portal]</span>'
+        })
+        network_items.append({
+            "type": "action",
+            "action": "disconnect",
+            "display": f'<span foreground="#f38ba8">󰅖</span>  <b>Disconnect Connection </b>  <span weight="bold" foreground="#f38ba8" background="#3d2328"> [Alt+D] </span>  <span foreground="#6c7086">({html.escape(active_name)})</span>'
+        })
+
+    network_items.append({
+        "type": "action",
+        "action": "rescan",
+        "display": '<span foreground="#b4befe">󰑐</span>  <b>Rescan Wi-Fi Networks </b>  <span weight="bold" foreground="#b4befe" background="#2b314d"> [Alt+R] </span>  <span foreground="#6c7086">[Refresh AP list]</span>'
+    })
+    network_items.append({
+        "type": "action",
+        "action": "nmtui",
+        "display": '<span foreground="#fab387">󰢻</span>  <b>Network Settings (nmtui)</b><span weight="bold" foreground="#fab387" background="#3d2f23"> [Alt+S] </span>  <span foreground="#6c7086">[Configure profiles]</span>'
+    })
+    network_items.append({
+        "type": "action",
+        "action": "info",
+        "display": '<span foreground="#a6e3a1">󰌌</span>  <b>Connection Details    </b>  <span weight="bold" foreground="#a6e3a1" background="#233d32"> [Details] </span>  <span foreground="#6c7086">[IP &amp; Interface stats]</span>'
+    })
+
     if not network_items:
-        notify("Wi-Fi", "No Wi-Fi networks found in range.", icon="network-wireless-disconnected")
+        notify("Wi-Fi", "No Wi-Fi networks or devices found.", icon="network-wireless-disconnected")
         sys.exit(0)
 
     input_payload = "\n".join([item["display"] for item in network_items]) + "\n"
@@ -439,6 +460,24 @@ def main():
         sys.exit(0)
 
     chosen = network_items[chosen_idx]
+
+    # Handle Click on Action Button Rows
+    if chosen.get("type") == "action":
+        act = chosen["action"]
+        if act == "portal":
+            open_captive_portal()
+        elif act == "disconnect":
+            disconnect_active(state)
+        elif act == "rescan":
+            rescan_wifi()
+            os.execv(sys.argv[0], sys.argv)
+        elif act == "nmtui":
+            subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
+        elif act == "info":
+            info_bin = shutil.which("network-info") or os.path.expanduser("~/.local/bin/network-info")
+            subprocess.Popen([info_bin])
+        sys.exit(0)
+
     target_ssid = chosen["ssid"]
 
     # 6. If selecting the already connected network, open Actions Menu for it

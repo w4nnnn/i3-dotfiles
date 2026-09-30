@@ -33,7 +33,7 @@ window {
 mainbox {
     background-color:           transparent;
     spacing:                    12px;
-    children:                   [ "inputbar", "message", "listview" ];
+    children:                   [ "inputbar", "listview", "message" ];
 }
 
 inputbar {
@@ -78,7 +78,7 @@ textbox {
 listview {
     background-color:           transparent;
     columns:                    1;
-    lines:                      8;
+    lines:                      10;
     spacing:                    6px;
     cycle:                      true;
     dynamic:                    true;
