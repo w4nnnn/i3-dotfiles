@@ -453,7 +453,6 @@ def main():
         res = subprocess.run(["nmcli", "con", "up", "id", target_ssid], capture_output=True)
         if res.returncode == 0:
             notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-            open_captive_portal()
         else:
             notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
         sys.exit(0)
@@ -463,7 +462,8 @@ def main():
         res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid], capture_output=True)
         if res.returncode == 0:
             notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-            open_captive_portal()
+            portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
+            subprocess.Popen([portal_bin, "--auto"])
         else:
             notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
         sys.exit(0)
@@ -489,7 +489,6 @@ def main():
     res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid, "password", pwd], capture_output=True)
     if res.returncode == 0:
         notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-        open_captive_portal()
     else:
         notify("Connection Failed", f"Could not connect to {target_ssid}. Check password.", icon="network-error")
 

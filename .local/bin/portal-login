@@ -13,12 +13,12 @@ detect_portal_url() {
     local gateway="$1"
     local redirect_url=""
     
-    # 1. Probe Firefox detection endpoint (captures Location header on HTTP redirect)
-    redirect_url=$(curl -sI -m 4 "http://detectportal.firefox.com/success.txt" 2>/dev/null | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+    # 1. Probe Google 204 endpoint (captures Location header on HTTP redirect)
+    redirect_url=$(curl -sI -m 4 "http://connectivitycheck.gstatic.com/generate_204" 2>/dev/null | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
     
-    # 2. Probe Google 204 endpoint if not found
+    # 2. Probe Firefox detection endpoint if not found
     if [ -z "$redirect_url" ]; then
-        redirect_url=$(curl -sI -m 4 "http://connectivitycheck.gstatic.com/generate_204" 2>/dev/null | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
+        redirect_url=$(curl -sI -m 4 "http://detectportal.firefox.com/success.txt" 2>/dev/null | grep -i '^Location:' | awk '{print $2}' | tr -d '\r\n')
     fi
 
     # 3. Probe Apple captive endpoint if not found
@@ -32,7 +32,13 @@ detect_portal_url() {
         return 0
     fi
 
-    # 5. Default fallback: neverssl.com (unencrypted HTTP designed to trigger portal intercepts)
+    # 5. Check if gateway IP responds to HTTP
+    if [ -n "$gateway" ] && curl -s -m 2 "http://${gateway}" >/dev/null 2>&1; then
+        echo "http://${gateway}"
+        return 0
+    fi
+
+    # 6. Default fallback: neverssl.com (unencrypted HTTP designed to trigger portal intercepts)
     echo "http://neverssl.com"
 }
 
@@ -41,18 +47,53 @@ check_portal() {
     # Method 1: Check NetworkManager connectivity status
     local conn
     conn=$(nmcli -t -f CONNECTIVITY general status 2>/dev/null)
+    if [ "$conn" = "full" ]; then
+        return 1 # Definitely normal internet, no portal
+    fi
+
+    # Verify active gateway exists
+    local gateway
+    gateway=$(get_gateway)
+    if [ -z "$gateway" ]; then
+        return 1 # Not connected to any gateway
+    fi
+
+    # Method 2: Active probe via Google generate_204
+    # Genuine connection returns HTTP 204 No Content.
+    # Captive portal returns HTTP 301/302/307/308 redirect or HTTP 200 with HTML portal.
+    local http_code
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" -m 4 "http://connectivitycheck.gstatic.com/generate_204" 2>/dev/null)
+
+    if [ "$http_code" = "204" ]; then
+        return 1 # Normal internet verified
+    elif [[ "$http_code" =~ ^(301|302|303|307|308)$ ]]; then
+        return 0 # Captive portal HTTP redirect detected!
+    elif [ "$http_code" = "200" ]; then
+        return 0 # Intercepted 204 with HTML body
+    fi
+
+    # Method 3: Fallback probe via Firefox endpoint
+    # Genuine connection returns HTTP 200 with body "success".
+    local ff_probe ff_code ff_body
+    ff_probe=$(curl -s -w "\n%{http_code}" -m 4 "http://detectportal.firefox.com/success.txt" 2>/dev/null)
+    ff_code=$(echo "$ff_probe" | tail -n 1)
+    ff_body=$(echo "$ff_probe" | head -n -1 | tr -d '\r\n ')
+
+    if [ "$ff_code" = "200" ] && [ "$ff_body" = "success" ]; then
+        return 1 # Normal internet verified
+    elif [[ "$ff_code" =~ ^(301|302|303|307|308)$ ]]; then
+        return 0 # Captive portal HTTP redirect detected!
+    elif [ "$ff_code" = "200" ] && [ -n "$ff_body" ] && [ "$ff_body" != "success" ]; then
+        return 0 # Intercepted HTML portal page!
+    fi
+
+    # Method 4: Trust NetworkManager portal status as last resort
     if [ "$conn" = "portal" ]; then
-        return 0 # Portal detected
+        return 0
     fi
-    
-    # Method 2: HTTP probe check
-    local probe
-    probe=$(curl -s -m 4 "http://detectportal.firefox.com/success.txt" 2>/dev/null)
-    if [ "$probe" != "success" ] && [ -n "$(get_gateway)" ]; then
-        return 0 # Portal detected (redirected or altered response)
-    fi
-    
-    return 1 # Normal internet or no portal detected
+
+    # All other cases (e.g. timeout 000, offline) are not captive portals
+    return 1
 }
 
 # Function to launch browser
@@ -100,7 +141,7 @@ if [ "$1" = "--check" ]; then
     fi
 fi
 
-# 3. Manual invocation: always trigger login
+# 3. Manual invocation: trigger portal login
 GATEWAY=$(get_gateway)
 if [ -z "$GATEWAY" ]; then
     notify-send -a "Network" -u critical -i network-offline \
@@ -111,9 +152,15 @@ fi
 
 PORTAL_URL=$(detect_portal_url "$GATEWAY")
 
-notify-send -a "Network" -i network-wireless \
-    "Captive Portal Login" \
-    "Membuka halaman autentikasi Wi-Fi di browser:\n${PORTAL_URL}"
+if check_portal; then
+    notify-send -a "Network" -u critical -i network-wireless \
+        "Captive Portal Terdeteksi" \
+        "Wi-Fi memerlukan login web.\nMembuka browser: ${PORTAL_URL}"
+else
+    notify-send -a "Network" -i network-wireless \
+        "Pemeriksaan Captive Portal" \
+        "Internet terdeteksi aktif/normal.\nMembuka web browser: ${PORTAL_URL}"
+fi
 
 open_browser "$PORTAL_URL"
 exit 0
