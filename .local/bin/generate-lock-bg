@@ -25,10 +25,14 @@ if display:
 surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width, height)
 cr = cairo.Context(surface)
 
-# 1. Load wallpaper (prefer rich dark astronaut art, fallback to aesthetic)
-wall_path = os.path.expanduser("~/Pictures/Wallpapers/catppuccin-astronaut.png")
-if not os.path.exists(wall_path):
-    wall_path = os.path.expanduser("~/Pictures/Wallpapers/catppuccin-aesthetic.jpg")
+# 1. Load wallpaper (prefer active wallpaper, fallback to astronaut/aesthetic)
+cache_cur_wall = os.path.expanduser("~/.cache/current_wallpaper")
+if os.path.exists(cache_cur_wall):
+    wall_path = os.path.realpath(cache_cur_wall)
+else:
+    wall_path = os.path.expanduser("~/Pictures/Wallpapers/catppuccin-astronaut.png")
+    if not os.path.exists(wall_path):
+        wall_path = os.path.expanduser("~/Pictures/Wallpapers/catppuccin-aesthetic.jpg")
 
 if os.path.exists(wall_path):
     pb = GdkPixbuf.Pixbuf.new_from_file_at_scale(wall_path, width, height, False)
