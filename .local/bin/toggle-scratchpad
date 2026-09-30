@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Quake-style Dropdown Scratchpad Terminal for i3wm
+
+if ! xdotool search --classname "scratchpad_term" windowactivate >/dev/null 2>&1; then
+    if ! i3-msg '[instance="scratchpad_term"] scratchpad show' 2>/dev/null | grep -q '"success":true'; then
+        kitty --name scratchpad_term &
+    fi
+else
+    i3-msg '[instance="scratchpad_term"] move scratchpad' >/dev/null 2>&1
+fi
