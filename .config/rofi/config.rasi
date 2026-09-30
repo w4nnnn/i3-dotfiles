@@ -3,6 +3,8 @@
  * Modern floating card with Search, Pinned Grid, and User/Power Footer
  **/
 
+@import "colors.rasi"
+
 configuration {
     modi:                       "drun,run,window";
     show-icons:                 true;
@@ -12,18 +14,6 @@ configuration {
 }
 
 * {
-    bg:             #1e1e2ed0;
-    surface0:       #313244d0;
-    surface1:       #45475a;
-    border-col:     #cba6f7;
-    fg:             #cdd6f4;
-    subtext:        #a6adc8;
-    overlay:        #6c7086;
-    mauve:          #cba6f7;
-    blue:           #89b4fa;
-    red:            #f38ba8;
-    crust:          #11111b;
-
     background-color:   transparent;
     text-color:         @fg;
     margin:             0;

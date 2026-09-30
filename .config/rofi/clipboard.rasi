@@ -2,6 +2,8 @@
  * Catppuccin Mocha - Modern Clipboard Manager Theme (Aligned Design System)
  **/
 
+@import "colors.rasi"
+
 configuration {
     show-icons:                 true;
     icon-theme:                 "Papirus-Dark";
@@ -10,18 +12,6 @@ configuration {
 }
 
 * {
-    bg:             #1e1e2ed0;
-    surface0:       #313244d0;
-    surface1:       #45475a;
-    border-col:     #cba6f7;
-    mauve:          #cba6f7;
-    fg:             #cdd6f4;
-    subtext:        #a6adc8;
-    overlay:        #6c7086;
-    blue:           #89b4fa;
-    red:            #f38ba8;
-    crust:          #11111b;
-
     background-color:   transparent;
     text-color:         @fg;
     margin:             0;

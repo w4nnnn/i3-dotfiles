@@ -2,17 +2,10 @@
  * Catppuccin Mocha - Modern Horizontal Power Menu (Lucide Icons Only)
  **/
 
+@import "colors.rasi"
+
 configuration {
     show-icons: false;
-}
-
-* {
-    bg:          #1e1e2ed0;
-    surface0:    #313244d0;
-    fg:          #cdd6f4;
-    mauve:       #cba6f7;
-    red:         #f38ba8;
-    crust:       #11111b;
 }
 
 window {

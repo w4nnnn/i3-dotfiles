@@ -2,25 +2,14 @@
  * Catppuccin Mocha - Network Manager Menu (Aligned Design System)
  **/
 
+@import "colors.rasi"
+
 configuration {
     show-icons:                 false;
     font:                       "JetBrainsMono Nerd Font 10";
 }
 
 * {
-    bg:                         #1e1e2ed0;
-    surface0:                   #313244d0;
-    surface1:                   #45475a;
-    border-col:                 #cba6f7;
-    mauve:                      #cba6f7;
-    fg:                         #cdd6f4;
-    subtext:                    #a6adc8;
-    overlay:                    #6c7086;
-    crust:                      #11111b;
-    green:                      #a6e3a1;
-    red:                        #f38ba8;
-    blue:                       #89b4fa;
-
     background-color:           transparent;
     text-color:                 @fg;
     margin:                     0;
