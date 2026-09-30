@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# Volume Control Script with Dunst OSD Progress Bar
+
+send_notification() {
+    local vol="$1"
+    local mute="$2"
+    local icon="audio-volume-high-symbolic"
+
+    if [ "$mute" = "yes" ] || [ "$vol" -eq 0 ]; then
+        dunstify -a "volume_osd" -h string:x-dunst-stack-tag:volume_osd -h int:value:0 -i "audio-volume-muted-symbolic" -t 1000 -u low "Volume" "Muted"
+    else
+        if [ "$vol" -lt 30 ]; then
+            icon="audio-volume-low-symbolic"
+        elif [ "$vol" -lt 70 ]; then
+            icon="audio-volume-medium-symbolic"
+        fi
+        dunstify -a "volume_osd" -h string:x-dunst-stack-tag:volume_osd -h int:value:"$vol" -i "$icon" -t 1000 -u low "Volume" "${vol}%"
+    fi
+}
+
+send_mic_notification() {
+    local mute="$1"
+    if [ "$mute" = "yes" ]; then
+        dunstify -a "mic_osd" -h string:x-dunst-stack-tag:mic_osd -h int:value:0 -i "microphone-sensitivity-muted-symbolic" -t 1000 -u low "Microphone" "Muted"
+    else
+        dunstify -a "mic_osd" -h string:x-dunst-stack-tag:mic_osd -h int:value:100 -i "microphone-sensitivity-high-symbolic" -t 1000 -u low "Microphone" "Unmuted"
+    fi
+}
+
+get_volume() {
+    pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | grep -Po '[0-9]+(?=%)' | head -n 1
+}
+
+get_mute() {
+    pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | grep -Po '(?<=Mute: )(yes|no)'
+}
+
+get_mic_mute() {
+    pactl get-source-mute @DEFAULT_SOURCE@ 2>/dev/null | grep -Po '(?<=Mute: )(yes|no)'
+}
+
+case "$1" in
+    up)
+        pactl set-sink-mute @DEFAULT_SINK@ 0
+        pactl set-sink-volume @DEFAULT_SINK@ +5%
+        send_notification "$(get_volume)" "no"
+        ;;
+    down)
+        pactl set-sink-volume @DEFAULT_SINK@ -5%
+        send_notification "$(get_volume)" "$(get_mute)"
+        ;;
+    mute)
+        pactl set-sink-mute @DEFAULT_SINK@ toggle
+        send_notification "$(get_volume)" "$(get_mute)"
+        ;;
+    mic-mute)
+        pactl set-source-mute @DEFAULT_SOURCE@ toggle
+        send_mic_notification "$(get_mic_mute)"
+        ;;
+    *)
+        echo "Usage: $0 {up|down|mute|mic-mute}"
+        exit 1
+        ;;
+esac

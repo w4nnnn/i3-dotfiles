@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# Brightness Control Script with Dunst OSD Progress Bar
+
+get_brightness() {
+    local cur
+    local max
+    cur=$(brightnessctl get 2>/dev/null)
+    max=$(brightnessctl max 2>/dev/null)
+    if [ -n "$cur" ] && [ -n "$max" ] && [ "$max" -gt 0 ]; then
+        echo $(( (cur * 100) / max ))
+    else
+        echo 0
+    fi
+}
+
+send_notification() {
+    local br="$1"
+    local icon="display-brightness-symbolic"
+    if [ "$br" -lt 30 ]; then
+        icon="display-brightness-low-symbolic"
+    elif [ "$br" -lt 70 ]; then
+        icon="display-brightness-medium-symbolic"
+    else
+        icon="display-brightness-high-symbolic"
+    fi
+    dunstify -a "brightness_osd" -h string:x-dunst-stack-tag:brightness_osd -h int:value:"$br" -i "$icon" -t 1000 -u low "Brightness" "${br}%"
+}
+
+case "$1" in
+    up)
+        brightnessctl set +5% -q
+        send_notification "$(get_brightness)"
+        ;;
+    down)
+        brightnessctl set 5%- -q
+        send_notification "$(get_brightness)"
+        ;;
+    *)
+        echo "Usage: $0 {up|down}"
+        exit 1
+        ;;
+esac

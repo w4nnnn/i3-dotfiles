@@ -178,13 +178,13 @@ mode "resize" {
 }
 bindsym $mod+r mode "resize"
 
-# Multimedia & Brightness Keys
-bindsym XF86AudioRaiseVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ +5%
-bindsym XF86AudioLowerVolume exec --no-startup-id pactl set-sink-volume @DEFAULT_SINK@ -5%
-bindsym XF86AudioMute exec --no-startup-id pactl set-sink-mute @DEFAULT_SINK@ toggle
-bindsym XF86AudioMicMute exec --no-startup-id pactl set-source-mute @DEFAULT_SOURCE@ toggle
-bindsym XF86MonBrightnessUp exec --no-startup-id brightnessctl set +10%
-bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl set 10%-
+# Multimedia & Brightness Keys (with Dunst OSD)
+bindsym XF86AudioRaiseVolume exec --no-startup-id ~/.local/bin/volume-control up
+bindsym XF86AudioLowerVolume exec --no-startup-id ~/.local/bin/volume-control down
+bindsym XF86AudioMute exec --no-startup-id ~/.local/bin/volume-control mute
+bindsym XF86AudioMicMute exec --no-startup-id ~/.local/bin/volume-control mic-mute
+bindsym XF86MonBrightnessUp exec --no-startup-id ~/.local/bin/brightness-control up
+bindsym XF86MonBrightnessDown exec --no-startup-id ~/.local/bin/brightness-control down
 bindsym XF86AudioPlay exec --no-startup-id playerctl play-pause
 bindsym XF86AudioNext exec --no-startup-id playerctl next
 bindsym XF86AudioPrev exec --no-startup-id playerctl previous
