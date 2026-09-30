@@ -272,8 +272,9 @@ ln -sf "$HOME/.local/share/icons/catppuccin-mocha-mauve-cursors/cursors" "$HOME/
 # ------------------------------------------------------------------------------
 # 4. Compile C Helper Binaries
 # ------------------------------------------------------------------------------
-echo -e "\n${CYAN}${BOLD}[4/7] Compiling helper utilities (xcorners & set-root-cursor)...${NC}"
+echo -e "\n${CYAN}${BOLD}[4/7] Compiling helper utilities (xcorners, set-root-cursor, & gtk_popup_rgba)...${NC}"
 mkdir -p "$HOME/.local/bin"
+mkdir -p "$HOME/.local/lib/gtk-3.0/modules"
 
 if [ -f "$DIR/.local/bin/src/set-root-cursor.c" ]; then
     gcc -O2 "$DIR/.local/bin/src/set-root-cursor.c" -lX11 -lXcursor -o "$HOME/.local/bin/set-root-cursor"
@@ -283,6 +284,11 @@ fi
 if [ -f "$DIR/.local/bin/src/xcorners.c" ]; then
     gcc -O2 "$DIR/.local/bin/src/xcorners.c" $(pkg-config --cflags --libs cairo x11 xfixes) -lm -o "$HOME/.local/bin/xcorners"
     echo -e "${GREEN}Compiled xcorners!${NC}"
+fi
+
+if [ -f "$DIR/.local/bin/src/gtk_popup_rgba.c" ]; then
+    gcc -shared -fPIC -O2 "$DIR/.local/bin/src/gtk_popup_rgba.c" $(pkg-config --cflags --libs gtk+-3.0 gmodule-2.0) -o "$HOME/.local/lib/gtk-3.0/modules/libgtk_popup_rgba.so"
+    echo -e "${GREEN}Compiled gtk_popup_rgba module!${NC}"
 fi
 
 # ------------------------------------------------------------------------------

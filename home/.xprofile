@@ -8,3 +8,7 @@ export GTK_THEME="catppuccin-mocha-mauve-standard+default"
 export XCURSOR_THEME="catppuccin-mocha-mauve-cursors"
 export XCURSOR_SIZE=24
 export XCURSOR_PATH="$HOME/.icons:$HOME/.local/share/icons:/usr/share/icons:/usr/share/pixmaps"
+
+# GTK3 RGBA module for pixel-perfect rounded popup menus without depth-24 black box artifacts
+export GTK_PATH="$HOME/.local/lib/gtk-3.0:$GTK_PATH"
+export GTK_MODULES="gtk_popup_rgba:${GTK_MODULES}"
