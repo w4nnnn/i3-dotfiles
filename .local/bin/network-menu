@@ -246,6 +246,7 @@ def main():
         show_actions_menu(state)
         return
     active_name = state["active_name"]
+    active_ip = state["active_ip"]
     conn_state = state["conn_state"]
 
     # If Wi-Fi is disabled, show quick toggle screen
