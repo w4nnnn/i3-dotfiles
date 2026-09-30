@@ -425,6 +425,23 @@ class ControlCenterWindow(Gtk.Window):
             font-size: 7.5pt;
             color: {t["text_muted"]};
         }}
+        .footer-btn {{
+            background-color: transparent;
+            border: none;
+            border-radius: 6px;
+            box-shadow: none;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7.8pt;
+            color: {t["accent"]};
+            padding: 2px 6px;
+            margin: 0;
+            min-height: 0;
+            font-weight: bold;
+        }}
+        .footer-btn:hover {{
+            background-color: {t["bg_hover"]};
+            color: {t["accent"]};
+        }}
 
         /* Theme Dropdown Menu */
         .theme-menu {{

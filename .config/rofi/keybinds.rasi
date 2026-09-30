@@ -1,0 +1,118 @@
+/**
+ * Rofi Keybindings Cheatsheet
+ * Auto-styled by Theme Switcher
+ **/
+
+@import "colors.rasi"
+
+configuration {
+    show-icons:                 false;
+    font:                       "JetBrainsMono Nerd Font 10";
+}
+
+* {
+    background-color:           transparent;
+    text-color:                 @fg;
+    margin:                     0;
+    padding:                    0;
+    spacing:                    0;
+}
+
+window {
+    transparency:               "real";
+    location:                   center;
+    anchor:                     center;
+    fullscreen:                 false;
+    width:                      720px;
+    border:                     2px solid;
+    border-color:               @mauve;
+    border-radius:              16px;
+    background-color:           @bg;
+    padding:                    20px;
+}
+
+mainbox {
+    background-color:           transparent;
+    spacing:                    12px;
+    children:                   [ "inputbar", "message", "listview" ];
+}
+
+inputbar {
+    background-color:           @surface0;
+    border-radius:              12px;
+    padding:                    10px 14px;
+    spacing:                    10px;
+    children:                   [ "prompt", "entry" ];
+}
+
+prompt {
+    background-color:           transparent;
+    text-color:                 @mauve;
+    font:                       "JetBrainsMono Nerd Font 12";
+    vertical-align:             0.5;
+}
+
+entry {
+    background-color:           transparent;
+    text-color:                 @fg;
+    placeholder:                "Search shortcuts & commands...";
+    placeholder-color:          @overlay;
+    font:                       "JetBrainsMono Nerd Font 10";
+    vertical-align:             0.5;
+}
+
+message {
+    background-color:           @surface0;
+    border-radius:              10px;
+    padding:                    8px 14px;
+}
+
+textbox {
+    background-color:           transparent;
+    text-color:                 @subtext;
+    font:                       "JetBrainsMono Nerd Font 9.5";
+    vertical-align:             0.5;
+}
+
+listview {
+    background-color:           transparent;
+    columns:                    1;
+    lines:                      10;
+    cycle:                      true;
+    dynamic:                    true;
+    scrollbar:                  true;
+    layout:                     vertical;
+    spacing:                    5px;
+    padding:                    4px 0;
+}
+
+scrollbar {
+    handle-width:               4px;
+    handle-color:               @surface1;
+    border-radius:              4px;
+    background-color:           transparent;
+    margin:                     0 0 0 8px;
+}
+
+element {
+    background-color:           transparent;
+    text-color:                 @fg;
+    orientation:                horizontal;
+    border-radius:              10px;
+    padding:                    8px 12px;
+    spacing:                    12px;
+}
+
+element selected.normal {
+    background-color:           @surface0;
+    text-color:                 @mauve;
+    border:                     1px solid;
+    border-color:               @mauve;
+}
+
+element-text {
+    background-color:           transparent;
+    text-color:                 inherit;
+    font:                       "JetBrainsMono Nerd Font 10";
+    vertical-align:             0.5;
+}

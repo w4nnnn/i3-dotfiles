@@ -46,6 +46,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
 | **`Super + Shift + w`** | Open Wallpaper Selector |
 | **`Super + Shift + t`** | Open Global Theme Switcher |
+| **`Super + /`** / **`Super + ?`** | Open Keybindings Cheatsheet Viewer |
 | **`Super + \``** / **`Super + -`** | Toggle Dropdown Scratchpad Terminal |
 | **`Super + Shift + m`** | Toggle Do Not Disturb (DND) |
 | **`Super + Escape`** | Lock Screen |

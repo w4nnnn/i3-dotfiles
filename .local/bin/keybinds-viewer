@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""
+Interactive Keybindings Cheatsheet Viewer
+Displays all i3wm & system shortcuts with search & direct execution support.
+"""
+import os
+import sys
+import subprocess
+
+KEYBINDS = [
+    # Applications & Windows
+    ("󰆍  Super + Return / Super + T", "Launch Kitty Terminal", "kitty"),
+    ("󰆍  Super + ` (Grave) / Super + -", "Toggle Floating Dropdown Scratchpad", "toggle-scratchpad"),
+    ("󰀻  Super + D / Super + A", "Open Start Menu & App Launcher", "win11-start"),
+    ("󰖟  Super + B", "Launch Brave Web Browser", "brave"),
+    ("󰉋  Super + E", "Launch Nemo File Manager", "nemo"),
+    ("󰅖  Super + Q", "Close Focused Window", "i3-msg kill"),
+    ("󰊓  Super + F", "Toggle Fullscreen Window", "i3-msg fullscreen toggle"),
+    ("󰉈  Super + Shift + Space", "Toggle Floating Window Mode", "i3-msg floating toggle"),
+    ("󱂬  Super + Tab", "Switch Open Windows (Rofi)", "rofi -show window"),
+
+    # Hubs, Menus & Settings
+    ("󰚔  Super + C", "Toggle Control Center (Quick Settings)", "control-center"),
+    ("󰅍  Super + V", "Open Clipboard Manager History", "clipboard"),
+    ("󰲋  Super + Shift + V", "Clear Clipboard Manager History", "clipboard --clear"),
+    ("󰖩  Super + N", "Open Wi-Fi / Network Manager Menu", "network-menu"),
+    ("󰏘  Super + Shift + W", "Open Wallpaper Selector", "wallpaper-selector"),
+    ("󰉼  Super + Shift + T", "Open Global Theme Switcher", "theme-switcher"),
+    ("󰂛  Super + Shift + M", "Toggle Do Not Disturb (DND)", "toggle-dnd"),
+    ("󰤄  Super + Escape", "Lock Screen (i3lock / Betterlockscreen)", "lockscreen"),
+    ("󰐥  Super + Shift + E", "Open Power Menu (Shutdown, Reboot, Logout)", "powermenu"),
+    ("󰑓  Super + Shift + R", "In-place Restart i3 Window Manager", "i3-msg restart"),
+
+    # Screenshots
+    ("󰄀  Print", "Screenshot Selected Area (Copy & Save)", "screenshot select"),
+    ("󰹑  Shift + Print", "Screenshot Entire Screen", "screenshot full"),
+    ("󰖯  Ctrl + Print", "Screenshot Focused Window", "screenshot window"),
+    ("󱎫  Alt + Print", "Screenshot with 3-second Delay", "screenshot delay"),
+
+    # Navigation & Layout
+    ("󰁔  Super + H / J / K / L", "Focus Window Left / Down / Up / Right", None),
+    ("󰁔  Super + Arrow Keys", "Focus Window (Left / Down / Up / Right)", None),
+    ("󰆾  Super + Shift + H/J/K/L", "Move Window Left / Down / Up / Right", None),
+    ("󰆾  Super + Shift + Arrows", "Move Window (Left / Down / Up / Right)", None),
+    ("󱂩  Super + 1 .. 0", "Switch to Workspace 1 through 10", None),
+    ("󱂩  Super + Shift + 1 .. 0", "Move Window to Workspace 1 through 10", None),
+    ("󰩨  Super + R", "Enter Window Resize Mode (Esc to Exit)", "i3-msg mode resize"),
+]
+
+def main():
+    if subprocess.call(["pgrep", "-x", "rofi"], stdout=subprocess.DEVNULL) == 0:
+        subprocess.call(["killall", "-q", "rofi"])
+        return
+
+    rasi_path = os.path.expanduser("~/.config/rofi/keybinds.rasi")
+    
+    # Format lines: "<Keybind>  ─  <Desc>" with index info
+    menu_lines = []
+    for idx, (shortcut, desc, action) in enumerate(KEYBINDS):
+        # Format aligned
+        formatted = f"{shortcut:<36}  ─  {desc}"
+        menu_lines.append(f"{formatted}\x00info\x1f{idx}")
+
+    raw_input = "\n".join(menu_lines)
+
+    rofi_cmd = ["rofi", "-dmenu", "-p", "⌨ Keybinds", "-mesg", "Press Enter to run shortcut action · Type to search", "-i"]
+    if os.path.isfile(rasi_path):
+        rofi_cmd.extend(["-theme", rasi_path])
+
+    try:
+        proc = subprocess.Popen(
+            rofi_cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True
+        )
+        stdout, _ = proc.communicate(input=raw_input)
+        chosen = stdout.strip()
+
+        if chosen:
+            # Find matching action
+            for shortcut, desc, action in KEYBINDS:
+                if shortcut.split()[1] in chosen or desc in chosen:
+                    if action:
+                        bin_dir = os.path.expanduser("~/.local/bin")
+                        cmd_parts = action.split()
+                        cmd_name = cmd_parts[0]
+                        full_bin = os.path.join(bin_dir, cmd_name)
+                        if os.path.isfile(full_bin):
+                            cmd_parts[0] = full_bin
+                        subprocess.Popen(cmd_parts)
+                    break
+    except Exception:
+        pass
+
+if __name__ == "__main__":
+    main()

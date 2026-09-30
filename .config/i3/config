@@ -82,9 +82,11 @@ bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/clipboard --clear
 bindsym $mod+n exec --no-startup-id ~/.local/bin/network-menu
 bindsym $mod+Shift+n exec --no-startup-id kitty --class floating_terminal -e nmtui
 
-# Wallpaper & Theme Selectors
+# Wallpaper & Theme Selectors & Keybinds Cheatsheet
 bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/wallpaper-selector
 bindsym $mod+Shift+t exec --no-startup-id ~/.local/bin/theme-switcher
+bindsym $mod+slash exec --no-startup-id ~/.local/bin/keybinds-viewer
+bindsym $mod+question exec --no-startup-id ~/.local/bin/keybinds-viewer
 
 # Change focus
 bindsym $mod+j focus left
