@@ -153,7 +153,7 @@ class ControlCenterWindow(Gtk.Window):
         }}
         #main-panel {{
             background-color: {t["bg_card"]};
-            border: 2px solid #cba6f7;
+            border: 2px solid {t["border_active"]};
             border-radius: 16px;
             padding: 12px;
             min-width: 380px;
