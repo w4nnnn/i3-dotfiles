@@ -47,13 +47,13 @@ class CatppuccinCalendar(Gtk.Window):
             background-color: transparent;
         }
         #calendar-card {
-            background-color: #1e1e2e;
+            background-color: rgba(30, 30, 46, 0.82);
             border: 2px solid #cba6f7;
             border-radius: 16px;
             padding: 16px;
         }
         calendar {
-            background-color: #1e1e2e;
+            background-color: transparent;
             color: #cdd6f4;
             border: none;
             font-family: 'JetBrainsMono Nerd Font';
