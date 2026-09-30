@@ -76,6 +76,46 @@ THEMES = {
         "highlight": "#f59e0b",
         "btn": "#6366f1",
     },
+    "dracula": {
+        "bg_card": "rgba(40, 42, 54, 0.82)",
+        "accent": "#bd93f9",
+        "fg": "#f8f8f2",
+        "contrast": "#282a36",
+        "highlight": "#ffb86c",
+        "btn": "#8be9fd",
+    },
+    "gruvbox": {
+        "bg_card": "rgba(40, 40, 40, 0.82)",
+        "accent": "#fe8019",
+        "fg": "#ebdbb2",
+        "contrast": "#282828",
+        "highlight": "#fabd2f",
+        "btn": "#fabd2f",
+    },
+    "rose-pine": {
+        "bg_card": "rgba(25, 23, 36, 0.82)",
+        "accent": "#ebbcba",
+        "fg": "#e0def4",
+        "contrast": "#191724",
+        "highlight": "#f6c177",
+        "btn": "#c4a7e7",
+    },
+    "everforest": {
+        "bg_card": "rgba(45, 53, 59, 0.82)",
+        "accent": "#a7c080",
+        "fg": "#d3c6aa",
+        "contrast": "#232a2e",
+        "highlight": "#dbbc7f",
+        "btn": "#7fbbb3",
+    },
+    "cyberpunk": {
+        "bg_card": "rgba(18, 12, 31, 0.85)",
+        "accent": "#00f0ff",
+        "fg": "#fdfdfd",
+        "contrast": "#08040d",
+        "highlight": "#ffe600",
+        "btn": "#ff007f",
+    },
 }
 
 t = THEMES.get(current_theme_key, THEMES["catppuccin"])

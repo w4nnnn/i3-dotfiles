@@ -62,6 +62,31 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 
 ---
 
+## 🎨 Global Desktop Themes
+
+Synchronize your entire desktop color scheme with a single click or shortcut. The theme switcher coordinates **Polybar**, **Rofi menus**, **i3wm window borders & indicators**, **Kitty terminal colors**, **Dunst notification frames**, **Control Center**, **Start Menu**, and **Screen Corner Overlays (`xcorners`)**.
+
+### 🌟 10 Available Themes:
+| Theme | Style & Mood | Accent Color |
+| :--- | :--- | :--- |
+| **`catppuccin`** | **Catppuccin Mocha** (Default) - Soothing warm pastel | `#cba6f7` (Mauve) |
+| **`tokyo-night`** | **Tokyo Night** - Clean neon cyber dark | `#7aa2f7` (Neon Blue) |
+| **`nord`** | **Nordic Frost** - Arctic ice cool aesthetic | `#88c0d0` (Frost Blue) |
+| **`dracula`** | **Dracula** - Classic vampire neon pastel | `#bd93f9` (Purple) |
+| **`gruvbox`** | **Gruvbox Dark** - Warm retro groovy palette | `#fe8019` (Orange) |
+| **`rose-pine`** | **Rosé Pine** - Natural soft rosy vintage | `#ebbcba` (Rose) |
+| **`everforest`** | **Everforest Dark** - Calming earthy forest green | `#a7c080` (Green) |
+| **`cyberpunk`** | **Cyberpunk Neon** - High-contrast synthwave neon | `#00f0ff` (Cyan) / `#ff007f` |
+| **`oled`** | **OLED Pitch Black** - Deep infinite pure black | `#38bdf8` (Sky Blue) |
+| **`light`** | **Paper Light** - Clean modern daylight palette | `#0284c7` (Ocean Blue) |
+
+### 🚀 How to Switch Themes:
+1. **Shortcut**: Press **`Super + Shift + t`** to launch the interactive Rofi theme selector.
+2. **Control Center**: Press **`Super + c`** and click the theme palette button (``) in the header.
+3. **CLI**: Run `theme-switcher <theme-key>` (e.g., `theme-switcher dracula`, `theme-switcher gruvbox`).
+
+---
+
 ## 🖼️ Wallpaper Management
 
 ### 1. How to Change Wallpaper
