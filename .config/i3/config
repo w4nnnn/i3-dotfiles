@@ -82,8 +82,9 @@ bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/clipboard --clear
 bindsym $mod+n exec --no-startup-id ~/.local/bin/network-menu
 bindsym $mod+Shift+n exec --no-startup-id kitty --class floating_terminal -e nmtui
 
-# Wallpaper Selector
+# Wallpaper & Theme Selectors
 bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/wallpaper-selector
+bindsym $mod+Shift+t exec --no-startup-id ~/.local/bin/theme-switcher
 
 # Change focus
 bindsym $mod+j focus left
@@ -200,11 +201,5 @@ bindsym Shift+Print exec --no-startup-id ~/.local/bin/screenshot full
 bindsym Control+Print exec --no-startup-id ~/.local/bin/screenshot window
 bindsym Mod1+Print exec --no-startup-id ~/.local/bin/screenshot delay
 
-# --- Catppuccin Mocha Color Theme ---
-# class                 border  bground text    indicator child_border
-client.focused          #cba6f7 #1e1e2e #cdd6f4 #b4befe   #cba6f7
-client.focused_inactive #45475a #1e1e2e #a6adc8 #45475a   #45475a
-client.unfocused        #313244 #1e1e2e #6c7086 #313244   #313244
-client.urgent           #f38ba8 #1e1e2e #f38ba8 #f38ba8   #f38ba8
-client.placeholder      #181825 #181825 #cdd6f4 #181825   #181825
-client.background       #1e1e2e
+# --- Color Theme (Modular) ---
+include ~/.config/i3/theme.conf

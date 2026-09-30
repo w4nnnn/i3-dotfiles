@@ -32,6 +32,88 @@ if os.path.exists(PID_FILE):
 with open(PID_FILE, "w") as f:
     f.write(str(os.getpid()))
 
+# Load Theme Preference
+THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
+current_theme_key = "catppuccin"
+if os.path.exists(THEME_PREF_FILE):
+    try:
+        with open(THEME_PREF_FILE) as f:
+            t_key = f.read().strip()
+            if t_key:
+                current_theme_key = t_key
+    except Exception:
+        pass
+
+THEMES = {
+    "catppuccin": {
+        "bg_card": "rgba(30, 30, 46, 0.82)",
+        "bg_inner": "rgba(24, 24, 37, 0.85)",
+        "bg_footer": "rgba(24, 24, 37, 0.88)",
+        "accent": "#cba6f7",
+        "accent_rgb": (203 / 255.0, 166 / 255.0, 247 / 255.0),
+        "surface0": "#313244",
+        "surface0_rgb": (49 / 255.0, 50 / 255.0, 68 / 255.0),
+        "surface1": "#45475a",
+        "fg": "#cdd6f4",
+        "muted": "#6c7086",
+        "danger": "#f38ba8",
+    },
+    "tokyo-night": {
+        "bg_card": "rgba(26, 27, 38, 0.82)",
+        "bg_inner": "rgba(22, 22, 30, 0.85)",
+        "bg_footer": "rgba(22, 22, 30, 0.88)",
+        "accent": "#7aa2f7",
+        "accent_rgb": (122 / 255.0, 162 / 255.0, 247 / 255.0),
+        "surface0": "#24283b",
+        "surface0_rgb": (36 / 255.0, 40 / 255.0, 59 / 255.0),
+        "surface1": "#2f3549",
+        "fg": "#c0caf5",
+        "muted": "#565f89",
+        "danger": "#f7768e",
+    },
+    "nord": {
+        "bg_card": "rgba(46, 52, 64, 0.82)",
+        "bg_inner": "rgba(36, 41, 51, 0.85)",
+        "bg_footer": "rgba(36, 41, 51, 0.88)",
+        "accent": "#88c0d0",
+        "accent_rgb": (136 / 255.0, 192 / 255.0, 208 / 255.0),
+        "surface0": "#3b4252",
+        "surface0_rgb": (59 / 255.0, 66 / 255.0, 82 / 255.0),
+        "surface1": "#434c5e",
+        "fg": "#eceff4",
+        "muted": "#4c566a",
+        "danger": "#bf616a",
+    },
+    "oled": {
+        "bg_card": "rgba(9, 9, 11, 0.85)",
+        "bg_inner": "rgba(0, 0, 0, 0.85)",
+        "bg_footer": "rgba(0, 0, 0, 0.88)",
+        "accent": "#38bdf8",
+        "accent_rgb": (56 / 255.0, 189 / 255.0, 248 / 255.0),
+        "surface0": "#141418",
+        "surface0_rgb": (20 / 255.0, 20 / 255.0, 24 / 255.0),
+        "surface1": "#222228",
+        "fg": "#ffffff",
+        "muted": "#52525b",
+        "danger": "#f43f5e",
+    },
+    "light": {
+        "bg_card": "rgba(255, 255, 255, 0.85)",
+        "bg_inner": "rgba(241, 245, 249, 0.85)",
+        "bg_footer": "rgba(241, 245, 249, 0.88)",
+        "accent": "#0284c7",
+        "accent_rgb": (2 / 255.0, 132 / 255.0, 199 / 255.0),
+        "surface0": "#e2e8f0",
+        "surface0_rgb": (226 / 255.0, 232 / 255.0, 240 / 255.0),
+        "surface1": "#cbd5e1",
+        "fg": "#0f172a",
+        "muted": "#94a3b8",
+        "danger": "#ef4444",
+    },
+}
+
+t = THEMES.get(current_theme_key, THEMES["catppuccin"])
+
 def get_username():
     return os.getenv("USER", "User")
 
@@ -167,110 +249,110 @@ class Win11StartMenu(Gtk.Window):
             self.get_window().set_cursor(cursor)
 
     def apply_css(self):
-        css = b"""
-        window {
+        css = f"""
+        window {{
             background-color: transparent;
-        }
-        #start-window {
-            background-color: rgba(30, 30, 46, 0.82);
-            border: 2px solid #cba6f7;
+        }}
+        #start-window {{
+            background-color: {t["bg_card"]};
+            border: 2px solid {t["accent"]};
             border-radius: 16px;
             padding: 0px;
-        }
-        #search-wrapper {
+        }}
+        #search-wrapper {{
             padding: 20px 26px 16px 26px;
-            border-bottom: 1px solid #313244;
+            border-bottom: 1px solid {t["surface0"]};
             margin-bottom: 8px;
-        }
-        #search-bar {
-            background-color: rgba(24, 24, 37, 0.85);
-            border: 1px solid #313244;
+        }}
+        #search-bar {{
+            background-color: {t["bg_inner"]};
+            border: 1px solid {t["surface0"]};
             border-radius: 8px;
             padding: 6px 14px;
             outline: none;
             box-shadow: none;
-        }
-        #search-bar:focus-within {
-            border: 1px solid #45475a;
-        }
-        #search-icon {
-            color: #cba6f7;
+        }}
+        #search-bar:focus-within {{
+            border: 1px solid {t["surface1"]};
+        }}
+        #search-icon {{
+            color: {t["accent"]};
             font-family: 'lucide', 'JetBrainsMono Nerd Font';
             font-size: 13pt;
-        }
+        }}
         entry,
         #search-entry,
-        #search-entry:focus {
+        #search-entry:focus {{
             background-color: transparent;
             border: none;
             outline: none;
             box-shadow: none;
-            color: #cdd6f4;
+            color: {t["fg"]};
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 10.5pt;
-        }
-        .close-search-btn {
+        }}
+        .close-search-btn {{
             background-color: transparent;
             border: none;
-            color: #6c7086;
+            color: {t["muted"]};
             font-family: 'lucide', 'JetBrainsMono Nerd Font';
             font-size: 12pt;
             padding: 0;
             min-width: 24px;
             min-height: 24px;
             border-radius: 6px;
-        }
-        .close-search-btn:hover {
-            color: #f38ba8;
-            background-color: #313244;
-        }
-        #body-container {
+        }}
+        .close-search-btn:hover {{
+            color: {t["danger"]};
+            background-color: {t["surface0"]};
+        }}
+        #body-container {{
             padding: 0px 24px 8px 24px;
-        }
-        .app-tile {
+        }}
+        .app-tile {{
             background-color: transparent;
             border: 1px solid transparent;
             border-radius: 10px;
             padding: 10px 4px;
-        }
-        .app-tile:hover {
-            background-color: #313244;
-            border-color: #45475a;
-        }
-        .app-tile-label {
-            color: #cdd6f4;
+        }}
+        .app-tile:hover {{
+            background-color: {t["surface0"]};
+            border-color: {t["surface1"]};
+        }}
+        .app-tile-label {{
+            color: {t["fg"]};
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 8.5pt;
             margin-top: 5px;
-        }
-        .no-results-lbl {
-            color: #a6adc8;
+        }}
+        .no-results-lbl {{
+            color: {t["muted"]};
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 10pt;
-        }
-        #footer-bar {
-            background-color: rgba(24, 24, 37, 0.88);
-            border-top: 1px solid #313244;
+        }}
+        #footer-bar {{
+            background-color: {t["bg_footer"]};
+            border-top: 1px solid {t["surface0"]};
             border-radius: 0px 0px 16px 16px;
             padding: 12px 28px;
-        }
-        .avatar-circle {
-            background-color: #313244;
+        }}
+        .avatar-circle {{
+            background-color: {t["surface0"]};
             border-radius: 50%;
             min-width: 32px;
             min-height: 32px;
             font-family: 'lucide', 'JetBrainsMono Nerd Font';
             font-size: 13pt;
-            color: #cba6f7;
-        }
-        .user-name {
-            color: #cdd6f4;
+            color: {t["accent"]};
+        }}
+        .user-name {{
+            color: {t["fg"]};
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 9.5pt;
             font-weight: bold;
             margin-left: 8px;
-        }
-        .footer-power-btn {
+        }}
+        .footer-power-btn {{
             background-color: transparent;
             border: none;
             border-radius: 8px;
@@ -278,26 +360,26 @@ class Win11StartMenu(Gtk.Window):
             min-height: 34px;
             font-family: 'lucide', 'JetBrainsMono Nerd Font';
             font-size: 14pt;
-            color: #f38ba8;
+            color: {t["danger"]};
             padding: 0;
-        }
-        .footer-power-btn:hover {
-            background-color: #313244;
-        }
-        scrollbar trough {
+        }}
+        .footer-power-btn:hover {{
+            background-color: {t["surface0"]};
+        }}
+        scrollbar trough {{
             background-color: transparent;
-        }
-        scrollbar slider {
-            background-color: #313244;
+        }}
+        scrollbar slider {{
+            background-color: {t["surface0"]};
             border-radius: 6px;
             min-width: 4px;
-        }
-        scrollbar slider:hover {
-            background-color: #cba6f7;
-        }
+        }}
+        scrollbar slider:hover {{
+            background-color: {t["accent"]};
+        }}
         """
         provider = Gtk.CssProvider()
-        provider.load_from_data(css)
+        provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(),
             provider,
@@ -407,7 +489,8 @@ class Win11StartMenu(Gtk.Window):
 
         # Draw circle background
         cr.arc(w / 2.0, h / 2.0, radius, 0, 2 * math.pi)
-        cr.set_source_rgb(49 / 255.0, 50 / 255.0, 68 / 255.0)  # #313244
+        sr, sg, sb = t.get("surface0_rgb", (49 / 255.0, 50 / 255.0, 68 / 255.0))
+        cr.set_source_rgb(sr, sg, sb)
         cr.fill()
 
         # Draw Lucide user icon centered using ink bounds
@@ -420,7 +503,8 @@ class Win11StartMenu(Gtk.Window):
         y = round((h - ink.height) / 2.0 - ink.y)
 
         cr.move_to(x, y)
-        cr.set_source_rgb(203 / 255.0, 166 / 255.0, 247 / 255.0)  # #cba6f7
+        ar, ag, ab = t.get("accent_rgb", (203 / 255.0, 166 / 255.0, 247 / 255.0))
+        cr.set_source_rgb(ar, ag, ab)
         PangoCairo.show_layout(cr, layout)
 
     def on_search_changed(self, entry):

@@ -460,6 +460,11 @@ class ControlCenterWindow(Gtk.Window):
             self.telemetry.ram_meter.queue_draw()
             self.telemetry.bat_meter.queue_draw()
 
+            # Synchronize global desktop theme (Rofi, Polybar, i3, Dunst, Kitty)
+            bin_switcher = os.path.expanduser("~/.local/bin/theme-switcher")
+            if os.path.isfile(bin_switcher):
+                subprocess.Popen([bin_switcher, theme_key], stderr=subprocess.DEVNULL)
+
     def on_telemetry_tick(self):
         self.telemetry.update_telemetry()
         self.header.update_uptime()

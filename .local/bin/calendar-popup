@@ -23,6 +23,63 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
+# Load Theme Preference
+THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
+current_theme_key = "catppuccin"
+if os.path.exists(THEME_PREF_FILE):
+    try:
+        with open(THEME_PREF_FILE) as f:
+            t_key = f.read().strip()
+            if t_key:
+                current_theme_key = t_key
+    except Exception:
+        pass
+
+THEMES = {
+    "catppuccin": {
+        "bg_card": "rgba(30, 30, 46, 0.82)",
+        "accent": "#cba6f7",
+        "fg": "#cdd6f4",
+        "contrast": "#11111b",
+        "highlight": "#fab387",
+        "btn": "#89b4fa",
+    },
+    "tokyo-night": {
+        "bg_card": "rgba(26, 27, 38, 0.82)",
+        "accent": "#7aa2f7",
+        "fg": "#c0caf5",
+        "contrast": "#16161e",
+        "highlight": "#e0af68",
+        "btn": "#bb9af7",
+    },
+    "nord": {
+        "bg_card": "rgba(46, 52, 64, 0.82)",
+        "accent": "#88c0d0",
+        "fg": "#eceff4",
+        "contrast": "#242933",
+        "highlight": "#ebcb8b",
+        "btn": "#81a1c1",
+    },
+    "oled": {
+        "bg_card": "rgba(9, 9, 11, 0.85)",
+        "accent": "#38bdf8",
+        "fg": "#ffffff",
+        "contrast": "#000000",
+        "highlight": "#f59e0b",
+        "btn": "#34d399",
+    },
+    "light": {
+        "bg_card": "rgba(255, 255, 255, 0.85)",
+        "accent": "#0284c7",
+        "fg": "#0f172a",
+        "contrast": "#ffffff",
+        "highlight": "#f59e0b",
+        "btn": "#6366f1",
+    },
+}
+
+t = THEMES.get(current_theme_key, THEMES["catppuccin"])
+
 class CatppuccinCalendar(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
@@ -41,42 +98,42 @@ class CatppuccinCalendar(Gtk.Window):
         if visual:
             self.set_visual(visual)
 
-        # Apply Catppuccin Mocha CSS styling
-        css = b"""
-        window {
+        # Apply Dynamic CSS styling
+        css = f"""
+        window {{
             background-color: transparent;
-        }
-        #calendar-card {
-            background-color: rgba(30, 30, 46, 0.82);
-            border: 2px solid #cba6f7;
+        }}
+        #calendar-card {{
+            background-color: {t["bg_card"]};
+            border: 2px solid {t["accent"]};
             border-radius: 16px;
             padding: 16px;
-        }
-        calendar {
+        }}
+        calendar {{
             background-color: transparent;
-            color: #cdd6f4;
+            color: {t["fg"]};
             border: none;
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 10pt;
-        }
-        calendar:selected {
-            background-color: #cba6f7;
-            color: #11111b;
+        }}
+        calendar:selected {{
+            background-color: {t["accent"]};
+            color: {t["contrast"]};
             border-radius: 6px;
-        }
-        calendar.header {
-            color: #cba6f7;
+        }}
+        calendar.header {{
+            color: {t["accent"]};
             font-weight: bold;
-        }
-        calendar.highlight {
-            color: #fab387;
-        }
-        calendar.button {
-            color: #89b4fa;
-        }
+        }}
+        calendar.highlight {{
+            color: {t["highlight"]};
+        }}
+        calendar.button {{
+            color: {t["btn"]};
+        }}
         """
         provider = Gtk.CssProvider()
-        provider.load_from_data(css)
+        provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
             screen,
             provider,
