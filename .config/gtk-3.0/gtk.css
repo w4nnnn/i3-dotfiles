@@ -1,0 +1,14 @@
+/* =============================================================================
+ * Catppuccin Mocha - GTK3 Custom Overrides
+ * Fix black corner & margin artifacts on depth-24 menus (Nemo, etc.)
+ * ============================================================================= */
+menu,
+.menu,
+.context-menu {
+    margin: 0;
+    padding: 6px;
+    border-radius: 0;
+    border: 1px solid #45475a;
+    background-color: #1e1e2e;
+    box-shadow: none;
+}
