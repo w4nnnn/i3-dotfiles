@@ -2,7 +2,8 @@
 """
 Catppuccin / Multi-Theme Network Manager Menu
 Faithfully replicates the Rofi network.rasi design system using GTK3,
-featuring a pure SSID list, background scanning, and real interactive footer buttons.
+featuring a pure SSID list, background scanning, real interactive footer buttons,
+and an elegant in-place password authentication modal card.
 """
 import sys
 import os
@@ -218,7 +219,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.wifi_enabled = True
         self.wifi_dev = ""
         self.is_scanning = False
-        self.selected_index = 0
+        self.current_target_ssid = ""
 
         self._build_ui()
         self.position_window()
@@ -450,6 +451,103 @@ class RofiStyleNetworkWindow(Gtk.Window):
             outline: none;
             box-shadow: none;
         }}
+        /* Password View Styling */
+        #pwd-icon {{
+            color: {t["accent"]};
+            font-size: 32pt;
+            margin-bottom: 4px;
+        }}
+        #pwd-title {{
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            font-weight: bold;
+        }}
+        #pwd-subtitle {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 9.2pt;
+            margin-bottom: 8px;
+        }}
+        #pwd-entry-container {{
+            background-color: {t["surface0"]};
+            border: 1.5px solid {t["surface1"]};
+            border-radius: 10px;
+            padding: 4px 10px;
+        }}
+        #pwd-entry-container:focus-within {{
+            border-color: {t["accent"]};
+        }}
+        #pwd-entry,
+        #pwd-entry:focus {{
+            background-color: transparent;
+            border: none;
+            outline: none;
+            box-shadow: none;
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 11pt;
+        }}
+        button.pwd-eye-btn,
+        .pwd-eye-btn {{
+            background-color: transparent;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
+            color: {t["subtext"]};
+            font-size: 11pt;
+            padding: 4px 6px;
+        }}
+        button.pwd-eye-btn:hover,
+        .pwd-eye-btn:hover {{
+            color: {t["accent"]};
+            background-color: transparent;
+            border: none;
+        }}
+        #pwd-error {{
+            color: {t["red"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.8pt;
+            font-weight: bold;
+            margin-top: 4px;
+        }}
+        button.pwd-btn,
+        .pwd-btn {{
+            border-radius: 8px;
+            padding: 7px 18px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 9.2pt;
+            font-weight: bold;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
+        }}
+        button.pwd-btn.cancel,
+        .pwd-btn.cancel {{
+            background-color: {t["surface0"]};
+            color: {t["subtext"]};
+        }}
+        button.pwd-btn.cancel:hover,
+        .pwd-btn.cancel:hover {{
+            background-color: {t["surface1"]};
+            color: {t["fg"]};
+            border: none;
+            outline: none;
+        }}
+        button.pwd-btn.connect,
+        .pwd-btn.connect {{
+            background-color: {t["accent"]};
+            color: #11111b;
+        }}
+        button.pwd-btn.connect:hover,
+        .pwd-btn.connect:hover {{
+            background-color: {t["blue"]};
+            color: #11111b;
+            border: none;
+            outline: none;
+        }}
         scrollbar trough {{
             background-color: transparent;
         }}
@@ -471,13 +569,23 @@ class RofiStyleNetworkWindow(Gtk.Window):
         )
 
     def _build_ui(self):
-        # 1. Main Card Box (660px width matching Rofi network.rasi)
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        # Main Card Box (660px width matching Rofi network.rasi)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         main_box.set_name("main-card")
         main_box.set_size_request(660, 480)
         self.add(main_box)
 
-        # 2. Input Bar (Pill search box with prompt icon)
+        # Stack to smoothly transition between Network List and Password Prompt
+        self.stack = Gtk.Stack()
+        self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_transition_duration(150)
+
+        # ======================================================================
+        # VIEW 1: Networks List View
+        # ======================================================================
+        self.networks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+
+        # 1. Input Bar (Pill search box with prompt icon)
         inputbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         inputbar.set_name("inputbar")
 
@@ -491,9 +599,9 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.search_entry.connect("changed", self.on_search_changed)
         inputbar.pack_start(self.search_entry, True, True, 0)
 
-        main_box.pack_start(inputbar, False, False, 0)
+        self.networks_box.pack_start(inputbar, False, False, 0)
 
-        # 3. Listview (Pure SSID list ONLY)
+        # 2. Listview (Pure SSID list ONLY)
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.listbox = Gtk.ListBox()
@@ -501,9 +609,9 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.connect("row-activated", self.on_row_activated)
         self.scrolled.add(self.listbox)
-        main_box.pack_start(self.scrolled, True, True, 0)
+        self.networks_box.pack_start(self.scrolled, True, True, 0)
 
-        # 4. Action Footer Toolbar (REAL Interactive GTK Buttons)
+        # 3. Action Footer Toolbar (REAL Interactive GTK Buttons)
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         footer.set_name("footer-bar")
 
@@ -539,15 +647,86 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.settings_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])))
         footer.pack_start(self.settings_btn, True, True, 0)
 
-        # Radio Toggle Button
-        self.radio_btn = Gtk.Button(label="󰐥 Radio")
+        # Radio Toggle Button (Wifi Off / Wifi On)
+        self.radio_btn = Gtk.Button(label="󰤮 Wifi Off")
         self.radio_btn.get_style_context().add_class("footer-action-btn")
         self.radio_btn.get_style_context().add_class("radio")
-        self.radio_btn.set_tooltip_text("Toggle Wi-Fi Radio ON/OFF")
+        self.radio_btn.set_tooltip_text("Turn Wi-Fi Off")
         self.radio_btn.connect("clicked", lambda w: self.action_toggle_radio())
         footer.pack_start(self.radio_btn, True, True, 0)
 
-        main_box.pack_start(footer, False, False, 0)
+        self.networks_box.pack_start(footer, False, False, 0)
+        self.stack.add_named(self.networks_box, "networks")
+
+        # ======================================================================
+        # VIEW 2: Elegant Password Prompt Modal View
+        # ======================================================================
+        self.pwd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.pwd_box.set_valign(Gtk.Align.CENTER)
+        self.pwd_box.set_halign(Gtk.Align.CENTER)
+        self.pwd_box.set_size_request(440, -1)
+
+        # Lock Icon
+        pwd_icon = Gtk.Label(label="󰌾")
+        pwd_icon.set_name("pwd-icon")
+        self.pwd_box.pack_start(pwd_icon, False, False, 0)
+
+        # Title & Subtitle
+        self.pwd_title_lbl = Gtk.Label(label="Connect to Wi-Fi")
+        self.pwd_title_lbl.set_name("pwd-title")
+        self.pwd_title_lbl.set_use_markup(True)
+        self.pwd_box.pack_start(self.pwd_title_lbl, False, False, 0)
+
+        self.pwd_sub_lbl = Gtk.Label(label="Enter security key to join this network")
+        self.pwd_sub_lbl.set_name("pwd-subtitle")
+        self.pwd_box.pack_start(self.pwd_sub_lbl, False, False, 0)
+
+        # Password Entry Pill Box
+        pwd_entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        pwd_entry_box.set_name("pwd-entry-container")
+
+        self.pwd_entry = Gtk.Entry()
+        self.pwd_entry.set_name("pwd-entry")
+        self.pwd_entry.set_visibility(False)
+        self.pwd_entry.set_placeholder_text("Password...")
+        self.pwd_entry.connect("activate", lambda e: self.do_connect_with_password())
+        pwd_entry_box.pack_start(self.pwd_entry, True, True, 0)
+
+        self.pwd_eye_btn = Gtk.Button(label="󰈈")
+        self.pwd_eye_btn.get_style_context().add_class("pwd-eye-btn")
+        self.pwd_eye_btn.set_tooltip_text("Show Password")
+        self.pwd_eye_btn.connect("clicked", self.toggle_pwd_visibility)
+        pwd_entry_box.pack_start(self.pwd_eye_btn, False, False, 0)
+
+        self.pwd_box.pack_start(pwd_entry_box, False, False, 0)
+
+        # Error / Status Feedback Label
+        self.pwd_error_lbl = Gtk.Label(label="")
+        self.pwd_error_lbl.set_name("pwd-error")
+        self.pwd_box.pack_start(self.pwd_error_lbl, False, False, 0)
+
+        # Actions: Cancel & Connect Buttons
+        pwd_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        pwd_btn_box.set_halign(Gtk.Align.CENTER)
+        pwd_btn_box.set_margin_top(10)
+
+        self.pwd_cancel_btn = Gtk.Button(label="Cancel")
+        self.pwd_cancel_btn.get_style_context().add_class("pwd-btn")
+        self.pwd_cancel_btn.get_style_context().add_class("cancel")
+        self.pwd_cancel_btn.connect("clicked", lambda w: self.cancel_pwd_prompt())
+        pwd_btn_box.pack_start(self.pwd_cancel_btn, False, False, 0)
+
+        self.pwd_connect_btn = Gtk.Button(label="󰖩 Connect")
+        self.pwd_connect_btn.get_style_context().add_class("pwd-btn")
+        self.pwd_connect_btn.get_style_context().add_class("connect")
+        self.pwd_connect_btn.connect("clicked", lambda w: self.do_connect_with_password())
+        pwd_btn_box.pack_start(self.pwd_connect_btn, False, False, 0)
+
+        self.pwd_box.pack_start(pwd_btn_box, False, False, 0)
+
+        self.stack.add_named(self.pwd_box, "password")
+
+        main_box.pack_start(self.stack, True, True, 0)
 
     def position_window(self):
         display = Gdk.Display.get_default()
@@ -584,7 +763,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
 
             if active_ssid:
                 ip_out = run_cmd(["ip", "-4", "addr", "show", wifi_dev])
-                m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", ip_out)
+                m = re.search(r"inet\s+(\\d+\\.\\d+\\.\\d+\\.\\d+)", ip_out)
                 if m:
                     active_ip = m.group(1)
 
@@ -634,6 +813,13 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.is_scanning = False
         self.rescan_btn.set_label("󰑐 Rescan")
 
+        if self.wifi_enabled:
+            self.radio_btn.set_label("󰤮 Wifi Off")
+            self.radio_btn.set_tooltip_text("Turn Wi-Fi Off")
+        else:
+            self.radio_btn.set_label("󰤨 Wifi On")
+            self.radio_btn.set_tooltip_text("Turn Wi-Fi On")
+
         if self.active_ssid:
             self.disconn_btn.set_sensitive(True)
         else:
@@ -653,7 +839,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
 
         if not filtered:
             row = Gtk.ListBoxRow()
-            lbl = Gtk.Label(label="No Wi-Fi networks found in range" if self.wifi_enabled else "Wi-Fi is Disabled · Press Alt+T to Enable")
+            lbl = Gtk.Label(label="No Wi-Fi networks found in range" if self.wifi_enabled else "Wi-Fi is Disabled · Turn Wi-Fi On below")
             lbl.get_style_context().add_class("element-text")
             lbl.set_padding(18, 18)
             row.add(lbl)
@@ -759,11 +945,75 @@ class RofiStyleNetworkWindow(Gtk.Window):
                 notify("Failed", f"Could not connect to {target}.")
             self.refresh_state()
         else:
-            self.close_and_exit()
-            subprocess.Popen([
-                "kitty", "--class", "floating_terminal", "-e",
-                "bash", "-c", f"echo 'Connecting to {target}...'; nmcli dev wifi connect '{target}' --ask; read -n1 -r -p 'Press any key to finish...'"
-            ])
+            self.prompt_password(target)
+
+    def prompt_password(self, target_ssid):
+        self.current_target_ssid = target_ssid
+        self.pwd_title_lbl.set_markup(f"Connect to <b>{html.escape(target_ssid)}</b>")
+        self.pwd_sub_lbl.set_text("Enter security key to join this network")
+        self.pwd_entry.set_text("")
+        self.pwd_entry.set_visibility(False)
+        self.pwd_eye_btn.set_label("󰈈")
+        self.pwd_error_lbl.set_text("")
+        self.pwd_connect_btn.set_sensitive(True)
+        self.pwd_cancel_btn.set_sensitive(True)
+        self.pwd_connect_btn.set_label("󰖩 Connect")
+        self.stack.set_visible_child_name("password")
+        GLib.idle_add(self.pwd_entry.grab_focus)
+
+    def cancel_pwd_prompt(self):
+        self.current_target_ssid = ""
+        self.pwd_error_lbl.set_text("")
+        self.stack.set_visible_child_name("networks")
+        GLib.idle_add(self.search_entry.grab_focus)
+
+    def toggle_pwd_visibility(self, btn):
+        is_vis = self.pwd_entry.get_visibility()
+        self.pwd_entry.set_visibility(not is_vis)
+        if not is_vis:
+            self.pwd_eye_btn.set_label("󰈉")
+            self.pwd_eye_btn.set_tooltip_text("Hide Password")
+        else:
+            self.pwd_eye_btn.set_label("󰈈")
+            self.pwd_eye_btn.set_tooltip_text("Show Password")
+
+    def do_connect_with_password(self):
+        pwd = self.pwd_entry.get_text().strip()
+        if not pwd:
+            self.pwd_error_lbl.set_text("Please enter a password.")
+            self.pwd_entry.grab_focus()
+            return
+
+        self.pwd_error_lbl.set_text("")
+        self.pwd_connect_btn.set_sensitive(False)
+        self.pwd_cancel_btn.set_sensitive(False)
+        self.pwd_connect_btn.set_label("󰑐 Connecting...")
+
+        target = self.current_target_ssid
+
+        def worker():
+            cmd = ["nmcli", "dev", "wifi", "connect", target, "password", pwd]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            GLib.idle_add(self.on_pwd_connect_finish, target, res.returncode == 0, res.stderr or res.stdout)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def on_pwd_connect_finish(self, target, success, msg):
+        self.pwd_connect_btn.set_sensitive(True)
+        self.pwd_cancel_btn.set_sensitive(True)
+        self.pwd_connect_btn.set_label("󰖩 Connect")
+
+        if success:
+            notify("Connected", f"Successfully connected to {target}.")
+            self.stack.set_visible_child_name("networks")
+            self.refresh_state()
+        else:
+            err_msg = "Connection failed. Please check password."
+            if "Secrets were required" in msg or "bad-passphrase" in msg or "password" in msg.lower():
+                err_msg = "Incorrect Wi-Fi password. Please try again."
+            self.pwd_error_lbl.set_text(f"󰅖 {err_msg}")
+            self.pwd_entry.grab_focus()
+            self.pwd_entry.select_region(0, -1)
 
     def action_portal(self):
         portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
@@ -788,11 +1038,22 @@ class RofiStyleNetworkWindow(Gtk.Window):
         keyval = event.keyval
         state = event.state
 
+        # Handle Escape
         if keyval == Gdk.KEY_Escape:
+            if self.stack.get_visible_child_name() == "password":
+                self.cancel_pwd_prompt()
+                return True
             self.close_and_exit()
             return True
 
-        # Alt + Hotkeys
+        # Handle Password view keys
+        if self.stack.get_visible_child_name() == "password":
+            if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
+                self.do_connect_with_password()
+                return True
+            return False
+
+        # Alt + Hotkeys in Networks list
         if state & Gdk.ModifierType.MOD1_MASK:
             if keyval in (Gdk.KEY_p, Gdk.KEY_P):
                 self.close_and_exit()
