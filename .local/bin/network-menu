@@ -365,55 +365,90 @@ class RofiStyleNetworkWindow(Gtk.Window):
             padding: 6px 10px;
             margin-top: 10px;
         }}
+        button.footer-action-btn,
         .footer-action-btn {{
             background-color: transparent;
-            border: 1px solid transparent;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
             border-radius: 8px;
-            padding: 4px 8px;
+            padding: 5px 10px;
             color: {t["subtext"]};
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 8.8pt;
             font-weight: 500;
         }}
+        button.footer-action-btn:focus,
+        button.footer-action-btn:hover,
+        .footer-action-btn:focus,
         .footer-action-btn:hover {{
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
             background-color: {t["surface1"]};
-            border-color: {t["accent"]};
             color: {t["accent"]};
         }}
         .footer-action-btn.portal {{
             color: {t["blue"]};
         }}
+        button.footer-action-btn.portal:hover,
         .footer-action-btn.portal:hover {{
             background-color: {t["blue"]};
             color: #11111b;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
         }}
         .footer-action-btn.danger {{
             color: {t["red"]};
         }}
+        button.footer-action-btn.danger:hover,
         .footer-action-btn.danger:hover {{
             background-color: {t["red"]};
             color: #11111b;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
         }}
         .footer-action-btn.rescan {{
             color: {t["accent"]};
         }}
+        button.footer-action-btn.rescan:hover,
         .footer-action-btn.rescan:hover {{
             background-color: {t["accent"]};
             color: #11111b;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
         }}
         .footer-action-btn.settings {{
             color: {t["yellow"]};
         }}
+        button.footer-action-btn.settings:hover,
         .footer-action-btn.settings:hover {{
             background-color: {t["yellow"]};
             color: #11111b;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
         }}
         .footer-action-btn.radio {{
             color: {t["green"]};
         }}
+        button.footer-action-btn.radio:hover,
         .footer-action-btn.radio:hover {{
             background-color: {t["green"]};
             color: #11111b;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
         }}
         scrollbar trough {{
             background-color: transparent;
@@ -472,43 +507,43 @@ class RofiStyleNetworkWindow(Gtk.Window):
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         footer.set_name("footer-bar")
 
-        # Portal Button (Alt+P)
-        self.portal_btn = Gtk.Button(label="󰖟 Portal (Alt+P)")
+        # Portal Button
+        self.portal_btn = Gtk.Button(label="󰖟 Portal")
         self.portal_btn.get_style_context().add_class("footer-action-btn")
         self.portal_btn.get_style_context().add_class("portal")
-        self.portal_btn.set_tooltip_text("Open Captive Portal Login (Alt+P)")
+        self.portal_btn.set_tooltip_text("Open Captive Portal Login")
         self.portal_btn.connect("clicked", lambda w: (self.close_and_exit(), self.action_portal()))
         footer.pack_start(self.portal_btn, True, True, 0)
 
-        # Disconnect Button (Alt+D)
-        self.disconn_btn = Gtk.Button(label="󰅖 Disconnect (Alt+D)")
+        # Disconnect Button
+        self.disconn_btn = Gtk.Button(label="󰅖 Disconnect")
         self.disconn_btn.get_style_context().add_class("footer-action-btn")
         self.disconn_btn.get_style_context().add_class("danger")
-        self.disconn_btn.set_tooltip_text("Disconnect Active Network (Alt+D)")
+        self.disconn_btn.set_tooltip_text("Disconnect Active Network")
         self.disconn_btn.connect("clicked", lambda w: self.action_disconnect())
         footer.pack_start(self.disconn_btn, True, True, 0)
 
-        # Rescan Button (Alt+R)
-        self.rescan_btn = Gtk.Button(label="󰑐 Rescan (Alt+R)")
+        # Rescan Button
+        self.rescan_btn = Gtk.Button(label="󰑐 Rescan")
         self.rescan_btn.get_style_context().add_class("footer-action-btn")
         self.rescan_btn.get_style_context().add_class("rescan")
-        self.rescan_btn.set_tooltip_text("Scan Available Networks (Alt+R)")
+        self.rescan_btn.set_tooltip_text("Scan Available Networks")
         self.rescan_btn.connect("clicked", lambda w: self.refresh_state(rescan=True))
         footer.pack_start(self.rescan_btn, True, True, 0)
 
-        # Settings Button (Alt+S)
-        self.settings_btn = Gtk.Button(label="󰢻 Settings (Alt+S)")
+        # Settings Button
+        self.settings_btn = Gtk.Button(label="󰢻 Settings")
         self.settings_btn.get_style_context().add_class("footer-action-btn")
         self.settings_btn.get_style_context().add_class("settings")
-        self.settings_btn.set_tooltip_text("Open Network Manager (Alt+S)")
+        self.settings_btn.set_tooltip_text("Open Network Settings")
         self.settings_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])))
         footer.pack_start(self.settings_btn, True, True, 0)
 
-        # Radio Toggle Button (Alt+T)
-        self.radio_btn = Gtk.Button(label="󰐥 Radio (Alt+T)")
+        # Radio Toggle Button
+        self.radio_btn = Gtk.Button(label="󰐥 Radio")
         self.radio_btn.get_style_context().add_class("footer-action-btn")
         self.radio_btn.get_style_context().add_class("radio")
-        self.radio_btn.set_tooltip_text("Toggle Wi-Fi Radio ON/OFF (Alt+T)")
+        self.radio_btn.set_tooltip_text("Toggle Wi-Fi Radio ON/OFF")
         self.radio_btn.connect("clicked", lambda w: self.action_toggle_radio())
         footer.pack_start(self.radio_btn, True, True, 0)
 
@@ -597,7 +632,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.active_ssid = active_ssid
         self.all_networks = nets
         self.is_scanning = False
-        self.rescan_btn.set_label("󰑐 Rescan (Alt+R)")
+        self.rescan_btn.set_label("󰑐 Rescan")
 
         if self.active_ssid:
             self.disconn_btn.set_sensitive(True)
