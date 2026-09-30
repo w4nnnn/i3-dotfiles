@@ -1,494 +1,777 @@
 #!/usr/bin/env python3
-# ==============================================================================
-# Catppuccin Mocha - Network Manager Menu (HyprWiFi RofiView Style)
-# Clean Wi-Fi selector with dedicated Action Footer and quick hotkey controls
-# ==============================================================================
-import os
+"""
+Catppuccin / Multi-Theme Network Manager Menu
+Faithfully replicates the Rofi network.rasi design system using GTK3,
+featuring a pure SSID list, background scanning, and real interactive footer buttons.
+"""
 import sys
+import os
+import signal
 import subprocess
 import shutil
 import re
 import html
+import threading
+import gi
 
-RASI_THEME = os.path.expanduser("~/.config/rofi/network.rasi")
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("Pango", "1.0")
+from gi.repository import Gtk, Gdk, GLib, Pango
 
-def run_cmd(cmd, check=False, text=True):
+PID_FILE = "/tmp/network_menu_gtk.pid"
+if os.path.exists(PID_FILE):
     try:
-        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=text).strip()
+        with open(PID_FILE, "r") as f:
+            old_pid = int(f.read().strip())
+        os.remove(PID_FILE)
+        os.kill(old_pid, signal.SIGTERM)
+        sys.exit(0)
     except Exception:
-        if check:
-            raise
+        pass
+
+with open(PID_FILE, "w") as f:
+    f.write(str(os.getpid()))
+
+# Load Global Theme Preference
+THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
+current_theme_key = "catppuccin"
+if os.path.exists(THEME_PREF_FILE):
+    try:
+        with open(THEME_PREF_FILE) as f:
+            t_key = f.read().strip()
+            if t_key:
+                current_theme_key = t_key
+    except Exception:
+        pass
+
+THEMES = {
+    "catppuccin": {
+        "bg": "rgba(30, 30, 46, 0.82)",
+        "surface0": "rgba(49, 50, 68, 0.82)",
+        "surface1": "#45475a",
+        "accent": "#cba6f7",
+        "fg": "#cdd6f4",
+        "subtext": "#a6adc8",
+        "overlay": "#6c7086",
+        "blue": "#89b4fa",
+        "red": "#f38ba8",
+        "green": "#a6e3a1",
+        "yellow": "#f9e2af",
+    },
+    "tokyo-night": {
+        "bg": "rgba(26, 27, 38, 0.82)",
+        "surface0": "rgba(36, 40, 59, 0.82)",
+        "surface1": "#2f3549",
+        "accent": "#7aa2f7",
+        "fg": "#c0caf5",
+        "subtext": "#a9b1d6",
+        "overlay": "#565f89",
+        "blue": "#7aa2f7",
+        "red": "#f7768e",
+        "green": "#9ece6a",
+        "yellow": "#e0af68",
+    },
+    "nord": {
+        "bg": "rgba(46, 52, 64, 0.82)",
+        "surface0": "rgba(59, 66, 82, 0.82)",
+        "surface1": "#434c5e",
+        "accent": "#88c0d0",
+        "fg": "#eceff4",
+        "subtext": "#d8dee9",
+        "overlay": "#4c566a",
+        "blue": "#81a1c1",
+        "red": "#bf616a",
+        "green": "#a3be8c",
+        "yellow": "#ebcb8b",
+    },
+    "oled": {
+        "bg": "rgba(9, 9, 11, 0.85)",
+        "surface0": "rgba(20, 20, 24, 0.85)",
+        "surface1": "#222228",
+        "accent": "#38bdf8",
+        "fg": "#ffffff",
+        "subtext": "#a1a1aa",
+        "overlay": "#52525b",
+        "blue": "#38bdf8",
+        "red": "#f43f5e",
+        "green": "#10b981",
+        "yellow": "#f59e0b",
+    },
+    "light": {
+        "bg": "rgba(255, 255, 255, 0.85)",
+        "surface0": "rgba(241, 245, 249, 0.85)",
+        "surface1": "#cbd5e1",
+        "accent": "#0284c7",
+        "fg": "#0f172a",
+        "subtext": "#475569",
+        "overlay": "#94a3b8",
+        "blue": "#0284c7",
+        "red": "#ef4444",
+        "green": "#10b981",
+        "yellow": "#f59e0b",
+    },
+    "dracula": {
+        "bg": "rgba(40, 42, 54, 0.82)",
+        "surface0": "rgba(68, 71, 90, 0.82)",
+        "surface1": "#6272a4",
+        "accent": "#bd93f9",
+        "fg": "#f8f8f2",
+        "subtext": "#bfbfbf",
+        "overlay": "#6272a4",
+        "blue": "#8be9fd",
+        "red": "#ff5555",
+        "green": "#50fa7b",
+        "yellow": "#f1fa8c",
+    },
+    "gruvbox": {
+        "bg": "rgba(40, 40, 40, 0.82)",
+        "surface0": "rgba(60, 56, 54, 0.82)",
+        "surface1": "#504945",
+        "accent": "#fe8019",
+        "fg": "#ebdbb2",
+        "subtext": "#d5c4a1",
+        "overlay": "#928374",
+        "blue": "#83a598",
+        "red": "#fb4934",
+        "green": "#b8bb26",
+        "yellow": "#fabd2f",
+    },
+    "rose-pine": {
+        "bg": "rgba(25, 23, 36, 0.82)",
+        "surface0": "rgba(31, 29, 46, 0.82)",
+        "surface1": "#26233a",
+        "accent": "#ebbcba",
+        "fg": "#e0def4",
+        "subtext": "#908caa",
+        "overlay": "#6e6a86",
+        "blue": "#c4a7e7",
+        "red": "#eb6f92",
+        "green": "#9ccfd8",
+        "yellow": "#f6c177",
+    },
+    "everforest": {
+        "bg": "rgba(45, 53, 59, 0.82)",
+        "surface0": "rgba(52, 63, 68, 0.82)",
+        "surface1": "#3d484d",
+        "accent": "#a7c080",
+        "fg": "#d3c6aa",
+        "subtext": "#9da9a0",
+        "overlay": "#7a8478",
+        "blue": "#7fbbb3",
+        "red": "#e67e80",
+        "green": "#a7c080",
+        "yellow": "#dbbc7f",
+    },
+    "cyberpunk": {
+        "bg": "rgba(18, 12, 31, 0.85)",
+        "surface0": "rgba(36, 21, 56, 0.82)",
+        "surface1": "#382057",
+        "accent": "#00f0ff",
+        "fg": "#fdfdfd",
+        "subtext": "#f38ba8",
+        "overlay": "#705d8f",
+        "blue": "#00e5ff",
+        "red": "#ff2a6d",
+        "green": "#05ffa1",
+        "yellow": "#ffe600",
+    },
+}
+
+t = THEMES.get(current_theme_key, THEMES["catppuccin"])
+
+def run_cmd(cmd):
+    try:
+        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True).strip()
+    except Exception:
         return ""
 
-def notify(title, message, icon="network-wireless", urgency="normal"):
+def notify(title, message, icon="network-wireless"):
     subprocess.Popen([
-        "notify-send",
-        "-a", "Network",
+        "dunstify", "-a", "Network",
+        "-h", "string:x-dunst-stack-tag:network",
         "-i", icon,
-        "-u", urgency,
-        title,
-        message
-    ])
+        "-t", "2000",
+        title, message
+    ], stderr=subprocess.DEVNULL)
 
-def get_network_state():
-    """Detect default route, active device, connection name, IP, and Wi-Fi status"""
-    default_route = run_cmd(["ip", "route"])
-    active_dev = ""
-    for line in default_route.splitlines():
-        if line.startswith("default"):
-            parts = line.split()
-            if "dev" in parts:
-                active_dev = parts[parts.index("dev") + 1]
-                break
+class RofiStyleNetworkWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("CatppuccinNetworkMenu")
+        self.set_role("network-menu-popup")
+        self.set_decorated(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_resizable(False)
 
-    active_ip = ""
-    active_type = ""
-    active_name = ""
-    if active_dev:
-        ip_out = run_cmd(["ip", "-4", "addr", "show", active_dev])
-        m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", ip_out)
-        if m:
-            active_ip = m.group(1)
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.set_visual(visual)
 
-        dev_info = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE,CONNECTION", "dev"])
-        for line in dev_info.splitlines():
-            parts = line.split(":")
-            if len(parts) >= 3 and parts[0] == active_dev:
-                active_type = parts[1]
-                active_name = parts[2]
-                break
+        self.apply_css()
 
-    wifi_dev = ""
-    dev_types = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE", "dev"])
-    for line in dev_types.splitlines():
-        parts = line.split(":")
-        if len(parts) >= 2 and parts[1] == "wifi":
-            wifi_dev = parts[0]
-            break
+        self.all_networks = []
+        self.active_ssid = ""
+        self.wifi_enabled = True
+        self.wifi_dev = ""
+        self.is_scanning = False
+        self.selected_index = 0
 
-    wifi_radio = run_cmd(["nmcli", "radio", "wifi"]) if wifi_dev else ""
-    wifi_enabled = (wifi_radio == "enabled")
-    conn_state = run_cmd(["nmcli", "-t", "-f", "CONNECTIVITY", "general", "status"])
+        self._build_ui()
+        self.position_window()
 
-    return {
-        "active_dev": active_dev,
-        "active_ip": active_ip,
-        "active_type": active_type,
-        "active_name": active_name,
-        "wifi_dev": wifi_dev,
-        "wifi_enabled": wifi_enabled,
-        "conn_state": conn_state,
-    }
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("focus-out-event", lambda w, e: self.close_and_exit())
+        self.connect("destroy", lambda w: self.cleanup())
 
-def disconnect_active(state):
-    active_name = state["active_name"]
-    active_dev = state["active_dev"]
-    if not active_name and not active_dev:
-        notify("Network", "No active connection to disconnect.", icon="network-offline")
-        return
-    down_res = subprocess.run(["nmcli", "con", "down", "id", active_name], capture_output=True)
-    if down_res.returncode != 0 and active_dev:
-        subprocess.run(["nmcli", "dev", "disconnect", active_dev])
-    notify("Disconnected", f"Disconnected from {active_name or active_dev}.", icon="network-offline")
+        self.refresh_state(rescan=True)
 
-def open_captive_portal():
-    portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
-    subprocess.Popen([portal_bin])
-
-def toggle_wifi(state):
-    if state["wifi_enabled"]:
-        subprocess.run(["nmcli", "radio", "wifi", "off"])
-        notify("Wi-Fi Disabled", "Wi-Fi radio turned off.", icon="network-wireless-disconnected")
-    else:
-        subprocess.run(["nmcli", "radio", "wifi", "on"])
-        notify("Wi-Fi Enabled", "Scanning for available networks...", icon="network-wireless")
-
-def rescan_wifi():
-    subprocess.run(["nmcli", "dev", "wifi", "rescan"])
-    notify("Wi-Fi Rescanned", "Network scan completed.", icon="network-wireless")
-
-def show_actions_menu(state=None):
-    """Dedicated Quick Actions menu (opened via right-click on Polybar indicator)"""
-    if state is None:
-        state = get_network_state()
-
-    active_name = state["active_name"]
-    active_ip = state["active_ip"]
-    wifi_enabled = state["wifi_enabled"]
-
-    actions = []
-
-    # 1. Disconnect option
-    if active_name:
-        actions.append({
-            "action": "disconnect",
-            "display": f'<span foreground="#f38ba8">󰅖</span>  <b>Disconnect          </b>  <span foreground="#6c7086">({html.escape(active_name)})</span>'
-        })
-        # 2. Captive portal
-        actions.append({
-            "action": "portal",
-            "display": '<span foreground="#89b4fa">󰖟</span>  <b>Captive Portal      </b>  <span weight="bold" foreground="#89b4fa" background="#1e2b44"> BROWSER </span>'
-        })
-
-    # 3. Wi-Fi Toggle
-    if state["wifi_dev"]:
-        if wifi_enabled:
-            actions.append({
-                "action": "wifi_toggle",
-                "display": '<span foreground="#cba6f7">󰤮</span>  <b>Disable Wi-Fi       </b>  <span foreground="#6c7086">[Turn Off Radio]</span>'
-            })
-            actions.append({
-                "action": "rescan",
-                "display": '<span foreground="#b4befe">󰑐</span>  <b>Rescan Networks     </b>  <span foreground="#6c7086">[Refresh Scan]</span>'
-            })
-        else:
-            actions.append({
-                "action": "wifi_toggle",
-                "display": '<span foreground="#a6e3a1">󰤨</span>  <b>Enable Wi-Fi        </b>  <span foreground="#6c7086">[Turn On Radio]</span>'
-            })
-
-    # 4. View SSIDs / Return to Wi-Fi list
-    actions.append({
-        "action": "wifi_list",
-        "display": '<span foreground="#fab387"></span>  <b>Available Wi-Fi...  </b>  <span foreground="#6c7086">[View All Networks]</span>'
-    })
-
-    # 5. Network settings (nmtui)
-    actions.append({
-        "action": "nmtui",
-        "display": '<span foreground="#89b4fa">󰢻</span>  <b>Network Settings    </b>  <span foreground="#6c7086">[nmtui]</span>'
-    })
-
-    # 6. Detailed info popup
-    actions.append({
-        "action": "info",
-        "display": '<span foreground="#a6e3a1">󰌌</span>  <b>Connection Details  </b>  <span foreground="#6c7086">[IP &amp; Stats]</span>'
-    })
-
-    if active_name:
-        status_info = f'<span foreground="#a6adc8">Active: <b>{html.escape(active_name)}</b> ({active_ip or "No IP"})</span>'
-    else:
-        status_info = '<span foreground="#f38ba8"><b>Status: Disconnected</b></span>'
-
-    wifi_status_tag = '<span foreground="#a6e3a1"><b>󰐥 Wi-Fi ON</b></span>' if wifi_enabled else '<span foreground="#f38ba8"><b>󰐥 Wi-Fi OFF</b></span>'
-    mesg = f"{status_info}   ·   {wifi_status_tag}"
-
-    input_payload = "\n".join([a["display"] for a in actions]) + "\n"
-
-    theme_override = 'entry { placeholder: "Search network action..."; } listview { lines: 6; }'
-
-    rofi_proc = subprocess.Popen([
-        "rofi",
-        "-no-config",
-        "-dmenu",
-        "-format", "i",
-        "-theme", RASI_THEME,
-        "-theme-str", theme_override,
-        "-p", "",
-        "-mesg", mesg,
-        "-markup-rows",
-        "-i"
-    ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-
-    stdout, _ = rofi_proc.communicate(input=input_payload)
-    if rofi_proc.returncode != 0 or not stdout.strip().isdigit():
+    def close_and_exit(self):
+        self.cleanup()
+        self.destroy()
         sys.exit(0)
 
-    chosen_idx = int(stdout.strip())
-    if 0 <= chosen_idx < len(actions):
-        act = actions[chosen_idx]["action"]
-        if act == "disconnect":
-            disconnect_active(state)
-        elif act == "portal":
-            open_captive_portal()
-        elif act == "wifi_toggle":
-            toggle_wifi(state)
-        elif act == "rescan":
-            rescan_wifi()
-        elif act == "wifi_list":
-            subprocess.Popen([sys.argv[0]])
-        elif act == "nmtui":
-            subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
-        elif act == "info":
-            info_bin = shutil.which("network-info") or os.path.expanduser("~/.local/bin/network-info")
-            subprocess.Popen([info_bin])
-    sys.exit(0)
+    def cleanup(self):
+        if os.path.exists(PID_FILE):
+            try:
+                os.remove(PID_FILE)
+            except Exception:
+                pass
+
+    def apply_css(self):
+        css = f"""
+        window {{
+            background-color: transparent;
+        }}
+        #main-card {{
+            background-color: {t["bg"]};
+            border: 2px solid {t["accent"]};
+            border-radius: 16px;
+            padding: 20px;
+        }}
+        #inputbar {{
+            background-color: {t["surface0"]};
+            border-radius: 12px;
+            padding: 8px 14px;
+        }}
+        #prompt-icon {{
+            color: {t["accent"]};
+            font-family: 'lucide', 'JetBrainsMono Nerd Font';
+            font-size: 12pt;
+            margin-right: 8px;
+        }}
+        entry,
+        #search-entry,
+        #search-entry:focus {{
+            background-color: transparent;
+            border: none;
+            outline: none;
+            box-shadow: none;
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 10.5pt;
+        }}
+        #listbox {{
+            background-color: transparent;
+            padding: 4px 0px;
+        }}
+        .element-row {{
+            background-color: transparent;
+            border: 1.5px solid transparent;
+            border-radius: 10px;
+            padding: 6px 10px;
+            margin-bottom: 3px;
+        }}
+        .element-row:hover,
+        .element-row:selected,
+        .element-row.selected {{
+            background-color: {t["surface0"]};
+            border-color: {t["accent"]};
+        }}
+        .element-row.connected {{
+            background-color: rgba(49, 50, 68, 0.35);
+        }}
+        .element-text {{
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 10pt;
+        }}
+        .badge-connected {{
+            background-color: rgba(166, 227, 161, 0.18);
+            color: {t["green"]};
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+            font-weight: bold;
+        }}
+        .badge-band {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+        }}
+        .badge-sec {{
+            color: {t["yellow"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+        }}
+        .badge-sec.open {{
+            color: {t["subtext"]};
+        }}
+        .badge-sig {{
+            color: #ffffff;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+            font-weight: bold;
+        }}
+        #footer-bar {{
+            background-color: {t["surface0"]};
+            border-radius: 10px;
+            padding: 6px 10px;
+            margin-top: 10px;
+        }}
+        .footer-action-btn {{
+            background-color: transparent;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 4px 8px;
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.8pt;
+            font-weight: 500;
+        }}
+        .footer-action-btn:hover {{
+            background-color: {t["surface1"]};
+            border-color: {t["accent"]};
+            color: {t["accent"]};
+        }}
+        .footer-action-btn.portal {{
+            color: {t["blue"]};
+        }}
+        .footer-action-btn.portal:hover {{
+            background-color: {t["blue"]};
+            color: #11111b;
+        }}
+        .footer-action-btn.danger {{
+            color: {t["red"]};
+        }}
+        .footer-action-btn.danger:hover {{
+            background-color: {t["red"]};
+            color: #11111b;
+        }}
+        .footer-action-btn.rescan {{
+            color: {t["accent"]};
+        }}
+        .footer-action-btn.rescan:hover {{
+            background-color: {t["accent"]};
+            color: #11111b;
+        }}
+        .footer-action-btn.settings {{
+            color: {t["yellow"]};
+        }}
+        .footer-action-btn.settings:hover {{
+            background-color: {t["yellow"]};
+            color: #11111b;
+        }}
+        .footer-action-btn.radio {{
+            color: {t["green"]};
+        }}
+        .footer-action-btn.radio:hover {{
+            background-color: {t["green"]};
+            color: #11111b;
+        }}
+        scrollbar trough {{
+            background-color: transparent;
+        }}
+        scrollbar slider {{
+            background-color: {t["surface0"]};
+            border-radius: 6px;
+            min-width: 4px;
+        }}
+        scrollbar slider:hover {{
+            background-color: {t["accent"]};
+        }}
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            self.get_screen(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    def _build_ui(self):
+        # 1. Main Card Box (660px width matching Rofi network.rasi)
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        main_box.set_name("main-card")
+        main_box.set_size_request(660, 480)
+        self.add(main_box)
+
+        # 2. Input Bar (Pill search box with prompt icon)
+        inputbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        inputbar.set_name("inputbar")
+
+        prompt_icon = Gtk.Label(label="")
+        prompt_icon.set_name("prompt-icon")
+        inputbar.pack_start(prompt_icon, False, False, 0)
+
+        self.search_entry = Gtk.Entry()
+        self.search_entry.set_name("search-entry")
+        self.search_entry.set_placeholder_text("Filter Wi-Fi networks...")
+        self.search_entry.connect("changed", self.on_search_changed)
+        inputbar.pack_start(self.search_entry, True, True, 0)
+
+        main_box.pack_start(inputbar, False, False, 0)
+
+        # 3. Listview (Pure SSID list ONLY)
+        self.scrolled = Gtk.ScrolledWindow()
+        self.scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_name("listbox")
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.listbox.connect("row-activated", self.on_row_activated)
+        self.scrolled.add(self.listbox)
+        main_box.pack_start(self.scrolled, True, True, 0)
+
+        # 4. Action Footer Toolbar (REAL Interactive GTK Buttons)
+        footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        footer.set_name("footer-bar")
+
+        # Portal Button (Alt+P)
+        self.portal_btn = Gtk.Button(label="󰖟 Portal (Alt+P)")
+        self.portal_btn.get_style_context().add_class("footer-action-btn")
+        self.portal_btn.get_style_context().add_class("portal")
+        self.portal_btn.set_tooltip_text("Open Captive Portal Login (Alt+P)")
+        self.portal_btn.connect("clicked", lambda w: (self.close_and_exit(), self.action_portal()))
+        footer.pack_start(self.portal_btn, True, True, 0)
+
+        # Disconnect Button (Alt+D)
+        self.disconn_btn = Gtk.Button(label="󰅖 Disconnect (Alt+D)")
+        self.disconn_btn.get_style_context().add_class("footer-action-btn")
+        self.disconn_btn.get_style_context().add_class("danger")
+        self.disconn_btn.set_tooltip_text("Disconnect Active Network (Alt+D)")
+        self.disconn_btn.connect("clicked", lambda w: self.action_disconnect())
+        footer.pack_start(self.disconn_btn, True, True, 0)
+
+        # Rescan Button (Alt+R)
+        self.rescan_btn = Gtk.Button(label="󰑐 Rescan (Alt+R)")
+        self.rescan_btn.get_style_context().add_class("footer-action-btn")
+        self.rescan_btn.get_style_context().add_class("rescan")
+        self.rescan_btn.set_tooltip_text("Scan Available Networks (Alt+R)")
+        self.rescan_btn.connect("clicked", lambda w: self.refresh_state(rescan=True))
+        footer.pack_start(self.rescan_btn, True, True, 0)
+
+        # Settings Button (Alt+S)
+        self.settings_btn = Gtk.Button(label="󰢻 Settings (Alt+S)")
+        self.settings_btn.get_style_context().add_class("footer-action-btn")
+        self.settings_btn.get_style_context().add_class("settings")
+        self.settings_btn.set_tooltip_text("Open Network Manager (Alt+S)")
+        self.settings_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])))
+        footer.pack_start(self.settings_btn, True, True, 0)
+
+        # Radio Toggle Button (Alt+T)
+        self.radio_btn = Gtk.Button(label="󰐥 Radio (Alt+T)")
+        self.radio_btn.get_style_context().add_class("footer-action-btn")
+        self.radio_btn.get_style_context().add_class("radio")
+        self.radio_btn.set_tooltip_text("Toggle Wi-Fi Radio ON/OFF (Alt+T)")
+        self.radio_btn.connect("clicked", lambda w: self.action_toggle_radio())
+        footer.pack_start(self.radio_btn, True, True, 0)
+
+        main_box.pack_start(footer, False, False, 0)
+
+    def position_window(self):
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
+        geom = monitor.get_geometry()
+
+        win_w, win_h = 660, 480
+        # Position centered on screen matching Rofi
+        x = geom.x + (geom.width - win_w) // 2
+        y = geom.y + (geom.height - win_h) // 2
+        self.move(x, y)
+
+    def refresh_state(self, rescan=False):
+        if self.is_scanning:
+            return
+        self.is_scanning = True
+        self.rescan_btn.set_label("󰑐 Scanning...")
+
+        def worker():
+            devs = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev"]).splitlines()
+            wifi_dev = ""
+            active_ssid = ""
+            active_ip = ""
+
+            for line in devs:
+                parts = line.split(":")
+                if len(parts) >= 2 and parts[1] == "wifi":
+                    wifi_dev = parts[0]
+                    if len(parts) >= 4 and parts[2] == "connected":
+                        active_ssid = parts[3]
+                    break
+
+            radio_state = run_cmd(["nmcli", "radio", "wifi"]) == "enabled"
+
+            if active_ssid:
+                ip_out = run_cmd(["ip", "-4", "addr", "show", wifi_dev])
+                m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", ip_out)
+                if m:
+                    active_ip = m.group(1)
+
+            nets = []
+            if radio_state and wifi_dev:
+                if rescan:
+                    run_cmd(["nmcli", "dev", "wifi", "rescan"])
+                raw_out = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list", "--rescan", "no"])
+                if not raw_out.strip():
+                    raw_out = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list"])
+
+                raw_nets = {}
+                for line in raw_out.splitlines():
+                    if not line:
+                        continue
+                    p = line.split(":")
+                    if len(p) < 5:
+                        continue
+                    in_use = p[0].strip() == "*"
+                    ssid = p[1].strip()
+                    if not ssid:
+                        continue
+                    sig_int = int(p[2]) if p[2].isdigit() else 0
+                    sec = p[3].strip()
+                    chan_int = int(p[4]) if p[4].isdigit() else 1
+
+                    if ssid not in raw_nets or in_use or sig_int > raw_nets[ssid]["signal"]:
+                        raw_nets[ssid] = {
+                            "in_use": in_use,
+                            "ssid": ssid,
+                            "signal": sig_int,
+                            "security": sec,
+                            "chan": chan_int,
+                        }
+
+                nets = sorted(raw_nets.values(), key=lambda x: (not x["in_use"], -x["signal"]))
+
+            GLib.idle_add(self.update_ui_state, wifi_dev, radio_state, active_ssid, active_ip, nets)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def update_ui_state(self, wifi_dev, radio_state, active_ssid, active_ip, nets):
+        self.wifi_dev = wifi_dev
+        self.wifi_enabled = radio_state
+        self.active_ssid = active_ssid
+        self.all_networks = nets
+        self.is_scanning = False
+        self.rescan_btn.set_label("󰑐 Rescan (Alt+R)")
+
+        if self.active_ssid:
+            self.disconn_btn.set_sensitive(True)
+        else:
+            self.disconn_btn.set_sensitive(False)
+
+        self.render_network_list(self.all_networks)
+
+    def render_network_list(self, nets):
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+
+        query = self.search_entry.get_text().strip().lower()
+        if query:
+            filtered = [n for n in nets if query in n["ssid"].lower()]
+        else:
+            filtered = nets
+
+        if not filtered:
+            row = Gtk.ListBoxRow()
+            lbl = Gtk.Label(label="No Wi-Fi networks found in range" if self.wifi_enabled else "Wi-Fi is Disabled · Press Alt+T to Enable")
+            lbl.get_style_context().add_class("element-text")
+            lbl.set_padding(18, 18)
+            row.add(lbl)
+            self.listbox.add(row)
+            self.listbox.show_all()
+            return
+
+        for idx, net in enumerate(filtered):
+            row = Gtk.ListBoxRow()
+            row.net_data = net
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            box.get_style_context().add_class("element-row")
+            if net["in_use"]:
+                box.get_style_context().add_class("connected")
+
+            # Signal Icon
+            sig = net["signal"]
+            if net["in_use"]:
+                s_icon = "󰖩"
+            elif sig >= 70:
+                s_icon = "󰤨"
+            elif sig >= 50:
+                s_icon = "󰤥"
+            elif sig >= 25:
+                s_icon = "󰤢"
+            else:
+                s_icon = "󰤟"
+
+            icon_lbl = Gtk.Label(label=s_icon)
+            icon_lbl.get_style_context().add_class("element-text")
+            box.pack_start(icon_lbl, False, False, 0)
+
+            # SSID
+            ssid_lbl = Gtk.Label(label=f"<b>{html.escape(net['ssid'])}</b>", xalign=0)
+            ssid_lbl.set_use_markup(True)
+            ssid_lbl.get_style_context().add_class("element-text")
+            ssid_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            ssid_lbl.set_max_width_chars(28)
+            box.pack_start(ssid_lbl, True, True, 0)
+
+            # Badges
+            if net["in_use"]:
+                badge = Gtk.Label(label="CONNECTED")
+                badge.get_style_context().add_class("badge-connected")
+                box.pack_start(badge, False, False, 0)
+
+            band_txt = "5GHz" if net["chan"] > 14 else "2.4G"
+            band_lbl = Gtk.Label(label=band_txt)
+            band_lbl.get_style_context().add_class("badge-band")
+            box.pack_start(band_lbl, False, False, 0)
+
+            is_open = not net["security"] or net["security"] == "--"
+            sec_txt = "OPEN" if is_open else "SEC"
+            sec_lbl = Gtk.Label(label=sec_txt)
+            sec_lbl.get_style_context().add_class("badge-sec")
+            if is_open:
+                sec_lbl.get_style_context().add_class("open")
+            box.pack_start(sec_lbl, False, False, 0)
+
+            sig_lbl = Gtk.Label(label=f"{sig:>3}%")
+            sig_lbl.get_style_context().add_class("badge-sig")
+            box.pack_start(sig_lbl, False, False, 0)
+
+            row.add(box)
+            self.listbox.add(row)
+
+        self.listbox.show_all()
+        # Select first row by default for keyboard arrow navigation
+        first_row = self.listbox.get_row_at_index(0)
+        if first_row:
+            self.listbox.select_row(first_row)
+
+    def on_search_changed(self, entry):
+        self.render_network_list(self.all_networks)
+
+    def on_row_activated(self, listbox, row):
+        if not hasattr(row, "net_data"):
+            return
+        net = row.net_data
+        target = net["ssid"]
+        if net["in_use"]:
+            notify("Wi-Fi", f"Already connected to {target}.")
+            return
+
+        saved = run_cmd(["nmcli", "-t", "-f", "NAME", "c", "show"]).splitlines()
+        is_open = not net["security"] or net["security"] == "--"
+
+        if target in saved:
+            notify("Connecting...", f"Connecting to saved network: {target}...")
+            res = subprocess.run(["nmcli", "con", "up", "id", target], capture_output=True)
+            if res.returncode == 0:
+                notify("Connected", f"Successfully connected to {target}.")
+            else:
+                notify("Failed", f"Could not connect to {target}.")
+            self.refresh_state()
+        elif is_open:
+            notify("Connecting...", f"Connecting to open network: {target}...")
+            res = subprocess.run(["nmcli", "dev", "wifi", "connect", target], capture_output=True)
+            if res.returncode == 0:
+                notify("Connected", f"Successfully connected to {target}.")
+                subprocess.Popen([os.path.expanduser("~/.local/bin/portal-login"), "--auto"])
+            else:
+                notify("Failed", f"Could not connect to {target}.")
+            self.refresh_state()
+        else:
+            self.close_and_exit()
+            subprocess.Popen([
+                "kitty", "--class", "floating_terminal", "-e",
+                "bash", "-c", f"echo 'Connecting to {target}...'; nmcli dev wifi connect '{target}' --ask; read -n1 -r -p 'Press any key to finish...'"
+            ])
+
+    def action_portal(self):
+        portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
+        subprocess.Popen([portal_bin])
+
+    def action_disconnect(self):
+        if self.active_ssid:
+            subprocess.run(["nmcli", "con", "down", "id", self.active_ssid])
+            notify("Disconnected", f"Disconnected from {self.active_ssid}.")
+            self.refresh_state()
+
+    def action_toggle_radio(self):
+        if self.wifi_enabled:
+            subprocess.run(["nmcli", "radio", "wifi", "off"])
+            notify("Wi-Fi Disabled", "Wi-Fi radio turned off.")
+        else:
+            subprocess.run(["nmcli", "radio", "wifi", "on"])
+            notify("Wi-Fi Enabled", "Scanning for networks...")
+        self.refresh_state(rescan=True)
+
+    def on_key_press(self, widget, event):
+        keyval = event.keyval
+        state = event.state
+
+        if keyval == Gdk.KEY_Escape:
+            self.close_and_exit()
+            return True
+
+        # Alt + Hotkeys
+        if state & Gdk.ModifierType.MOD1_MASK:
+            if keyval in (Gdk.KEY_p, Gdk.KEY_P):
+                self.close_and_exit()
+                self.action_portal()
+                return True
+            elif keyval in (Gdk.KEY_d, Gdk.KEY_D):
+                self.action_disconnect()
+                return True
+            elif keyval in (Gdk.KEY_r, Gdk.KEY_R):
+                self.refresh_state(rescan=True)
+                return True
+            elif keyval in (Gdk.KEY_s, Gdk.KEY_S):
+                self.close_and_exit()
+                subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
+                return True
+            elif keyval in (Gdk.KEY_t, Gdk.KEY_T):
+                self.action_toggle_radio()
+                return True
+
+        # Arrow Up / Down navigation when focused on search entry
+        if keyval == Gdk.KEY_Down:
+            cur = self.listbox.get_selected_row()
+            if cur:
+                idx = cur.get_index()
+                next_row = self.listbox.get_row_at_index(idx + 1)
+                if next_row:
+                    self.listbox.select_row(next_row)
+                    next_row.grab_focus()
+                    return True
+        elif keyval == Gdk.KEY_Up:
+            cur = self.listbox.get_selected_row()
+            if cur:
+                idx = cur.get_index()
+                if idx > 0:
+                    prev_row = self.listbox.get_row_at_index(idx - 1)
+                    if prev_row:
+                        self.listbox.select_row(prev_row)
+                        prev_row.grab_focus()
+                        return True
+
+        return False
 
 def main():
-    # 1. Single instance toggle
-    pgrep_out = run_cmd(["pgrep", "-x", "rofi"])
-    if pgrep_out:
-        subprocess.run(["killall", "-q", "rofi"])
-        sys.exit(0)
-
-    # 2. Check NetworkManager
-    nm_active = subprocess.run(["systemctl", "is-active", "--quiet", "NetworkManager"]).returncode == 0
-    if not nm_active:
-        notify("NetworkManager Inactive", "NetworkManager service is not running.", icon="network-error")
-        sys.exit(1)
-
-    state = get_network_state()
-    wifi_dev = state["wifi_dev"]
-    wifi_enabled = state["wifi_enabled"]
-
-    # Trigger background async hardware scan immediately (non-blocking)
-    if wifi_dev and wifi_enabled:
-        subprocess.Popen(
-            ["nmcli", "dev", "wifi", "rescan"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-
-    # If called with --actions (right-click on Polybar indicator)
-    if len(sys.argv) > 1 and sys.argv[1] in ("--actions", "-a"):
-        show_actions_menu(state)
-        return
-
-    active_name = state["active_name"]
-    active_ip = state["active_ip"]
-
-    # If Wi-Fi is disabled, show quick toggle screen
-    if wifi_dev and not wifi_enabled:
-        mesg = '<span foreground="#f38ba8"><b>󰐥 Wi-Fi is Disabled</b></span>   ·   <span foreground="#6c7086">Press Enter to Enable</span>'
-        items = [
-            '<span foreground="#a6e3a1">󰤨</span>  <b>Enable Wi-Fi        </b>  <span foreground="#6c7086">[Turn On Radio]</span>',
-            '<span foreground="#89b4fa">󰢻</span>  <b>Network Settings    </b>  <span foreground="#6c7086">[nmtui]</span>'
-        ]
-        rofi_proc = subprocess.Popen([
-            "rofi",
-            "-no-config",
-            "-dmenu",
-            "-format", "i",
-            "-theme", RASI_THEME,
-            "-theme-str", 'listview { lines: 2; }',
-            "-p", "",
-            "-mesg", mesg,
-            "-markup-rows",
-            "-i"
-        ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-        stdout, _ = rofi_proc.communicate(input="\n".join(items) + "\n")
-        if rofi_proc.returncode == 0 and stdout.strip() == "0":
-            toggle_wifi(state)
-            os.execv(sys.argv[0], sys.argv)
-        sys.exit(0)
-
-    # 3. Format Footer Toolbar / mesg with action buttons
-    if active_name:
-        mesg = (
-            f'<span foreground="#89b4fa">󰖟 Alt+P</span> Portal    '
-            f'<span foreground="#f38ba8">󰅖 Alt+D</span> Disconnect    '
-            f'<span foreground="#b4befe">󰑐 Alt+R</span> Rescan    '
-            f'<span foreground="#fab387">󰢻 Alt+S</span> Settings    '
-            f'<span foreground="#a6e3a1">󰐥 Alt+T</span> Radio'
-        )
-    else:
-        mesg = (
-            f'<span foreground="#89b4fa">󰖟 Alt+P</span> Portal    '
-            f'<span foreground="#b4befe">󰑐 Alt+R</span> Rescan    '
-            f'<span foreground="#fab387">󰢻 Alt+S</span> Settings    '
-            f'<span foreground="#a6e3a1">󰐥 Alt+T</span> Radio'
-        )
-
-    # 4. Scan & Parse Wi-Fi Networks (100% PURE Wi-Fi list, no mixed actions)
-    network_items = []
-
-    if wifi_dev and wifi_enabled:
-        wifi_output = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list", "--rescan", "no"])
-        if not wifi_output.strip():
-            wifi_output = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list"])
-
-        raw_networks = {}
-        for line in wifi_output.splitlines():
-            if not line:
-                continue
-            parts = line.split(":")
-            if len(parts) < 5:
-                continue
-            in_use = parts[0].strip() == "*"
-            ssid = parts[1].strip()
-            if not ssid:
-                continue
-            sig_int = int(parts[2]) if parts[2].isdigit() else 0
-            sec = parts[3].strip()
-            chan_int = int(parts[4]) if parts[4].isdigit() else 1
-
-            if ssid not in raw_networks:
-                raw_networks[ssid] = {
-                    "in_use": in_use,
-                    "ssid": ssid,
-                    "signal": sig_int,
-                    "security": sec,
-                    "chan": chan_int,
-                }
-            else:
-                if in_use:
-                    raw_networks[ssid]["in_use"] = True
-                    raw_networks[ssid]["signal"] = sig_int
-                    raw_networks[ssid]["chan"] = chan_int
-                elif not raw_networks[ssid]["in_use"] and sig_int > raw_networks[ssid]["signal"]:
-                    raw_networks[ssid]["signal"] = sig_int
-                    raw_networks[ssid]["chan"] = chan_int
-
-        # Sort: connected first, then signal strength descending
-        sorted_nets = sorted(raw_networks.values(), key=lambda x: (not x["in_use"], -x["signal"]))
-
-        for net in sorted_nets:
-            is_conn = net["in_use"]
-            sig = net["signal"]
-
-            # Icon & Color
-            if is_conn:
-                icon = '<span foreground="#a6e3a1">󰖩</span>'
-            elif sig >= 70:
-                icon = '<span foreground="#cba6f7">󰤨</span>'
-            elif sig >= 50:
-                icon = '<span foreground="#89b4fa">󰤥</span>'
-            elif sig >= 25:
-                icon = '<span foreground="#a6adc8">󰤢</span>'
-            else:
-                icon = '<span foreground="#6c7086">󰤟</span>'
-
-            # SSID (max 20 chars, padded)
-            ssid_clean = net["ssid"]
-            if len(ssid_clean) > 20:
-                disp_ssid = ssid_clean[:18] + ".."
-            else:
-                disp_ssid = ssid_clean
-            disp_ssid_padded = f"{disp_ssid:<20}"
-
-            # Connected Badge (11 chars)
-            if is_conn:
-                badge_markup = '<span weight="bold" foreground="#a6e3a1" background="#233d32"> CONNECTED </span>'
-            else:
-                badge_markup = "           "
-
-            # Band (4 chars)
-            band_str = "5GHz" if net["chan"] > 14 else "2.4G"
-            band_markup = f'<span foreground="#7f849c">{band_str}</span>'
-
-            # Security (4 chars)
-            is_open = (not net["security"] or net["security"] == "--" or net["security"].lower() == "open")
-            if is_open:
-                sec_markup = '<span foreground="#a6adc8">OPEN</span>'
-            else:
-                sec_markup = '<span foreground="#f9e2af">SEC </span>'
-
-            # Signal (4 chars)
-            sig_markup = f'<span weight="bold" foreground="#ffffff">{sig:>3}%</span>'
-
-            row_text = f"{icon}  <b>{html.escape(disp_ssid_padded)}</b>  {badge_markup}  {band_markup}  {sec_markup}  {sig_markup}"
-
-            network_items.append({
-                "ssid": net["ssid"],
-                "is_conn": is_conn,
-                "is_open": is_open,
-                "display": row_text
-            })
-
-    if not network_items:
-        notify("Wi-Fi", "No Wi-Fi networks found in range.", icon="network-wireless-disconnected")
-        sys.exit(0)
-
-    input_payload = "\n".join([item["display"] for item in network_items]) + "\n"
-
-    # 5. Launch Rofi with hotkey bindings and pure SSID list
-    rofi_proc = subprocess.Popen([
-        "rofi",
-        "-no-config",
-        "-dmenu",
-        "-format", "i",
-        "-theme", RASI_THEME,
-        "-p", "",
-        "-mesg", mesg,
-        "-markup-rows",
-        "-i",
-        "-kb-custom-1", "Alt+d",
-        "-kb-custom-2", "Alt+p",
-        "-kb-custom-3", "Alt+t",
-        "-kb-custom-4", "Alt+r",
-        "-kb-custom-5", "Alt+s"
-    ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-
-    stdout, _ = rofi_proc.communicate(input=input_payload)
-    ret = rofi_proc.returncode
-
-    # Handle Footer Hotkeys directly
-    if ret == 10:  # Alt+d
-        disconnect_active(state)
-        sys.exit(0)
-    elif ret == 11:  # Alt+p
-        open_captive_portal()
-        sys.exit(0)
-    elif ret == 12:  # Alt+t
-        toggle_wifi(state)
-        sys.exit(0)
-    elif ret == 13:  # Alt+r
-        rescan_wifi()
-        os.execv(sys.argv[0], sys.argv)
-    elif ret == 14:  # Alt+s
-        subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])
-        sys.exit(0)
-
-    if ret != 0 or not stdout.strip().isdigit():
-        sys.exit(0)
-
-    chosen_idx = int(stdout.strip())
-    if chosen_idx < 0 or chosen_idx >= len(network_items):
-        sys.exit(0)
-
-    chosen = network_items[chosen_idx]
-    target_ssid = chosen["ssid"]
-
-    # 6. If selecting the already connected network, open Actions Menu for it
-    if chosen["is_conn"]:
-        show_actions_menu(state)
-        return
-
-    # 7. Connect to selected network
-    saved_cons = run_cmd(["nmcli", "-t", "-f", "NAME", "c", "show"]).splitlines()
-    if target_ssid in saved_cons:
-        notify("Connecting...", f"Connecting to saved network: {target_ssid}", icon="network-wireless")
-        res = subprocess.run(["nmcli", "con", "up", "id", target_ssid], capture_output=True)
-        if res.returncode == 0:
-            notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-        else:
-            notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
-        sys.exit(0)
-
-    if chosen["is_open"]:
-        notify("Connecting...", f"Connecting to open network: {target_ssid}", icon="network-wireless")
-        res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid], capture_output=True)
-        if res.returncode == 0:
-            notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-            portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
-            subprocess.Popen([portal_bin, "--auto"])
-        else:
-            notify("Connection Failed", f"Failed to connect to {target_ssid}.", icon="network-error")
-        sys.exit(0)
-
-    # Prompt password
-    pass_proc = subprocess.Popen([
-        "rofi",
-        "-no-config",
-        "-dmenu",
-        "-password",
-        "-theme", RASI_THEME,
-        "-theme-str", 'listview { lines: 0; padding: 0; } window { width: 480px; } entry { placeholder: "Password..."; }',
-        "-p", "󰌾",
-        "-mesg", f"Enter Wi-Fi password for {html.escape(target_ssid)}"
-    ], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
-
-    pwd, _ = pass_proc.communicate()
-    pwd = pwd.strip()
-    if not pwd:
-        sys.exit(0)
-
-    notify("Connecting...", f"Connecting to {target_ssid}...", icon="network-wireless")
-    res = subprocess.run(["nmcli", "dev", "wifi", "connect", target_ssid, "password", pwd], capture_output=True)
-    if res.returncode == 0:
-        notify("Connected", f"Successfully connected to {target_ssid}.", icon="network-wireless")
-    else:
-        notify("Connection Failed", f"Could not connect to {target_ssid}. Check password.", icon="network-error")
+    win = RofiStyleNetworkWindow()
+    win.show_all()
+    Gtk.main()
 
 if __name__ == "__main__":
     main()
