@@ -1,10 +1,15 @@
 import os
+import math
 import subprocess
+import cairo
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+gi.require_version("Pango", "1.0")
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gtk, Pango, PangoCairo
 from services import get_username, get_hostname, get_uptime
+from config import hex_to_rgb
 
 class HeaderWidget(Gtk.Box):
     def __init__(self, window):
@@ -13,14 +18,13 @@ class HeaderWidget(Gtk.Box):
         self._build_ui()
 
     def _build_ui(self):
-        # Distro avatar (32x32, Arch icon)
-        avatar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        avatar.get_style_context().add_class("distro-avatar")
-        avatar_lbl = Gtk.Label(label="󰣇")
-        avatar_lbl.set_halign(Gtk.Align.CENTER)
-        avatar_lbl.set_valign(Gtk.Align.CENTER)
-        avatar.pack_start(avatar_lbl, True, True, 0)
-        self.pack_start(avatar, False, False, 0)
+        # Distro avatar (32x32, Arch icon drawn with Cairo for perfect centering)
+        self.avatar_area = Gtk.DrawingArea()
+        self.avatar_area.set_size_request(32, 32)
+        self.avatar_area.set_valign(Gtk.Align.CENTER)
+        self.avatar_area.set_halign(Gtk.Align.CENTER)
+        self.avatar_area.connect("draw", self.on_avatar_draw)
+        self.pack_start(self.avatar_area, False, False, 0)
 
         # Host info
         info_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -62,3 +66,35 @@ class HeaderWidget(Gtk.Box):
 
     def update_uptime(self):
         self.host_meta_lbl.set_text(f"X11 · Up {get_uptime()}")
+
+    def on_avatar_draw(self, widget, cr):
+        w = widget.get_allocated_width()
+        h = widget.get_allocated_height()
+        r = 8
+
+        # Rounded rectangle background
+        cr.new_sub_path()
+        cr.arc(w - r, r, r, -math.pi / 2, 0)
+        cr.arc(w - r, h - r, r, 0, math.pi / 2)
+        cr.arc(r, h - r, r, math.pi / 2, math.pi)
+        cr.arc(r, r, r, math.pi, 3 * math.pi / 2)
+        cr.close_path()
+
+        ar, ag, ab = self.window.current_theme.get("accent_rgb", (203 / 255.0, 166 / 255.0, 247 / 255.0))
+        cr.set_source_rgb(ar, ag, ab)
+        cr.fill()
+
+        # Arch logo centered exactly by ink bounds
+        layout = self.create_pango_layout("󰣇")
+        desc = Pango.FontDescription("JetBrainsMono Nerd Font Bold 14")
+        layout.set_font_description(desc)
+        ink, log = layout.get_pixel_extents()
+
+        x = round((w - ink.width) / 2.0 - ink.x)
+        y = round((h - ink.height) / 2.0 - ink.y)
+
+        cr.move_to(x, y)
+        cr_text = self.window.current_theme.get("accent_contrast", "#11111b")
+        tr, tg, tb = hex_to_rgb(cr_text)
+        cr.set_source_rgb(tr, tg, tb)
+        PangoCairo.show_layout(cr, layout)

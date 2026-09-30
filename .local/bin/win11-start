@@ -14,7 +14,9 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
 gi.require_version("Gio", "2.0")
-from gi.repository import Gtk, Gdk, Gio, GLib, Pango
+gi.require_version("Pango", "1.0")
+gi.require_version("PangoCairo", "1.0")
+from gi.repository import Gtk, Gdk, Gio, GLib, Pango, PangoCairo
 
 PID_FILE = "/tmp/win11_start_menu.pid"
 if os.path.exists(PID_FILE):
@@ -370,14 +372,13 @@ class Win11StartMenu(Gtk.Window):
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         footer.set_name("footer-bar")
 
-        # User Avatar
-        avatar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        avatar.get_style_context().add_class("avatar-circle")
-        av_lbl = Gtk.Label(label="")
-        av_lbl.set_halign(Gtk.Align.CENTER)
-        av_lbl.set_valign(Gtk.Align.CENTER)
-        avatar.pack_start(av_lbl, True, True, 0)
-        footer.pack_start(avatar, False, False, 0)
+        # User Avatar (Drawn with Cairo for pixel-perfect circular centering)
+        self.avatar_area = Gtk.DrawingArea()
+        self.avatar_area.set_size_request(32, 32)
+        self.avatar_area.set_valign(Gtk.Align.CENTER)
+        self.avatar_area.set_halign(Gtk.Align.CENTER)
+        self.avatar_area.connect("draw", self.on_avatar_draw)
+        footer.pack_start(self.avatar_area, False, False, 0)
 
         # Username
         user_lbl = Gtk.Label(label=get_username(), xalign=0)
@@ -398,6 +399,29 @@ class Win11StartMenu(Gtk.Window):
         footer.pack_start(pwr_btn, False, False, 0)
 
         return footer
+
+    def on_avatar_draw(self, widget, cr):
+        w = widget.get_allocated_width()
+        h = widget.get_allocated_height()
+        radius = min(w, h) / 2.0
+
+        # Draw circle background
+        cr.arc(w / 2.0, h / 2.0, radius, 0, 2 * math.pi)
+        cr.set_source_rgb(49 / 255.0, 50 / 255.0, 68 / 255.0)  # #313244
+        cr.fill()
+
+        # Draw Lucide user icon centered using ink bounds
+        layout = self.create_pango_layout("")
+        desc = Pango.FontDescription("lucide 13")
+        layout.set_font_description(desc)
+        ink, log = layout.get_pixel_extents()
+
+        x = round((w - ink.width) / 2.0 - ink.x)
+        y = round((h - ink.height) / 2.0 - ink.y)
+
+        cr.move_to(x, y)
+        cr.set_source_rgb(203 / 255.0, 166 / 255.0, 247 / 255.0)  # #cba6f7
+        PangoCairo.show_layout(cr, layout)
 
     def on_search_changed(self, entry):
         query = entry.get_text().strip().lower()
