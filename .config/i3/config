@@ -27,6 +27,7 @@ for_window [instance="scratchpad_term"] floating enable, resize set 960 580, mov
 for_window [title="CatppuccinCalendar"] floating enable, border none
 for_window [title="CatppuccinControlCenter"] floating enable, border none
 for_window [title="Windows11StartMenu"] floating enable, border none
+for_window [title="CatppuccinNetworkMenu"] floating enable, border none
 
 # --- Autostart Applications ---
 exec_always --no-startup-id xrdb -merge ~/.Xresources
