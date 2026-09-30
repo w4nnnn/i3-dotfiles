@@ -28,6 +28,7 @@ for_window [title="CatppuccinCalendar"] floating enable, border none
 for_window [title="CatppuccinControlCenter"] floating enable, border none
 for_window [title="Windows11StartMenu"] floating enable, border none
 for_window [title="CatppuccinNetworkMenu"] floating enable, border none
+for_window [title="ScreenProjectMenu"] floating enable, border none
 
 # --- Autostart Applications ---
 exec_always --no-startup-id xrdb -merge ~/.Xresources
@@ -88,6 +89,8 @@ bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/wallpaper-selector
 bindsym $mod+Shift+t exec --no-startup-id ~/.local/bin/theme-switcher
 bindsym $mod+slash exec --no-startup-id ~/.local/bin/keybinds-viewer
 bindsym $mod+question exec --no-startup-id ~/.local/bin/keybinds-viewer
+bindsym $mod+p exec --no-startup-id ~/.local/bin/screen-project
+bindsym XF86Display exec --no-startup-id ~/.local/bin/screen-project
 
 # Change focus
 bindsym $mod+j focus left

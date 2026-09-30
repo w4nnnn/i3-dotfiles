@@ -1,0 +1,742 @@
+#!/usr/bin/env python3
+"""
+Catppuccin / Multi-Theme Screen Project & Cast Manager (Win+P Style)
+Features cable projection modes (Mirror, Extend, PC only, External only),
+wireless web presentation streaming, and dynamic multi-monitor synchronization.
+"""
+import sys
+import os
+import signal
+import subprocess
+import shutil
+import re
+import html
+import threading
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("Pango", "1.0")
+from gi.repository import Gtk, Gdk, GLib, Pango
+
+PID_FILE = "/tmp/screen_project_gtk.pid"
+if os.path.exists(PID_FILE):
+    try:
+        with open(PID_FILE, "r") as f:
+            old_pid = int(f.read().strip())
+        os.remove(PID_FILE)
+        os.kill(old_pid, signal.SIGTERM)
+        sys.exit(0)
+    except Exception:
+        pass
+
+with open(PID_FILE, "w") as f:
+    f.write(str(os.getpid()))
+
+# Load Global Theme Preference
+THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
+current_theme_key = "catppuccin"
+if os.path.exists(THEME_PREF_FILE):
+    try:
+        with open(THEME_PREF_FILE) as f:
+            t_key = f.read().strip()
+            if t_key:
+                current_theme_key = t_key
+    except Exception:
+        pass
+
+THEMES = {
+    "catppuccin": {
+        "bg": "rgba(30, 30, 46, 0.85)",
+        "surface0": "rgba(49, 50, 68, 0.82)",
+        "surface1": "#45475a",
+        "accent": "#cba6f7",
+        "fg": "#cdd6f4",
+        "subtext": "#a6adc8",
+        "overlay": "#6c7086",
+        "blue": "#89b4fa",
+        "red": "#f38ba8",
+        "green": "#a6e3a1",
+        "yellow": "#f9e2af",
+    },
+    "tokyo-night": {
+        "bg": "rgba(26, 27, 38, 0.85)",
+        "surface0": "rgba(36, 40, 59, 0.82)",
+        "surface1": "#2f3549",
+        "accent": "#7aa2f7",
+        "fg": "#c0caf5",
+        "subtext": "#a9b1d6",
+        "overlay": "#565f89",
+        "blue": "#7aa2f7",
+        "red": "#f7768e",
+        "green": "#9ece6a",
+        "yellow": "#e0af68",
+    },
+    "nord": {
+        "bg": "rgba(46, 52, 64, 0.85)",
+        "surface0": "rgba(59, 66, 82, 0.82)",
+        "surface1": "#434c5e",
+        "accent": "#88c0d0",
+        "fg": "#eceff4",
+        "subtext": "#d8dee9",
+        "overlay": "#4c566a",
+        "blue": "#81a1c1",
+        "red": "#bf616a",
+        "green": "#a3be8c",
+        "yellow": "#ebcb8b",
+    },
+    "oled": {
+        "bg": "rgba(9, 9, 11, 0.88)",
+        "surface0": "rgba(20, 20, 24, 0.85)",
+        "surface1": "#222228",
+        "accent": "#38bdf8",
+        "fg": "#ffffff",
+        "subtext": "#a1a1aa",
+        "overlay": "#52525b",
+        "blue": "#38bdf8",
+        "red": "#f43f5e",
+        "green": "#10b981",
+        "yellow": "#f59e0b",
+    },
+    "light": {
+        "bg": "rgba(255, 255, 255, 0.88)",
+        "surface0": "rgba(241, 245, 249, 0.85)",
+        "surface1": "#cbd5e1",
+        "accent": "#0284c7",
+        "fg": "#0f172a",
+        "subtext": "#475569",
+        "overlay": "#94a3b8",
+        "blue": "#0284c7",
+        "red": "#ef4444",
+        "green": "#10b981",
+        "yellow": "#f59e0b",
+    },
+    "dracula": {
+        "bg": "rgba(40, 42, 54, 0.85)",
+        "surface0": "rgba(68, 71, 90, 0.82)",
+        "surface1": "#6272a4",
+        "accent": "#bd93f9",
+        "fg": "#f8f8f2",
+        "subtext": "#bfbfbf",
+        "overlay": "#6272a4",
+        "blue": "#8be9fd",
+        "red": "#ff5555",
+        "green": "#50fa7b",
+        "yellow": "#f1fa8c",
+    },
+    "gruvbox": {
+        "bg": "rgba(40, 40, 40, 0.85)",
+        "surface0": "rgba(60, 56, 54, 0.82)",
+        "surface1": "#504945",
+        "accent": "#fe8019",
+        "fg": "#ebdbb2",
+        "subtext": "#d5c4a1",
+        "overlay": "#928374",
+        "blue": "#83a598",
+        "red": "#fb4934",
+        "green": "#b8bb26",
+        "yellow": "#fabd2f",
+    },
+    "rose-pine": {
+        "bg": "rgba(25, 23, 36, 0.85)",
+        "surface0": "rgba(31, 29, 46, 0.82)",
+        "surface1": "#26233a",
+        "accent": "#ebbcba",
+        "fg": "#e0def4",
+        "subtext": "#908caa",
+        "overlay": "#6e6a86",
+        "blue": "#c4a7e7",
+        "red": "#eb6f92",
+        "green": "#9ccfd8",
+        "yellow": "#f6c177",
+    },
+    "everforest": {
+        "bg": "rgba(45, 53, 59, 0.85)",
+        "surface0": "rgba(52, 63, 68, 0.82)",
+        "surface1": "#3d484d",
+        "accent": "#a7c080",
+        "fg": "#d3c6aa",
+        "subtext": "#9da9a0",
+        "overlay": "#7a8478",
+        "blue": "#7fbbb3",
+        "red": "#e67e80",
+        "green": "#a7c080",
+        "yellow": "#dbbc7f",
+    },
+    "cyberpunk": {
+        "bg": "rgba(18, 12, 31, 0.88)",
+        "surface0": "rgba(36, 21, 56, 0.82)",
+        "surface1": "#382057",
+        "accent": "#00f0ff",
+        "fg": "#fdfdfd",
+        "subtext": "#f38ba8",
+        "overlay": "#705d8f",
+        "blue": "#00e5ff",
+        "red": "#ff2a6d",
+        "green": "#05ffa1",
+        "yellow": "#ffe600",
+    },
+}
+
+t = THEMES.get(current_theme_key, THEMES["catppuccin"])
+
+def notify(title, message, icon="video-display"):
+    subprocess.Popen([
+        "dunstify", "-a", "Display",
+        "-h", "string:x-dunst-stack-tag:display",
+        "-i", icon,
+        "-t", "2500",
+        title, message
+    ], stderr=subprocess.DEVNULL)
+
+def get_displays_info():
+    try:
+        out = subprocess.check_output(["xrandr", "--query"], text=True)
+    except Exception:
+        return None, [], []
+
+    internal = None
+    connected_ext = []
+    all_outputs = []
+
+    for line in out.splitlines():
+        if " connected" in line:
+            parts = line.split()
+            name = parts[0]
+            is_internal = any(name.startswith(p) for p in ["eDP", "LVDS", "DSI"])
+            if is_internal and internal is None:
+                internal = name
+            else:
+                connected_ext.append(name)
+            all_outputs.append(name)
+        elif " disconnected" in line:
+            all_outputs.append(line.split()[0])
+
+    if not internal and all_outputs:
+        internal = all_outputs[0]
+        if internal in connected_ext:
+            connected_ext.remove(internal)
+
+    return internal, connected_ext, all_outputs
+
+def is_web_cast_active():
+    pid_f = "/tmp/web_screen_share.pid"
+    if os.path.exists(pid_f):
+        try:
+            with open(pid_f, "r") as f:
+                pid = int(f.read().strip())
+            os.kill(pid, 0)
+            return True
+        except Exception:
+            pass
+    return False
+
+class ScreenProjectWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("ScreenProjectMenu")
+        self.set_role("project-menu-popup")
+        self.set_decorated(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_resizable(False)
+
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.set_visual(visual)
+
+        self.apply_css()
+
+        self.internal, self.connected_ext, self.all_outputs = get_displays_info()
+        self.items = []
+
+        self._build_ui()
+        self.position_window()
+
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("button-press-event", self.on_button_press)
+        self.connect("map-event", self.on_map_event)
+        self.connect("destroy", lambda w: self.cleanup())
+
+    def on_map_event(self, widget, event):
+        GLib.idle_add(self.grab_seat)
+
+    def grab_seat(self):
+        try:
+            seat = Gdk.Display.get_default().get_default_seat()
+            if seat and self.get_window():
+                cursor = self.get_window().get_cursor()
+                seat.grab(self.get_window(), Gdk.SeatCapabilities.ALL, True, cursor, None, None)
+        except Exception:
+            pass
+        return False
+
+    def on_button_press(self, widget, event):
+        if not self.get_window():
+            return False
+        success, ox, oy = self.get_window().get_origin()
+        w = self.get_window().get_width()
+        h = self.get_window().get_height()
+        inside = (ox <= event.x_root <= ox + w) and (oy <= event.y_root <= oy + h)
+        if not inside:
+            self.close_and_exit()
+            return True
+        return False
+
+    def close_and_exit(self):
+        try:
+            seat = Gdk.Display.get_default().get_default_seat()
+            if seat:
+                seat.ungrab()
+        except Exception:
+            pass
+        self.cleanup()
+        self.destroy()
+        Gtk.main_quit()
+
+    def cleanup(self):
+        if os.path.exists(PID_FILE):
+            try:
+                os.remove(PID_FILE)
+            except Exception:
+                pass
+
+    def apply_css(self):
+        css = f"""
+        window {{
+            background-color: transparent;
+        }}
+        #main-card {{
+            background-color: {t["bg"]};
+            border: 2px solid {t["accent"]};
+            border-radius: 16px;
+            padding: 20px;
+        }}
+        #header-box {{
+            padding: 0px 4px 10px 4px;
+            border-bottom: 1px solid {t["surface0"]};
+            margin-bottom: 8px;
+        }}
+        #hdr-title {{
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            font-weight: bold;
+        }}
+        #hdr-status {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 9pt;
+        }}
+        .status-badge-connected {{
+            background-color: rgba(166, 227, 161, 0.18);
+            color: {t["green"]};
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+            font-weight: bold;
+        }}
+        .status-badge-disconnected {{
+            background-color: rgba(243, 139, 168, 0.15);
+            color: {t["red"]};
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+        }}
+        #listbox {{
+            background-color: transparent;
+        }}
+        .project-row {{
+            background-color: transparent;
+            border: 1.5px solid transparent;
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+        }}
+        .project-row:hover,
+        .project-row:selected {{
+            background-color: {t["surface0"]};
+            border-color: {t["accent"]};
+        }}
+        .icon-large {{
+            color: {t["accent"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 16pt;
+            margin-right: 8px;
+        }}
+        .row-title {{
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 10.5pt;
+            font-weight: bold;
+        }}
+        .row-desc {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+        }}
+        .hotkey-badge {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+            background-color: {t["surface0"]};
+            border-radius: 4px;
+            padding: 2px 6px;
+        }}
+        #footer-bar {{
+            background-color: {t["surface0"]};
+            border-radius: 10px;
+            padding: 6px 10px;
+            margin-top: 10px;
+        }}
+        button.footer-action-btn,
+        .footer-action-btn {{
+            background-color: transparent;
+            border: none;
+            border-color: transparent;
+            outline: none;
+            box-shadow: none;
+            border-radius: 8px;
+            padding: 5px 10px;
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.8pt;
+            font-weight: 500;
+        }}
+        button.footer-action-btn:focus,
+        button.footer-action-btn:hover,
+        .footer-action-btn:focus,
+        .footer-action-btn:hover {{
+            background-color: {t["surface1"]};
+            color: {t["accent"]};
+            border: none;
+            outline: none;
+            box-shadow: none;
+        }}
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            self.get_screen(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    def _build_ui(self):
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        main_box.set_name("main-card")
+        main_box.set_size_request(620, 520)
+        self.add(main_box)
+
+        # 1. Header Box
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        header.set_name("header-box")
+
+        hdr_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title_lbl = Gtk.Label(label="󰍹 Project & Cast Screen", xalign=0)
+        title_lbl.set_name("hdr-title")
+        hdr_vbox.pack_start(title_lbl, False, False, 0)
+
+        if self.connected_ext:
+            status_text = f"External Cable: {', '.join(self.connected_ext)}"
+            badge_class = "status-badge-connected"
+            badge_text = "CABLE CONNECTED"
+        else:
+            status_text = "No External Cable (Wireless Cast Ready)"
+            badge_class = "status-badge-disconnected"
+            badge_text = "INTERNAL ONLY"
+
+        status_lbl = Gtk.Label(label=status_text, xalign=0)
+        status_lbl.set_name("hdr-status")
+        hdr_vbox.pack_start(status_lbl, False, False, 0)
+
+        header.pack_start(hdr_vbox, True, True, 0)
+
+        badge_lbl = Gtk.Label(label=badge_text)
+        badge_lbl.get_style_context().add_class(badge_class)
+        badge_lbl.set_valign(Gtk.Align.CENTER)
+        header.pack_start(badge_lbl, False, False, 0)
+
+        main_box.pack_start(header, False, False, 0)
+
+        # 2. Options List Box
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_name("listbox")
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.listbox.connect("row-activated", self.on_row_activated)
+        scrolled.add(self.listbox)
+        main_box.pack_start(scrolled, True, True, 0)
+
+        self.populate_options()
+
+        # 3. Footer Actions Toolbar
+        footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        footer.set_name("footer-bar")
+
+        arandr_btn = Gtk.Button(label="󰢻 Display Layout (ARandR)")
+        arandr_btn.get_style_context().add_class("footer-action-btn")
+        arandr_btn.set_tooltip_text("Open GUI Display Layout Editor")
+        arandr_btn.connect("clicked", lambda w: (self.close_and_exit(), self.launch_arandr()))
+        footer.pack_start(arandr_btn, True, True, 0)
+
+        refresh_btn = Gtk.Button(label="󰑐 Rescan Ports")
+        refresh_btn.get_style_context().add_class("footer-action-btn")
+        refresh_btn.set_tooltip_text("Rescan Connected Displays")
+        refresh_btn.connect("clicked", lambda w: self.rescan_displays())
+        footer.pack_start(refresh_btn, True, True, 0)
+
+        main_box.pack_start(footer, False, False, 0)
+
+    def populate_options(self):
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+
+        has_cable = bool(self.connected_ext)
+        ext_target = self.connected_ext[0] if has_cable else "HDMI-1"
+        is_casting = is_web_cast_active()
+
+        options = [
+            {
+                "id": "internal",
+                "icon": "󰌢",
+                "title": "PC Screen Only",
+                "desc": "Disconnect external displays and show desktop only on laptop screen",
+                "key": "1",
+                "enabled": True,
+            },
+            {
+                "id": "mirror",
+                "icon": "󰍺",
+                "title": "Duplicate / Mirror",
+                "desc": f"Clone internal screen to projector ({ext_target}) with synchronized resolution",
+                "key": "2",
+                "enabled": has_cable,
+            },
+            {
+                "id": "extend_right",
+                "icon": "󰍹",
+                "title": "Extend Screen (Right)",
+                "desc": f"Expand desktop workspace to the right side ({ext_target})",
+                "key": "3",
+                "enabled": has_cable,
+            },
+            {
+                "id": "extend_left",
+                "icon": "󰍹",
+                "title": "Extend Screen (Left)",
+                "desc": f"Expand desktop workspace to the left side ({ext_target})",
+                "key": "4",
+                "enabled": has_cable,
+            },
+            {
+                "id": "external",
+                "icon": "󰍹",
+                "title": "Second Screen Only",
+                "desc": f"Turn off laptop screen and display only on external projector ({ext_target})",
+                "key": "5",
+                "enabled": has_cable,
+            },
+            {
+                "id": "web_cast",
+                "icon": "󰖟",
+                "title": "Stop Wireless Share" if is_casting else "Wireless Web Cast (Local Wi-Fi)",
+                "desc": "Stop active presentation stream" if is_casting else "Stream live presentation over Wi-Fi (Smart TV / iPad / Browser URL)",
+                "key": "6",
+                "enabled": True,
+                "highlight": is_casting,
+            },
+            {
+                "id": "miracast",
+                "icon": "󰤨",
+                "title": "Wi-Fi Display (Miracast / Screencast)",
+                "desc": "Connect wirelessly to Smart TV / Miracast receiver (GNOME Displays)",
+                "key": "7",
+                "enabled": True,
+            }
+        ]
+
+        for opt in options:
+            row = Gtk.ListBoxRow()
+            row.opt_data = opt
+            row.set_sensitive(opt["enabled"])
+
+            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+            box.get_style_context().add_class("project-row")
+
+            icon_lbl = Gtk.Label(label=opt["icon"])
+            icon_lbl.get_style_context().add_class("icon-large")
+            box.pack_start(icon_lbl, False, False, 0)
+
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            t_lbl = Gtk.Label(label=opt["title"], xalign=0)
+            t_lbl.get_style_context().add_class("row-title")
+            vbox.pack_start(t_lbl, False, False, 0)
+
+            d_lbl = Gtk.Label(label=opt["desc"], xalign=0)
+            d_lbl.get_style_context().add_class("row-desc")
+            d_lbl.set_ellipsize(Pango.EllipsizeMode.END)
+            vbox.pack_start(d_lbl, False, False, 0)
+
+            box.pack_start(vbox, True, True, 0)
+
+            key_lbl = Gtk.Label(label=f"[{opt['key']}]")
+            key_lbl.get_style_context().add_class("hotkey-badge")
+            box.pack_start(key_lbl, False, False, 0)
+
+            row.add(box)
+            self.listbox.add(row)
+
+        self.listbox.show_all()
+        first_row = self.listbox.get_row_at_index(0)
+        if first_row:
+            self.listbox.select_row(first_row)
+
+    def position_window(self):
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
+        geom = monitor.get_geometry()
+
+        win_w, win_h = 620, 520
+        x = geom.x + (geom.width - win_w) // 2
+        y = geom.y + (geom.height - win_h) // 2
+        self.move(x, y)
+
+    def rescan_displays(self):
+        self.internal, self.connected_ext, self.all_outputs = get_displays_info()
+        self.populate_options()
+        notify("Display Rescanned", f"Detected: {', '.join(self.connected_ext) or 'Internal only'}")
+
+    def launch_arandr(self):
+        if shutil.which("arandr"):
+            subprocess.Popen(["arandr"])
+        else:
+            notify("ARandR Not Found", "Install with: sudo pacman -S arandr")
+
+    def on_row_activated(self, listbox, row):
+        if not hasattr(row, "opt_data"):
+            return
+        opt = row.opt_data
+        if not opt["enabled"]:
+            return
+
+        mode = opt["id"]
+        self.apply_mode(mode)
+
+    def apply_mode(self, mode):
+        self.close_and_exit()
+
+        internal = self.internal or "eDP-1"
+        has_cable = bool(self.connected_ext)
+        ext_target = self.connected_ext[0] if has_cable else "HDMI-1"
+
+        def post_hooks():
+            # Refresh Polybar multi-monitor
+            polybar_launch = os.path.expanduser("~/.config/polybar/launch.sh")
+            if os.path.exists(polybar_launch):
+                subprocess.Popen([polybar_launch])
+            # Restore Wallpaper
+            wall_script = os.path.expanduser("~/.local/bin/wallpaper-selector")
+            if os.path.exists(wall_script):
+                subprocess.Popen([wall_script, "--restore"])
+            elif os.path.exists(os.path.expanduser("~/.cache/current_wallpaper")):
+                with open(os.path.expanduser("~/.cache/current_wallpaper")) as f:
+                    wpath = f.read().strip()
+                if os.path.exists(wpath):
+                    subprocess.Popen(["feh", "--bg-fill", wpath])
+
+        if mode == "internal":
+            cmd = ["xrandr", "--output", internal, "--auto", "--primary"]
+            for o in self.all_outputs:
+                if o != internal:
+                    cmd.extend(["--output", o, "--off"])
+            subprocess.run(cmd)
+            post_hooks()
+            notify("PC Screen Only", "External monitors disconnected.", icon="video-display")
+
+        elif mode == "mirror":
+            cmd = ["xrandr", "--output", internal, "--auto", "--primary", "--output", ext_target, "--auto", "--same-as", internal]
+            subprocess.run(cmd)
+            post_hooks()
+            notify("Duplicate / Mirror", f"Screen mirrored with {ext_target}.", icon="video-display")
+
+        elif mode == "extend_right":
+            cmd = ["xrandr", "--output", internal, "--auto", "--primary", "--output", ext_target, "--auto", "--right-of", internal]
+            subprocess.run(cmd)
+            post_hooks()
+            notify("Extended Display", f"Desktop extended to right ({ext_target}).", icon="video-display")
+
+        elif mode == "extend_left":
+            cmd = ["xrandr", "--output", internal, "--auto", "--primary", "--output", ext_target, "--auto", "--left-of", internal]
+            subprocess.run(cmd)
+            post_hooks()
+            notify("Extended Display", f"Desktop extended to left ({ext_target}).", icon="video-display")
+
+        elif mode == "external":
+            cmd = ["xrandr", "--output", ext_target, "--auto", "--primary", "--output", internal, "--off"]
+            subprocess.run(cmd)
+            post_hooks()
+            notify("Second Screen Only", f"Displaying exclusively on {ext_target}.", icon="video-display")
+
+        elif mode == "web_cast":
+            web_bin = os.path.expanduser("~/.local/bin/web-screen-share")
+            subprocess.Popen([web_bin, "toggle"])
+
+        elif mode == "miracast":
+            if shutil.which("gnome-network-displays"):
+                subprocess.Popen(["gnome-network-displays"])
+            else:
+                notify("Miracast Tool", "Install GNOME Network Displays via AUR:\nyay -S gnome-network-displays", icon="dialog-information")
+
+    def on_key_press(self, widget, event):
+        keyval = event.keyval
+        if keyval == Gdk.KEY_Escape:
+            self.close_and_exit()
+            return True
+
+        # Number hotkeys 1-7
+        num_map = {
+            Gdk.KEY_1: "internal",
+            Gdk.KEY_2: "mirror",
+            Gdk.KEY_3: "extend_right",
+            Gdk.KEY_4: "extend_left",
+            Gdk.KEY_5: "external",
+            Gdk.KEY_6: "web_cast",
+            Gdk.KEY_7: "miracast",
+        }
+        if keyval in num_map:
+            self.apply_mode(num_map[keyval])
+            return True
+
+        if keyval == Gdk.KEY_Down:
+            cur = self.listbox.get_selected_row()
+            if cur:
+                idx = cur.get_index()
+                next_row = self.listbox.get_row_at_index(idx + 1)
+                if next_row:
+                    self.listbox.select_row(next_row)
+                    return True
+        elif keyval == Gdk.KEY_Up:
+            cur = self.listbox.get_selected_row()
+            if cur:
+                idx = cur.get_index()
+                if idx > 0:
+                    prev_row = self.listbox.get_row_at_index(idx - 1)
+                    if prev_row:
+                        self.listbox.select_row(prev_row)
+                        return True
+
+        return False
+
+def main():
+    win = ScreenProjectWindow()
+    win.show_all()
+    Gtk.main()
+
+if __name__ == "__main__":
+    main()

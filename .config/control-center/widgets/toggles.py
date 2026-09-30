@@ -58,13 +58,19 @@ class TogglesWidget(Gtk.Grid):
         self.game_btn.connect("clicked", self.on_game_clicked)
         self.attach(self.game_btn, 0, 1, 1, 1)
 
-        # 6. Floating Layout
-        self.float_btn, _ = self.make_toggle_tile("", "Floating", False)
-        self.float_btn.connect("clicked", self.on_floating_clicked)
-        self.attach(self.float_btn, 1, 1, 1, 1)
+        # 6. Cast / Project
+        bin_dir = os.path.expanduser("~/.local/bin")
+        self.project_btn, _ = self.make_toggle_tile("", "Cast / Project", False)
+        self.project_btn.connect(
+            "clicked",
+            lambda w: (
+                self.window.close_and_exit(),
+                subprocess.Popen([os.path.join(bin_dir, "screen-project")]),
+            ),
+        )
+        self.attach(self.project_btn, 1, 1, 1, 1)
 
         # 7. Screenshot
-        bin_dir = os.path.expanduser("~/.local/bin")
         sc_btn, _ = self.make_toggle_tile("", "Screenshot", False)
         sc_btn.connect(
             "clicked",

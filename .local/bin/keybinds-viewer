@@ -21,6 +21,7 @@ KEYBINDS = [
 
     # Hubs, Menus & Settings
     ("󰚔  Super + C", "Toggle Control Center (Quick Settings)", "control-center"),
+    ("󰍹  Super + P", "Project / Cast Screen (Mirror, Extend, Wireless)", "screen-project"),
     ("󰅍  Super + V", "Open Clipboard Manager History", "clipboard"),
     ("󰲋  Super + Shift + V", "Clear Clipboard Manager History", "clipboard --clear"),
     ("󰖩  Super + N", "Open Wi-Fi / Network Manager Menu", "network-menu"),

@@ -15,9 +15,13 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
   - **Control Center & System Tray**: Native tray support for background apps (e.g. 9router, Discord, Steam) pinned to primary monitor.
 - **Control Center (Quick Settings)**: Floating GTK3 card (`Super + c`) inspired by Android / Windows 11:
   - Interactive volume & brightness sliders with live feedback.
-  - Quick toggle tiles: Network, Do Not Disturb (DND), Wallpaper, and Screenshot.
+  - Quick toggle tiles: Network, Bluetooth, DND, Night Light, Game Mode, Cast / Project, Screenshot, and Wallpaper.
   - Mini media player with album/title controls (`playerctl`).
   - Interactive Theme Switcher button (``) and Keybindings Cheatsheet button (`[⌨ Keybinds]`).
+- **Screen Projection & Wireless Cast (Win+P Style)**: Dedicated presentation and display manager (`Super + p`):
+  - Cable projection modes for proyektor/TV: `PC Screen Only`, `Duplicate / Mirror`, `Extend Right`, `Extend Left`, and `Second Screen Only`.
+  - Built-in **Wireless Web Cast Server** streaming real-time desktop view over local Wi-Fi to any Smart TV, iPad, or browser via HTTP/MJPEG.
+  - Automatic display rescan, polybar multi-monitor reload, and wallpaper sync upon display changes.
 - **Windows 11-Style Start Menu**: Modern floating GTK3 App Launcher (`Super + a` / `Super + d`) with instant search filter, pinned apps, scrollable app grid, and power controls.
 - **Modern GTK3 Wi-Fi Manager**: Clean network menu (`Super + n`) matching the desktop design system:
   - Pure SSID list with live signal strength, frequency tags (`2.4G` / `5GHz`), security flags (`SEC` / `OPEN`), and `CONNECTED` status badge.
@@ -53,6 +57,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | **`Super + Shift + v`** | Clear Clipboard History |
 | **`Super + n`** | Open Modern GTK3 Network Manager |
 | **`Super + Shift + n`** | Open Advanced Network Settings (nmtui) |
+| **`Super + p`** | Open Screen Project & Wireless Cast Menu |
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
 | **`Super + Shift + m`** | Toggle Do Not Disturb (DND) |
 | **`Super + Shift + w`** | Open Wallpaper Selector |
@@ -204,6 +209,7 @@ dotfiles/
 │   ├── network-status-bar  # Dynamic Polybar network speed & interface status helper
 │   ├── portal-login        # Captive portal detection and browser login assistant
 │   ├── powermenu           # Horizontal rofi power menu
+│   ├── screen-project      # GTK3 Screen Project & Cast Manager (Win+P style)
 │   ├── screenshot          # maim + slop screenshot helper
 │   ├── theme-switcher      # Global 10-theme desktop synchronizer
 │   ├── toggle-dnd          # Quick Do Not Disturb (DND) toggle
@@ -211,6 +217,7 @@ dotfiles/
 │   ├── toggle-scratchpad   # Floating dropdown terminal scratchpad
 │   ├── volume-control      # Volume OSD notifier with Dunst
 │   ├── wallpaper-selector  # Dynamic wallpaper selector with thumbnails
+│   ├── web-screen-share    # Lightweight wireless presentation streaming server
 │   ├── win11-start         # Modern Windows 11-style GTK3 Start Menu
 │   └── src/                # C source code for compiled helpers
 │       ├── set-root-cursor.c
