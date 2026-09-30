@@ -47,6 +47,16 @@ else
     polybar main >> /tmp/polybar.log 2>&1 &
 fi
 
+# Read dynamic base background color from colors.ini for xcorners
+BASE_HEX="1e1e2e"
+if [ -f "$HOME/.config/polybar/colors.ini" ]; then
+    DETECTED_HEX=$(grep -E '^[[:space:]]*base[[:space:]]*=' "$HOME/.config/polybar/colors.ini" | head -n 1 | awk '{print $3}' | tr -d '#' | tr -d ' ')
+    if [ -n "$DETECTED_HEX" ]; then
+        BASE_HEX="$DETECTED_HEX"
+    fi
+fi
+CORNER_COLOR="${BASE_HEX}ff"
+
 # Launch xcorners dynamically for all connected monitors (supports 768p, 1080p, 2K, 4K, & multi-monitor)
 CORNERS_LAUNCHED=0
 while IFS= read -r line; do
@@ -59,7 +69,7 @@ while IFS= read -r line; do
         VIEWPORT_H=$((M_H - 36))
         VIEWPORT_Y=$((M_Y + 36))
 
-        "$HOME/.local/bin/xcorners" -x "$M_X" -y "$VIEWPORT_Y" -W "$M_W" -H "$VIEWPORT_H" -r 12 -c 1e1e2eff -t -b >/dev/null 2>&1 &
+        "$HOME/.local/bin/xcorners" -x "$M_X" -y "$VIEWPORT_Y" -W "$M_W" -H "$VIEWPORT_H" -r 12 -c "$CORNER_COLOR" -t -b >/dev/null 2>&1 &
         CORNERS_LAUNCHED=1
     fi
 done < <(polybar -m 2>/dev/null)
@@ -71,5 +81,5 @@ if [ "$CORNERS_LAUNCHED" -eq 0 ]; then
     SCREEN_W="${SCREEN_W:-1366}"
     SCREEN_H="${SCREEN_H:-768}"
     VIEWPORT_H=$((SCREEN_H - 36))
-    "$HOME/.local/bin/xcorners" -W "$SCREEN_W" -H "$VIEWPORT_H" -y 36 -r 12 -c 1e1e2eff -t -b -1 >/dev/null 2>&1 &
+    "$HOME/.local/bin/xcorners" -W "$SCREEN_W" -H "$VIEWPORT_H" -y 36 -r 12 -c "$CORNER_COLOR" -t -b -1 >/dev/null 2>&1 &
 fi
