@@ -15,7 +15,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
   - **Control Center & System Tray**: Native tray support for background apps (e.g. 9router, Discord, Steam) pinned to primary monitor.
 - **Control Center (Quick Settings)**: Floating GTK3 card (`Super + c`) inspired by Android / Windows 11:
   - Interactive volume & brightness sliders with live feedback.
-  - Quick toggle tiles: Network, Bluetooth, DND, Night Light, Game Mode, Cast / Project, Screenshot, and Wallpaper.
+  - Quick toggle tiles: Network, Bluetooth, DND, Night Light, Game Mode, Project, Screenshot, and Wallpaper.
   - Mini media player with album/title controls (`playerctl`).
   - Interactive Theme Switcher button (``) and Keybindings Cheatsheet button (`[⌨ Keybinds]`).
 - **Screen Projection & Wireless Cast (Win+P Style)**: Dedicated presentation and display manager (`Super + p`):

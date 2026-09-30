@@ -58,9 +58,9 @@ class TogglesWidget(Gtk.Grid):
         self.game_btn.connect("clicked", self.on_game_clicked)
         self.attach(self.game_btn, 0, 1, 1, 1)
 
-        # 6. Cast / Project
+        # 6. Project
         bin_dir = os.path.expanduser("~/.local/bin")
-        self.project_btn, _ = self.make_toggle_tile("", "Cast / Project", False)
+        self.project_btn, _ = self.make_toggle_tile("󰍹", "Project", False)
         self.project_btn.connect(
             "clicked",
             lambda w: (
