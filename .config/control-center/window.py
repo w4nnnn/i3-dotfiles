@@ -425,8 +425,40 @@ class ControlCenterWindow(Gtk.Window):
             font-size: 7.5pt;
             color: {t["text_muted"]};
         }}
+
+        /* Theme Dropdown Menu */
+        .theme-menu {{
+            background-color: {t["bg_card"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 10px;
+            padding: 4px;
+        }}
+        .theme-menu menuitem {{
+            color: {t["text_primary"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+            border-radius: 6px;
+            padding: 4px 10px;
+        }}
+        .theme-menu menuitem:hover {{
+            background-color: {t["bg_hover"]};
+            color: {t["accent"]};
+        }}
         """
         self.css_provider.load_from_data(css.encode())
+
+    def set_theme(self, theme_key):
+        if theme_key in THEMES:
+            self.current_theme_key = theme_key
+            self.current_theme = THEMES[theme_key]
+            save_theme(theme_key)
+            self.apply_theme_css()
+            self.header.avatar_area.queue_draw()
+            self.player.cover_area.queue_draw()
+            self.player.vis_area.queue_draw()
+            self.telemetry.cpu_meter.queue_draw()
+            self.telemetry.ram_meter.queue_draw()
+            self.telemetry.bat_meter.queue_draw()
 
     def on_telemetry_tick(self):
         self.telemetry.update_telemetry()

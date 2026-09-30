@@ -7,9 +7,9 @@ import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
-from gi.repository import Gtk, Pango, PangoCairo
+from gi.repository import Gtk, Gdk, Pango, PangoCairo
 from services import get_username, get_hostname, get_uptime
-from config import hex_to_rgb
+from config import hex_to_rgb, THEMES
 
 class HeaderWidget(Gtk.Box):
     def __init__(self, window):
@@ -41,6 +41,16 @@ class HeaderWidget(Gtk.Box):
         actions_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         bin_dir = os.path.expanduser("~/.local/bin")
 
+        # Theme Switcher button
+        theme_btn = Gtk.Button(label="")
+        theme_btn.get_style_context().add_class("header-btn")
+        if theme_btn.get_child():
+            theme_btn.get_child().set_halign(Gtk.Align.CENTER)
+            theme_btn.get_child().set_valign(Gtk.Align.CENTER)
+        theme_btn.set_tooltip_text("Switch Theme")
+        theme_btn.connect("clicked", self.on_theme_clicked)
+        actions_box.pack_start(theme_btn, False, False, 0)
+
         # Lock button
         lock_btn = Gtk.Button(label="")
         lock_btn.get_style_context().add_class("header-btn")
@@ -63,6 +73,22 @@ class HeaderWidget(Gtk.Box):
         actions_box.pack_start(power_btn, False, False, 0)
 
         self.pack_start(actions_box, False, False, 0)
+
+    def on_theme_clicked(self, btn):
+        menu = Gtk.Menu()
+        menu.get_style_context().add_class("theme-menu")
+        for key, theme_data in THEMES.items():
+            name = theme_data.get("name", key)
+            is_active = key == self.window.current_theme_key
+            label = f"● {name}" if is_active else f"  {name}"
+            item = Gtk.MenuItem(label=label)
+            item.connect("activate", lambda w, k=key: self.window.set_theme(k))
+            menu.append(item)
+        menu.show_all()
+        try:
+            menu.popup_at_widget(btn, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
+        except Exception:
+            menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
 
     def update_uptime(self):
         self.host_meta_lbl.set_text(f"X11 · Up {get_uptime()}")
