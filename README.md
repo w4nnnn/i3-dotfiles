@@ -7,18 +7,27 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 ## ✨ Features & Highlights
 
 - **Window Manager**: `i3wm` with static minimal gaps (`6px inner`, `2px outer`), rounded corners (`12px`), and smart auto-tiling (`i3-autotile` Fibonacci/spiral split like Hyprland).
-- **Inverted Screen Corners**: Custom Cairo/XFixes utility (`xcorners`) providing concave rounded screen corners underneath the docked top bar.
-- **Top Status Bar**: `Polybar` configured with interactive modules:
+- **Inverted Screen Corners**: Custom Cairo/XFixes utility (`xcorners`) providing concave rounded screen corners underneath the docked top bar, synchronized dynamically with active theme colors.
+- **Top Status Bar**: `Polybar` configured with dynamic multi-monitor support and interactive modules:
   - **Date / Time**: Click to open a floating Catppuccin interactive calendar widget.
-  - **Network (Ethernet)**: Click to open `nmtui` (left), connection editor (right), or connection status IP (middle).
+  - **Network (Ethernet & Wi-Fi)**: Click to open modern GTK3 Network Manager (left), `nmtui` (right), or connection status IP notifier (middle).
   - **Audio & Memory & CPU**: Scroll to change volume, click to open `htop` in a floating terminal.
-  - **Control Center & System Tray**: Native tray support for background apps (e.g. 9router, Discord, Steam).
+  - **Control Center & System Tray**: Native tray support for background apps (e.g. 9router, Discord, Steam) pinned to primary monitor.
 - **Control Center (Quick Settings)**: Floating GTK3 card (`Super + c`) inspired by Android / Windows 11:
   - Interactive volume & brightness sliders with live feedback.
   - Quick toggle tiles: Network, Do Not Disturb (DND), Wallpaper, and Screenshot.
   - Mini media player with album/title controls (`playerctl`).
-- **Wallpaper & Lockscreen Sync**: Dynamic wallpaper selector (`Super + Shift + w`) via Rofi with live thumbnails that syncs both the active desktop and the lockscreen automatically.
-- **Lockscreen & Auto-Lock**: `i3lock-color` featuring 50% Gaussian blurred wallpaper, high-contrast clock, responsive emerald/peach/blue feedback indicator ring, and automatic locking after **5 minutes** of inactivity (AFK) via `xss-lock`.
+  - Interactive Theme Switcher button (``) and Keybindings Cheatsheet button (`[⌨ Keybinds]`).
+- **Windows 11-Style Start Menu**: Modern floating GTK3 App Launcher (`Super + a` / `Super + d`) with instant search filter, pinned apps, scrollable app grid, and power controls.
+- **Modern GTK3 Wi-Fi Manager**: Clean network menu (`Super + n`) matching the desktop design system:
+  - Pure SSID list with live signal strength, frequency tags (`2.4G` / `5GHz`), security flags (`SEC` / `OPEN`), and `CONNECTED` status badge.
+  - Dedicated interactive action toolbar in the footer (`󰖟 Portal`, `󰅖 Disconnect`, `󰑐 Rescan`, `󰢻 Settings`, and dynamic `󰤮 Wifi Off` / `󰤨 Wifi On`).
+  - In-place elegant password authentication modal with reveal eye toggle (`󰈈` / `󰈉`), error feedback, and background threading.
+  - Global pointer seat grab with instant click-outside auto-dismissal.
+- **On-Screen Display (OSD) Notifications**: Sleek progress bar overlay notifications for Volume and Brightness adjustments via Dunst.
+- **Dropdown Scratchpad Terminal**: Quick toggle floating terminal (`Super + \`` / `Super + -`) for instant command execution.
+- **Wallpaper & Lockscreen Sync**: Dynamic wallpaper selector (`Super + Shift + w`) via Rofi with live thumbnails that automatically syncs the active desktop, pre-renders a **50% Gaussian blur** lockscreen canvas, and updates SDDM login background.
+- **Lockscreen & Auto-Lock**: `i3lock-color` featuring Gaussian blurred wallpaper, high-contrast clock, responsive feedback indicator ring, and automatic locking after **5 minutes** of inactivity (AFK) via `xss-lock`.
 - **Shell & Modern Terminal Stack (HyDE Inspired)**:
   - `ZSH` with `zsh-autosuggestions`, `zsh-syntax-highlighting`, and `fzf` history search.
   - `Starship` prompt customized with Catppuccin pastel colors and Arch glyphs (`󰣇`).
@@ -26,7 +35,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
   - Modern CLI tools: `eza` (modern ls with icons), `bat` (syntax highlighting cat).
 - **Terminal Emulator**: `Kitty` running Zsh with `JetBrainsMono Nerd Font`, 0.92 opacity, and full Catppuccin Mocha palette.
 - **Compositor**: `Picom` with dual-kawase blur, rounded corners (`12px`), drop shadows, and smooth **Zoom / Scale Pop** workspace transitions.
-- **App Launcher & Power Menu**: `Rofi` customized with frosted floating cards.
+- **Interactive Keybinds Viewer**: Searchable cheatsheet popup (`Super + /` / `Super + ?`) displaying all categorized system shortcuts.
 - **Display Manager**: `SDDM` running the [SilentSDDM](https://github.com/uiriansan/SilentSDDM) theme (Catppuccin Mocha preset, matching blurred wallpaper, and persistent auto-sync with the wallpaper selector).
 
 ---
@@ -38,17 +47,18 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | **`Super + t`** / **`Super + Enter`** | Launch Kitty Terminal |
 | **`Super + b`** | Launch Brave Browser |
 | **`Super + e`** | Launch Nemo File Manager |
-| **`Super + a`** / **`Super + d`** | Open Rofi Application Launcher |
+| **`Super + a`** / **`Super + d`** | Open Windows 11-Style Start Menu (App Launcher) |
+| **`Super + Shift + d`** | Open Rofi Command Runner (`run`) |
 | **`Super + v`** | Open Clipboard History (Greenclip + Rofi) |
 | **`Super + Shift + v`** | Clear Clipboard History |
-| **`Super + n`** | Open Network Menu (NetworkManager + Rofi) |
-| **`Super + Shift + n`** | Advanced Network Settings (nmtui) |
+| **`Super + n`** | Open Modern GTK3 Network Manager |
+| **`Super + Shift + n`** | Open Advanced Network Settings (nmtui) |
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
+| **`Super + Shift + m`** | Toggle Do Not Disturb (DND) |
 | **`Super + Shift + w`** | Open Wallpaper Selector |
 | **`Super + Shift + t`** | Open Global Theme Switcher |
 | **`Super + /`** / **`Super + ?`** | Open Keybindings Cheatsheet Viewer |
 | **`Super + \``** / **`Super + -`** | Toggle Dropdown Scratchpad Terminal |
-| **`Super + Shift + m`** | Toggle Do Not Disturb (DND) |
 | **`Super + Escape`** | Lock Screen |
 | **`Super + q`** | Close focused window |
 | **`Super + f`** | Toggle Fullscreen |
@@ -65,7 +75,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 
 ## 🎨 Global Desktop Themes
 
-Synchronize your entire desktop color scheme with a single click or shortcut. The theme switcher coordinates **Polybar**, **Rofi menus**, **i3wm window borders & indicators**, **Kitty terminal colors**, **Dunst notification frames**, **Control Center**, **Start Menu**, and **Screen Corner Overlays (`xcorners`)**.
+Synchronize your entire desktop color scheme with a single click or shortcut. The theme switcher coordinates **Polybar**, **Rofi menus**, **i3wm window borders & indicators**, **Kitty terminal colors**, **Dunst notification frames**, **Control Center**, **Start Menu**, **Network Menu**, and **Screen Corner Overlays (`xcorners`)**.
 
 ### 🌟 10 Available Themes:
 | Theme | Style & Mood | Accent Color |
@@ -99,6 +109,7 @@ A menu will appear displaying all available wallpapers with live image thumbnail
 1. Apply to your current desktop via `feh`.
 2. Automatically pre-render a clean **50% Gaussian blur** version for the lockscreen (`~/.cache/lockscreen_blur.png`).
 3. Save the active choice persistently across reboots (`~/.cache/current_wallpaper`).
+4. Update SDDM display manager background image.
 
 ### 2. How to Add New Wallpapers
 The selector script dynamically reads files, so adding wallpapers requires zero configuration:
@@ -117,7 +128,7 @@ The installer will automatically handle all dependencies on **Arch Linux**:
 - **Core**: `i3-wm`, `polybar`, `picom`, `kitty`, `rofi`, `feh`, `dunst`, `libnotify`
 - **Shell & CLI**: `zsh`, `starship`, `fastfetch`, `eza`, `bat`, `fzf`, `zsh-autosuggestions`, `zsh-syntax-highlighting`
 - **Audio & Media**: `pamixer`, `playerctl`, `brightnessctl`
-- **Network**: `networkmanager-dmenu`, `network-manager-applet`
+- **Network**: `networkmanager`, `network-manager-applet`
 - **File Manager & Media Engine**: `nemo`, `file-roller`, `nemo-fileroller`, `p7zip`, `unrar`, `nemo-terminal`, `ffmpegthumbnailer`, `tumbler`, `webp-pixbuf-loader`, `poppler-glib`
 - **Utilities**: `maim`, `slop`, `xclip`, `htop`, `imagemagick`, `bc`, `xorg-xrandr`, `xorg-xset`, `xorg-xrdb`
 - **Fonts & Emojis**: `noto-fonts-emoji` (full-color emoji), `inter-font` (UI font), `noto-fonts`, `noto-fonts-cjk` (East Asian glyphs), `JetBrainsMono Nerd Font`, `lucide`
@@ -165,33 +176,42 @@ The script will automatically:
 dotfiles/
 ├── .config/
 │   ├── betterlockscreen/   # Betterlockscreen configuration
-│   ├── dunst/              # Notification daemon styling
+│   ├── control-center/     # GTK3 Control center widgets & themes
+│   ├── dunst/              # Notification daemon styling (OSD volume/brightness)
 │   ├── fastfetch/          # Fastfetch system info banner
 │   ├── fontconfig/         # Font fallback & Noto Color Emoji configuration
 │   ├── gtk-3.0/            # GTK 3.0 theme & font settings
 │   ├── gtk-4.0/            # GTK 4.0 theme & font settings
-│   ├── i3/                 # i3wm config & rules
-│   ├── kitty/              # Kitty terminal configuration
+│   ├── i3/                 # i3wm config, keybindings & dynamic theme.conf
+│   ├── kitty/              # Kitty terminal configuration & theme.conf
 │   ├── picom/              # Picom compositor (blur, animations, shadows)
-│   ├── polybar/            # Polybar config & launch script
-│   ├── rofi/               # Rofi app launcher, powermenu & wallpaper rasi
+│   ├── polybar/            # Polybar config, multi-monitor launch & colors.ini
+│   ├── rofi/               # Rofi app launcher, powermenu, colors.rasi & network.rasi
 │   └── starship.toml       # Starship prompt configuration
 ├── .local/bin/             # Custom utility scripts
 │   ├── battery-alert       # Background daemon for battery low & charging alerts
 │   ├── battery-info        # Detailed battery statistics & health notifier
+│   ├── brightness-control  # Brightness OSD notifier with Dunst
 │   ├── calendar-popup      # Interactive floating calendar widget
-│   ├── control-center      # GTK Quick Settings control center
+│   ├── clipboard           # Greenclip rofi clipboard manager helper
+│   ├── control-center      # GTK3 Quick Settings control center
 │   ├── generate-lock-bg    # Lockscreen canvas renderer
 │   ├── i3-autotile         # Hyprland-style automatic spiral tiling daemon
+│   ├── keybinds-viewer     # Interactive keybindings cheatsheet viewer
 │   ├── lockscreen          # Lockscreen launcher
 │   ├── network-info        # Network details notifier
-│   ├── network-menu        # Rofi NetworkManager menu with captive portal support
+│   ├── network-menu        # Modern GTK3 Network Manager with action toolbar
 │   ├── network-status-bar  # Dynamic Polybar network speed & interface status helper
 │   ├── portal-login        # Captive portal detection and browser login assistant
 │   ├── powermenu           # Horizontal rofi power menu
 │   ├── screenshot          # maim + slop screenshot helper
+│   ├── theme-switcher      # Global 10-theme desktop synchronizer
+│   ├── toggle-dnd          # Quick Do Not Disturb (DND) toggle
 │   ├── toggle-htop         # Smart toggle for task manager
+│   ├── toggle-scratchpad   # Floating dropdown terminal scratchpad
+│   ├── volume-control      # Volume OSD notifier with Dunst
 │   ├── wallpaper-selector  # Dynamic wallpaper selector with thumbnails
+│   ├── win11-start         # Modern Windows 11-style GTK3 Start Menu
 │   └── src/                # C source code for compiled helpers
 │       ├── set-root-cursor.c
 │       └── xcorners.c
