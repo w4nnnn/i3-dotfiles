@@ -38,8 +38,14 @@ else
     export POLYBAR_ADAPTER="NONE"
 fi
 
-# Launch Polybar, using default config location ~/.config/polybar/config.ini
-polybar main >> /tmp/polybar.log 2>&1 &
+# Launch Polybar for each connected monitor (or single fallback)
+if command -v xrandr >/dev/null 2>&1; then
+    for m in $(polybar -m 2>/dev/null | cut -d":" -f1); do
+        MONITOR=$m polybar main >> /tmp/polybar.log 2>&1 &
+    done
+else
+    polybar main >> /tmp/polybar.log 2>&1 &
+fi
 
 # Launch xcorners dynamically for all connected monitors (supports 768p, 1080p, 2K, 4K, & multi-monitor)
 CORNERS_LAUNCHED=0
