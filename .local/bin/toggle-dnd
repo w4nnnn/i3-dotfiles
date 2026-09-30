@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# Toggle Do-Not-Disturb (DND) using dunstctl with feedback
+
+is_paused=$(dunstctl is-paused 2>/dev/null)
+
+if [ "$is_paused" = "true" ]; then
+    dunstctl set-paused false
+    dunstify -a "dnd_status" -h string:x-dunst-stack-tag:dnd -i "notifications-symbolic" -t 1200 -u low "Do Not Disturb" "Notifications Enabled"
+else
+    dunstify -a "dnd_status" -h string:x-dunst-stack-tag:dnd -i "notifications-disabled-symbolic" -t 1200 -u low "Do Not Disturb" "Notifications Paused"
+    sleep 0.2
+    dunstctl set-paused true
+fi

@@ -66,8 +66,9 @@ bindsym $mod+d exec --no-startup-id ~/.local/bin/win11-start
 bindsym $mod+Shift+d exec --no-startup-id rofi -show run
 bindsym $mod+Tab exec --no-startup-id rofi -show window
 
-# Control Center / Quick Settings
+# Control Center / Quick Settings & DND
 bindsym $mod+c exec --no-startup-id ~/.local/bin/control-center
+bindsym $mod+Shift+m exec --no-startup-id ~/.local/bin/toggle-dnd
 
 # Clipboard Manager
 bindsym $mod+v exec --no-startup-id ~/.local/bin/clipboard
