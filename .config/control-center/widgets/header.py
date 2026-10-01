@@ -44,22 +44,16 @@ class HeaderWidget(Gtk.Box):
         # Theme Switcher button
         theme_btn = Gtk.Button(label="")
         theme_btn.get_style_context().add_class("header-btn")
-        if theme_btn.get_child():
-            theme_btn.get_child().set_halign(Gtk.Align.CENTER)
-            theme_btn.get_child().set_valign(Gtk.Align.CENTER)
         theme_btn.set_tooltip_text("Switch Theme")
         theme_btn.connect("clicked", self.on_theme_clicked)
         actions_box.pack_start(theme_btn, False, False, 0)
 
-        # Caffeine button (Keep Screen Awake & Anti-Sleep)
+        # Caffeine button (Keep Screen Awake & Anti-Sleep - Lucide Coffee: \ue096)
         is_caff = get_caffeine_status()
-        self.caffeine_btn = Gtk.Button(label="󰅶")
+        self.caffeine_btn = Gtk.Button(label="")
         self.caffeine_btn.get_style_context().add_class("header-btn")
         if is_caff:
             self.caffeine_btn.get_style_context().add_class("active")
-        if self.caffeine_btn.get_child():
-            self.caffeine_btn.get_child().set_halign(Gtk.Align.CENTER)
-            self.caffeine_btn.get_child().set_valign(Gtk.Align.CENTER)
         self.caffeine_btn.set_tooltip_text("Caffeine Mode: ON (Always Awake)" if is_caff else "Caffeine Mode: OFF (Keep screen awake)")
         self.caffeine_btn.connect("clicked", self.on_caffeine_clicked)
         actions_box.pack_start(self.caffeine_btn, False, False, 0)
@@ -68,12 +62,18 @@ class HeaderWidget(Gtk.Box):
         power_btn = Gtk.Button(label="")
         power_btn.get_style_context().add_class("header-btn")
         power_btn.get_style_context().add_class("power-btn")
-        if power_btn.get_child():
-            power_btn.get_child().set_halign(Gtk.Align.CENTER)
-            power_btn.get_child().set_valign(Gtk.Align.CENTER)
         power_btn.set_tooltip_text("Power Menu")
         power_btn.connect("clicked", lambda w: (self.window.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "powermenu")])))
         actions_box.pack_start(power_btn, False, False, 0)
+
+        for btn in (theme_btn, self.caffeine_btn, power_btn):
+            child = btn.get_child()
+            if child:
+                child.set_halign(Gtk.Align.CENTER)
+                child.set_valign(Gtk.Align.CENTER)
+                if isinstance(child, Gtk.Label):
+                    child.set_xalign(0.5)
+                    child.set_yalign(0.5)
 
         self.pack_start(actions_box, False, False, 0)
 
