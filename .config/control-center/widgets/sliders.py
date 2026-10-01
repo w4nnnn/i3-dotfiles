@@ -1,4 +1,6 @@
 import gi
+import os
+import subprocess
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
@@ -126,55 +128,30 @@ class SlidersWidget(Gtk.Box):
 
     def on_vol_btn_press(self, widget, event):
         if event.button == 3:  # Right Click
-            self.show_audio_device_menu(widget, event)
+            self.launch_audio_selector()
             return True
         return False
 
     def on_vol_scale_press(self, widget, event):
         if event.button == 3:  # Right Click
-            self.show_audio_device_menu(widget, event)
+            self.launch_audio_selector()
             return True
         return False
 
     def on_device_selector_clicked(self, btn):
-        self.show_audio_device_menu(btn)
+        self.launch_audio_selector()
 
-    def show_audio_device_menu(self, anchor_widget=None, event=None):
-        outputs = get_audio_outputs()
-        if not outputs:
-            return
-
-        menu = Gtk.Menu()
-        menu.get_style_context().add_class("theme-menu")
-        for out in outputs:
-            icon = out.get("icon", "󰓃")
-            label = out.get("label", "Unknown")
-            is_active = out.get("is_active", False)
-            prefix = "● " if is_active else "○ "
-            item_text = f"{prefix}{icon}  {label}"
-            item = Gtk.MenuItem(label=item_text)
-            item.connect("activate", lambda w, o=out: self.on_device_selected(o))
-            menu.append(item)
-
-        menu.show_all()
-        target = anchor_widget or self.dev_btn
-        if event:
-            menu.popup(None, None, None, None, event.button, event.time)
+    def launch_audio_selector(self):
+        try:
+            self.window.close_and_exit()
+        except Exception:
+            pass
+        bin_dir = os.path.expanduser("~/.local/bin")
+        bin_path = os.path.join(bin_dir, "audio-selector")
+        if os.path.isfile(bin_path):
+            subprocess.Popen([bin_path], stderr=subprocess.DEVNULL)
         else:
-            try:
-                menu.popup_at_widget(target, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
-            except Exception:
-                menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
-
-    def on_device_selected(self, out):
-        set_audio_output(out)
-        self.update_active_device_label()
-        # Update volume slider to match new device level
-        new_vol = get_volume()
-        muted = get_sink_mute()
-        self.vol_scale.set_value(0 if muted else new_vol)
-        self.vol_lbl.set_text(f"{new_vol}%")
-        self.vol_btn.set_label("" if muted else "")
+            subprocess.Popen(["audio-selector"], stderr=subprocess.DEVNULL)
 
     def on_vol_mute_clicked(self, btn):
         toggle_sink_mute()
