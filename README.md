@@ -58,6 +58,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | **`Super + Shift + v`** | Clear Clipboard History |
 | **`Super + n`** | Open Modern GTK3 Network Manager |
 | **`Super + Shift + n`** | Open Advanced Network Settings (nmtui) |
+| **`Super + Shift + b`** | Open Bluetooth Device Manager (GTK3 Floating Modal) |
 | **`Super + Shift + a`** | Open Audio Output Device Selector |
 | **`Super + p`** | Open Screen Project & Wireless Cast Menu |
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
@@ -199,6 +200,7 @@ dotfiles/
 │   ├── audio-selector      # GTK3 Audio Output Device Selector (Speakers, Headphone, HDMI)
 │   ├── battery-alert       # Background daemon for battery low & charging alerts
 │   ├── battery-info        # Detailed battery statistics & health notifier
+│   ├── bluetooth-menu      # Modern GTK3 Bluetooth Manager floating modal
 │   ├── brightness-control  # Brightness OSD notifier with Dunst
 │   ├── calendar-popup      # Interactive floating calendar widget
 │   ├── clipboard           # Greenclip rofi clipboard manager helper

@@ -28,6 +28,8 @@ for_window [title="CatppuccinCalendar"] floating enable, border none
 for_window [title="CatppuccinControlCenter"] floating enable, border none
 for_window [title="Windows11StartMenu"] floating enable, border none
 for_window [title="CatppuccinNetworkMenu"] floating enable, border none
+for_window [title="CatppuccinBluetoothMenu"] floating enable, border none
+for_window [title="AudioOutputSelector"] floating enable, border none
 for_window [title="ScreenProjectMenu"] floating enable, border none
 
 # --- Autostart Applications ---
@@ -87,6 +89,9 @@ bindsym $mod+Mod1+v exec --no-startup-id ~/.local/bin/audio-selector
 # Network Menu (NetworkManager + Rofi)
 bindsym $mod+n exec --no-startup-id ~/.local/bin/network-menu
 bindsym $mod+Shift+n exec --no-startup-id kitty --class floating_terminal -e nmtui
+
+# Bluetooth Menu (BlueZ + GTK3 Floating Modal)
+bindsym $mod+Shift+b exec --no-startup-id ~/.local/bin/bluetooth-menu
 
 # Wallpaper & Theme Selectors & Keybinds Cheatsheet
 bindsym $mod+Shift+w exec --no-startup-id ~/.local/bin/wallpaper-selector

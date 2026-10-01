@@ -198,20 +198,21 @@ def toggle_wifi():
     return not is_on
 
 # ---------------------------------------------------------
-# Bluetooth
+# Bluetooth (D-Bus org.bluez.Adapter1 + rfkill unblock)
 # ---------------------------------------------------------
 def get_bluetooth_status():
-    for path in glob.glob("/sys/class/rfkill/rfkill*"):
-        try:
-            with open(os.path.join(path, "type")) as f:
-                if f.read().strip() == "bluetooth":
-                    with open(os.path.join(path, "soft")) as sf:
-                        s = sf.read().strip() == "1"
-                    with open(os.path.join(path, "hard")) as hf:
-                        h = hf.read().strip() == "1"
-                    return not (s or h)
-        except Exception:
-            pass
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        om = Gio.DBusProxy.new_sync(
+            bus, Gio.DBusProxyFlags.NONE, None,
+            "org.bluez", "/", "org.freedesktop.DBus.ObjectManager", None
+        )
+        for path, ifaces in om.GetManagedObjects().items():
+            if "org.bluez.Adapter1" in ifaces:
+                return bool(ifaces["org.bluez.Adapter1"].get("Powered", False))
+    except Exception:
+        pass
+
     try:
         out = subprocess.check_output(["bluetoothctl", "show"], stderr=subprocess.DEVNULL, text=True)
         return "Powered: yes" in out
@@ -220,9 +221,32 @@ def get_bluetooth_status():
 
 def toggle_bluetooth():
     is_on = get_bluetooth_status()
-    cmd = "off" if is_on else "on"
+    target_state = not is_on
+
+    if target_state:
+        # Always unblock rfkill first before powering on
+        subprocess.run(["rfkill", "unblock", "bluetooth"], stderr=subprocess.DEVNULL)
+
+    try:
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        om = Gio.DBusProxy.new_sync(
+            bus, Gio.DBusProxyFlags.NONE, None,
+            "org.bluez", "/", "org.freedesktop.DBus.ObjectManager", None
+        )
+        for path, ifaces in om.GetManagedObjects().items():
+            if "org.bluez.Adapter1" in ifaces:
+                adapter = Gio.DBusProxy.new_sync(
+                    bus, Gio.DBusProxyFlags.NONE, None,
+                    "org.bluez", path, "org.freedesktop.DBus.Properties", None
+                )
+                adapter.Set("(ssv)", "org.bluez.Adapter1", "Powered", GLib.Variant.new_boolean(target_state))
+                return target_state
+    except Exception:
+        pass
+
+    cmd = "on" if target_state else "off"
     subprocess.run(["bluetoothctl", "power", cmd], stderr=subprocess.DEVNULL)
-    return not is_on
+    return target_state
 
 # ---------------------------------------------------------
 # Notifications (DND via dunstctl)

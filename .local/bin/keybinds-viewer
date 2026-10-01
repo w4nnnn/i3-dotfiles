@@ -26,6 +26,7 @@ KEYBINDS = [
     ("󰅍  Super + V", "Open Clipboard Manager History", "clipboard"),
     ("󰲋  Super + Shift + V", "Clear Clipboard Manager History", "clipboard --clear"),
     ("󰖩  Super + N", "Open Wi-Fi / Network Manager Menu", "network-menu"),
+    ("󰂯  Super + Shift + B", "Open Bluetooth Device Manager (Pair, Connect)", "bluetooth-menu"),
     ("󰏘  Super + Shift + W", "Open Wallpaper Selector", "wallpaper-selector"),
     ("󰉼  Super + Shift + T", "Open Global Theme Switcher", "theme-switcher"),
     ("󰂛  Super + Shift + M", "Toggle Do Not Disturb (DND)", "toggle-dnd"),

@@ -37,7 +37,7 @@ class TogglesWidget(Gtk.Grid):
         # 2. Bluetooth
         is_bt = get_bluetooth_status()
         self.bt_btn, self.bt_icon_lbl = self.make_toggle_tile("" if is_bt else "", "Bluetooth", is_bt)
-        self.bt_btn.connect("clicked", self.on_bluetooth_clicked)
+        self.bt_btn.connect("button-press-event", self.on_bluetooth_press)
         self.attach(self.bt_btn, 1, 0, 1, 1)
 
         # 3. DND
@@ -143,14 +143,21 @@ class TogglesWidget(Gtk.Grid):
             return True
         return False
 
-    def on_bluetooth_clicked(self, btn):
-        new_state = toggle_bluetooth()
-        if new_state:
-            self.bt_btn.get_style_context().add_class("active")
-            self.bt_icon_lbl.set_text("")
-        else:
-            self.bt_btn.get_style_context().remove_class("active")
-            self.bt_icon_lbl.set_text("")
+    def on_bluetooth_press(self, widget, event):
+        if event.button == 3:  # Right-click opens bluetooth-menu
+            self.window.close_and_exit()
+            subprocess.Popen([os.path.expanduser("~/.local/bin/bluetooth-menu")])
+            return True
+        elif event.button == 1:  # Left-click toggles bluetooth
+            new_state = toggle_bluetooth()
+            if new_state:
+                self.bt_btn.get_style_context().add_class("active")
+                self.bt_icon_lbl.set_text("")
+            else:
+                self.bt_btn.get_style_context().remove_class("active")
+                self.bt_icon_lbl.set_text("")
+            return True
+        return False
 
     def on_dnd_clicked(self, btn):
         new_state = toggle_dnd()
