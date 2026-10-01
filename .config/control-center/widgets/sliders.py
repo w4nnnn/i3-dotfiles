@@ -1,7 +1,8 @@
 import gi
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gtk, Gdk
 from services import (
     get_initial_audio,
     get_volume,
@@ -14,11 +15,14 @@ from services import (
     toggle_mic_mute,
     get_brightness,
     set_brightness,
+    get_audio_outputs,
+    get_active_audio_output,
+    set_audio_output,
 )
 
 class SlidersWidget(Gtk.Box):
     def __init__(self, window):
-        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         self.window = window
         self.get_style_context().add_class("sliders-box")
         self._build_ui()
@@ -26,6 +30,23 @@ class SlidersWidget(Gtk.Box):
     def _build_ui(self):
         # Initial Audio Levels (parallel fetch)
         vol_val, vol_mute, mic_val, mic_mute = get_initial_audio()
+
+        # Output Device Selector Header
+        dev_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        dev_box.set_valign(Gtk.Align.CENTER)
+
+        dev_title = Gtk.Label(label="SOUND OUTPUT", xalign=0)
+        dev_title.get_style_context().add_class("slider-header-title")
+        dev_box.pack_start(dev_title, True, True, 0)
+
+        self.dev_btn = Gtk.Button()
+        self.dev_btn.get_style_context().add_class("audio-device-pill")
+        self.dev_btn.set_tooltip_text("Switch Audio Output Device")
+        self.dev_btn.connect("clicked", self.on_device_selector_clicked)
+        self.update_active_device_label()
+        dev_box.pack_start(self.dev_btn, False, False, 0)
+
+        self.pack_start(dev_box, False, False, 0)
 
         # Master Audio
         vol_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -92,6 +113,45 @@ class SlidersWidget(Gtk.Box):
             if b.get_child():
                 b.get_child().set_halign(Gtk.Align.CENTER)
                 b.get_child().set_valign(Gtk.Align.CENTER)
+
+    def update_active_device_label(self):
+        active = get_active_audio_output()
+        icon = active.get("icon", "󰓃")
+        label = active.get("label", "Speakers")
+        self.dev_btn.set_label(f"{icon} {label} ▾")
+
+    def on_device_selector_clicked(self, btn):
+        outputs = get_audio_outputs()
+        if not outputs:
+            return
+
+        menu = Gtk.Menu()
+        menu.get_style_context().add_class("theme-menu")
+        for out in outputs:
+            icon = out.get("icon", "󰓃")
+            label = out.get("label", "Unknown")
+            is_active = out.get("is_active", False)
+            prefix = "● " if is_active else "○ "
+            item_text = f"{prefix}{icon}  {label}"
+            item = Gtk.MenuItem(label=item_text)
+            item.connect("activate", lambda w, o=out: self.on_device_selected(o))
+            menu.append(item)
+
+        menu.show_all()
+        try:
+            menu.popup_at_widget(btn, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
+        except Exception:
+            menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+
+    def on_device_selected(self, out):
+        set_audio_output(out)
+        self.update_active_device_label()
+        # Update volume slider to match new device level
+        new_vol = get_volume()
+        muted = get_sink_mute()
+        self.vol_scale.set_value(0 if muted else new_vol)
+        self.vol_lbl.set_text(f"{new_vol}%")
+        self.vol_btn.set_label("" if muted else "")
 
     def on_vol_mute_clicked(self, btn):
         toggle_sink_mute()

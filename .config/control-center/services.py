@@ -42,6 +42,146 @@ def get_uptime():
 # ---------------------------------------------------------
 # Audio Management (PulseAudio / PipeWire via pactl & pamixer)
 # ---------------------------------------------------------
+def get_audio_outputs():
+    try:
+        out = subprocess.check_output(["pactl", "list", "sinks"], stderr=subprocess.DEVNULL, text=True)
+        def_sink = subprocess.check_output(["pactl", "get-default-sink"], stderr=subprocess.DEVNULL, text=True).strip()
+    except Exception:
+        return []
+
+    sinks = []
+    curr = None
+    in_ports = False
+
+    for line in out.splitlines():
+        line_s = line.strip()
+        if line.startswith("Sink #"):
+            if curr and "name" in curr:
+                sinks.append(curr)
+            curr = {"ports": {}}
+            in_ports = False
+        elif not curr:
+            continue
+        elif line_s.startswith("Name:"):
+            curr["name"] = line_s.split(":", 1)[1].strip()
+        elif line_s.startswith("Description:"):
+            curr["desc"] = line_s.split(":", 1)[1].strip()
+        elif line_s.startswith("Active Port:"):
+            curr["active_port"] = line_s.split(":", 1)[1].strip()
+            in_ports = False
+        elif line_s.startswith("Ports:"):
+            in_ports = True
+        elif in_ports:
+            if ":" in line_s:
+                pname = line_s.split(":", 1)[0].strip()
+                pdesc = line_s.split(":", 1)[1].strip().split("(")[0].strip()
+                curr["ports"][pname] = pdesc
+            else:
+                in_ports = False
+
+    if curr and "name" in curr:
+        sinks.append(curr)
+
+    outputs = []
+    for s in sinks:
+        sink_name = s.get("name", "")
+        sink_desc = s.get("desc", sink_name)
+        active_port = s.get("active_port", "")
+        ports = s.get("ports", {})
+        is_def_sink = (sink_name == def_sink)
+
+        if len(ports) > 1:
+            for pname, pdesc in ports.items():
+                is_active = is_def_sink and (pname == active_port)
+                icon = "󰓃"
+                p_lower = pname.lower() + " " + pdesc.lower()
+                if "headphone" in p_lower:
+                    icon = "󰋋"
+                elif "speaker" in p_lower:
+                    icon = "󰓃"
+                elif "hdmi" in p_lower or "displayport" in p_lower:
+                    icon = "󰡁"
+                elif "bluetooth" in p_lower or "bluez" in p_lower:
+                    icon = "󰂯"
+
+                clean_title = pdesc if pdesc else pname
+                outputs.append({
+                    "type": "port",
+                    "sink_name": sink_name,
+                    "port_name": pname,
+                    "label": clean_title,
+                    "full_label": f"{sink_desc} ({clean_title})",
+                    "icon": icon,
+                    "is_active": is_active,
+                })
+        else:
+            icon = "󰓃"
+            s_lower = sink_name.lower() + " " + sink_desc.lower()
+            if "bluez" in s_lower or "bluetooth" in s_lower or "headset" in s_lower or "tws" in s_lower:
+                icon = "󰂯"
+            elif "hdmi" in s_lower or "displayport" in s_lower:
+                icon = "󰡁"
+            elif "headphone" in s_lower:
+                icon = "󰋋"
+
+            short_name = sink_desc
+            for rem in ["Analog Stereo", "Digital Stereo (HDMI)", "Digital Stereo", "Audio Controller"]:
+                if rem in short_name and len(short_name) > len(rem) + 3:
+                    short_name = short_name.replace(rem, "").strip()
+
+            outputs.append({
+                "type": "sink",
+                "sink_name": sink_name,
+                "port_name": None,
+                "label": short_name,
+                "full_label": sink_desc,
+                "icon": icon,
+                "is_active": is_def_sink,
+            })
+
+    return outputs
+
+def get_active_audio_output():
+    outs = get_audio_outputs()
+    for o in outs:
+        if o.get("is_active"):
+            return o
+    return outs[0] if outs else {"label": "Speakers", "icon": "󰓃", "sink_name": "@DEFAULT_SINK@"}
+
+def set_audio_output(output_info):
+    sink_name = output_info["sink_name"]
+    port_name = output_info.get("port_name")
+    try:
+        subprocess.run(["pactl", "set-default-sink", sink_name], stderr=subprocess.DEVNULL)
+        if port_name:
+            subprocess.run(["pactl", "set-sink-port", sink_name, port_name], stderr=subprocess.DEVNULL)
+        # Migrate active inputs
+        inputs = subprocess.check_output(["pactl", "list", "short", "sink-inputs"], stderr=subprocess.DEVNULL, text=True)
+        for line in inputs.splitlines():
+            if line.strip():
+                inp_id = line.split()[0]
+                subprocess.run(["pactl", "move-sink-input", inp_id, sink_name], stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+    # Dunst notification feedback
+    lbl = output_info.get("label", "Audio Output")
+    icon = "audio-speakers"
+    if "󰋋" in output_info.get("icon", ""):
+        icon = "audio-headphones"
+    elif "󰂯" in output_info.get("icon", ""):
+        icon = "audio-headset"
+    elif "󰡁" in output_info.get("icon", ""):
+        icon = "video-display"
+
+    subprocess.Popen([
+        "dunstify", "-a", "Audio",
+        "-h", "string:x-dunst-stack-tag:audio_sink",
+        "-i", icon,
+        "-t", "2000", "-u", "low",
+        "Audio Output Switched", f"Active: {output_info.get('full_label', lbl)}"
+    ], stderr=subprocess.DEVNULL)
+
 def get_volume():
     try:
         out = subprocess.check_output(["pactl", "get-sink-volume", "@DEFAULT_SINK@"], stderr=subprocess.DEVNULL, text=True)

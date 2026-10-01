@@ -303,6 +303,29 @@ class ControlCenterWindow(Gtk.Window):
             border-radius: 12px;
             padding: 6px 10px;
         }}
+        .slider-header-title {{
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7pt;
+            font-weight: bold;
+            letter-spacing: 0.8px;
+            color: {t["text_secondary"]};
+            margin-left: 2px;
+        }}
+        .audio-device-pill {{
+            background-color: {t["bg_card"]};
+            border: 1px solid {t["border_color"]};
+            border-radius: 999px;
+            padding: 2px 8px;
+            color: {t["text_primary"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7.5pt;
+            font-weight: 500;
+        }}
+        .audio-device-pill:hover {{
+            background-color: {t["bg_hover"]};
+            border-color: {t["accent"]};
+            color: {t["accent"]};
+        }}
         .slider-row {{
             min-height: 24px;
         }}
