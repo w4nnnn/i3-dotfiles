@@ -236,6 +236,17 @@ def stop_server():
         return True
     return False
 
+def sig_handler(signum, frame):
+    if os.path.exists(PID_FILE):
+        try:
+            os.remove(PID_FILE)
+        except Exception:
+            pass
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, sig_handler)
+signal.signal(signal.SIGINT, sig_handler)
+
 def start_server():
     if is_running():
         return

@@ -8,6 +8,25 @@ WALLPAPER_DIR="$HOME/Pictures/Wallpapers"
 CACHE_WALL="$HOME/.cache/current_wallpaper"
 RASI="$HOME/.config/rofi/wallpaper.rasi"
 
+# 0. Handle --restore silently without launching Rofi
+if [ "$1" = "--restore" ] || [ "$1" = "restore" ]; then
+    RESTORE_PATH=""
+    if [ -e "$CACHE_WALL" ]; then
+        RESTORE_PATH="$(readlink -f "$CACHE_WALL" 2>/dev/null || cat "$CACHE_WALL" 2>/dev/null)"
+    fi
+    if [ -z "$RESTORE_PATH" ] || [ ! -f "$RESTORE_PATH" ]; then
+        if [ -f "$WALLPAPER_DIR/catppuccin-aesthetic.jpg" ]; then
+            RESTORE_PATH="$WALLPAPER_DIR/catppuccin-aesthetic.jpg"
+        elif [ -f "$WALLPAPER_DIR/catppuccin-astronaut.png" ]; then
+            RESTORE_PATH="$WALLPAPER_DIR/catppuccin-astronaut.png"
+        fi
+    fi
+    if [ -n "$RESTORE_PATH" ] && [ -f "$RESTORE_PATH" ]; then
+        feh --bg-fill "$RESTORE_PATH" 2>/dev/null || true
+    fi
+    exit 0
+fi
+
 # Toggle: close if already open
 if pgrep -x rofi >/dev/null 2>&1; then
     killall -q rofi

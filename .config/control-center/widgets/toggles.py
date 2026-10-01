@@ -174,6 +174,3 @@ class TogglesWidget(Gtk.Grid):
             self.game_btn.get_style_context().add_class("active")
         else:
             self.game_btn.get_style_context().remove_class("active")
-
-    def on_floating_clicked(self, btn):
-        subprocess.run(["i3-msg", "floating", "toggle"], stderr=subprocess.DEVNULL)
