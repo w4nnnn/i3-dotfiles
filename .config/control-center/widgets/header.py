@@ -8,7 +8,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gtk, Gdk, Pango, PangoCairo
-from services import get_username, get_hostname, get_uptime
+from services import get_username, get_hostname, get_uptime, get_caffeine_status, toggle_caffeine
 from config import hex_to_rgb, THEMES
 
 class HeaderWidget(Gtk.Box):
@@ -51,15 +51,18 @@ class HeaderWidget(Gtk.Box):
         theme_btn.connect("clicked", self.on_theme_clicked)
         actions_box.pack_start(theme_btn, False, False, 0)
 
-        # Lock button
-        lock_btn = Gtk.Button(label="")
-        lock_btn.get_style_context().add_class("header-btn")
-        if lock_btn.get_child():
-            lock_btn.get_child().set_halign(Gtk.Align.CENTER)
-            lock_btn.get_child().set_valign(Gtk.Align.CENTER)
-        lock_btn.set_tooltip_text("Lock Screen")
-        lock_btn.connect("clicked", lambda w: (self.window.close_and_exit(), subprocess.Popen([os.path.join(bin_dir, "lockscreen")])))
-        actions_box.pack_start(lock_btn, False, False, 0)
+        # Caffeine button (Keep Screen Awake & Anti-Sleep)
+        is_caff = get_caffeine_status()
+        self.caffeine_btn = Gtk.Button(label="󰅶")
+        self.caffeine_btn.get_style_context().add_class("header-btn")
+        if is_caff:
+            self.caffeine_btn.get_style_context().add_class("active")
+        if self.caffeine_btn.get_child():
+            self.caffeine_btn.get_child().set_halign(Gtk.Align.CENTER)
+            self.caffeine_btn.get_child().set_valign(Gtk.Align.CENTER)
+        self.caffeine_btn.set_tooltip_text("Caffeine Mode: ON (Always Awake)" if is_caff else "Caffeine Mode: OFF (Keep screen awake)")
+        self.caffeine_btn.connect("clicked", self.on_caffeine_clicked)
+        actions_box.pack_start(self.caffeine_btn, False, False, 0)
 
         # Power button
         power_btn = Gtk.Button(label="")
@@ -73,6 +76,15 @@ class HeaderWidget(Gtk.Box):
         actions_box.pack_start(power_btn, False, False, 0)
 
         self.pack_start(actions_box, False, False, 0)
+
+    def on_caffeine_clicked(self, btn):
+        new_state = toggle_caffeine()
+        if new_state:
+            self.caffeine_btn.get_style_context().add_class("active")
+            self.caffeine_btn.set_tooltip_text("Caffeine Mode: ON (Always Awake)")
+        else:
+            self.caffeine_btn.get_style_context().remove_class("active")
+            self.caffeine_btn.set_tooltip_text("Caffeine Mode: OFF (Keep screen awake)")
 
     def on_theme_clicked(self, btn):
         menu = Gtk.Menu()

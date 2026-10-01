@@ -215,6 +215,7 @@ dotfiles/
 │   ├── screen-project      # GTK3 Screen Project & Cast Manager (Win+P style)
 │   ├── screenshot          # maim + slop screenshot helper
 │   ├── theme-switcher      # Global 10-theme desktop synchronizer
+│   ├── toggle-caffeine     # Anti-sleep and screen keep-awake toggle
 │   ├── toggle-dnd          # Quick Do Not Disturb (DND) toggle
 │   ├── toggle-htop         # Smart toggle for task manager
 │   ├── toggle-scratchpad   # Floating dropdown terminal scratchpad

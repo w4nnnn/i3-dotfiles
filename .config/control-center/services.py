@@ -1,6 +1,7 @@
 import os
 import re
 import socket
+import signal
 import glob
 import subprocess
 import concurrent.futures
@@ -9,6 +10,9 @@ import gi
 gi.require_version("Gio", "2.0")
 from gi.repository import Gio, GLib
 from config import NIGHT_LIGHT_FILE
+
+CAFFEINE_STATE_FILE = "/tmp/caffeine_mode.state"
+CAFFEINE_PID_FILE = "/tmp/caffeine_inhibitor.pid"
 
 # ---------------------------------------------------------
 # System Identity & Uptime
@@ -233,6 +237,77 @@ def get_dnd():
 def toggle_dnd():
     subprocess.run(["dunstctl", "set-paused", "toggle"], stderr=subprocess.DEVNULL)
     return get_dnd()
+
+# ---------------------------------------------------------
+# Caffeine Mode (Keep Screen Awake & Anti-Sleep)
+# ---------------------------------------------------------
+def get_caffeine_status():
+    if os.path.exists(CAFFEINE_STATE_FILE):
+        try:
+            with open(CAFFEINE_STATE_FILE, "r") as f:
+                return f.read().strip() == "on"
+        except Exception:
+            pass
+    return False
+
+def toggle_caffeine():
+    is_on = get_caffeine_status()
+    if is_on:
+        # Turn OFF Caffeine
+        subprocess.run(["xset", "s", "on", "+dpms"], stderr=subprocess.DEVNULL)
+        if os.path.exists(CAFFEINE_PID_FILE):
+            try:
+                with open(CAFFEINE_PID_FILE, "r") as f:
+                    pid = int(f.read().strip())
+                os.kill(pid, signal.SIGTERM)
+                os.remove(CAFFEINE_PID_FILE)
+            except Exception:
+                if os.path.exists(CAFFEINE_PID_FILE):
+                    os.remove(CAFFEINE_PID_FILE)
+        try:
+            with open(CAFFEINE_STATE_FILE, "w") as f:
+                f.write("off")
+        except Exception:
+            pass
+
+        subprocess.Popen([
+            "dunstify", "-a", "Caffeine",
+            "-h", "string:x-dunst-stack-tag:caffeine",
+            "-i", "caffeine",
+            "-t", "2000", "-u", "low",
+            "☕ Caffeine Disabled", "Normal screen sleep & auto-lock restored."
+        ], stderr=subprocess.DEVNULL)
+        return False
+    else:
+        # Turn ON Caffeine
+        subprocess.run(["xset", "s", "off", "-dpms"], stderr=subprocess.DEVNULL)
+        try:
+            p = subprocess.Popen([
+                "systemd-inhibit",
+                "--what=idle:sleep:shutdown",
+                "--who=Caffeine",
+                "--why=Caffeine Mode Active",
+                "sleep", "infinity"
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            with open(CAFFEINE_PID_FILE, "w") as f:
+                f.write(str(p.pid))
+        except Exception:
+            pass
+
+        try:
+            with open(CAFFEINE_STATE_FILE, "w") as f:
+                f.write("on")
+        except Exception:
+            pass
+
+        subprocess.Popen([
+            "dunstify", "-a", "Caffeine",
+            "-h", "string:x-dunst-stack-tag:caffeine",
+            "-i", "caffeine",
+            "-t", "2000", "-u", "low",
+            "☕ Caffeine Active", "Screen sleep & auto-lock disabled."
+        ], stderr=subprocess.DEVNULL)
+        return True
 
 # ---------------------------------------------------------
 # Night Light (Gamma via xrandr)

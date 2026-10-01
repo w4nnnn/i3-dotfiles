@@ -194,6 +194,16 @@ class ControlCenterWindow(Gtk.Window):
             background-color: {t["bg_hover"]};
             color: {t["accent"]};
         }}
+        .header-btn.active {{
+            background-color: {t["accent"]};
+            color: {t["accent_contrast"]};
+            border-color: {t["accent"]};
+        }}
+        .header-btn.active:hover {{
+            background-color: {t["accent"]};
+            color: {t["accent_contrast"]};
+            opacity: 0.9;
+        }}
         .power-btn {{
             background-color: {t["danger_bg"]};
             color: {t["danger"]};
