@@ -54,13 +54,17 @@ class SlidersWidget(Gtk.Box):
 
         self.vol_btn = Gtk.Button(label="" if vol_mute else "")
         self.vol_btn.get_style_context().add_class("slider-icon-btn")
+        self.vol_btn.set_tooltip_text("Left-click: Mute/Unmute · Right-click: Audio Output Device")
         self.vol_btn.connect("clicked", self.on_vol_mute_clicked)
+        self.vol_btn.connect("button-press-event", self.on_vol_btn_press)
         vol_row.pack_start(self.vol_btn, False, False, 0)
 
         self.vol_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
         self.vol_scale.set_value(0 if vol_mute else vol_val)
         self.vol_scale.set_draw_value(False)
+        self.vol_scale.set_tooltip_text("Drag to adjust volume · Right-click: Audio Output Device")
         self.vol_scale.connect("value-changed", self.on_vol_changed)
+        self.vol_scale.connect("button-press-event", self.on_vol_scale_press)
         vol_row.pack_start(self.vol_scale, True, True, 0)
 
         self.vol_lbl = Gtk.Label(label=f"{vol_val}%", xalign=1)
@@ -120,7 +124,22 @@ class SlidersWidget(Gtk.Box):
         label = active.get("label", "Speakers")
         self.dev_btn.set_label(f"{icon} {label} ▾")
 
+    def on_vol_btn_press(self, widget, event):
+        if event.button == 3:  # Right Click
+            self.show_audio_device_menu(widget, event)
+            return True
+        return False
+
+    def on_vol_scale_press(self, widget, event):
+        if event.button == 3:  # Right Click
+            self.show_audio_device_menu(widget, event)
+            return True
+        return False
+
     def on_device_selector_clicked(self, btn):
+        self.show_audio_device_menu(btn)
+
+    def show_audio_device_menu(self, anchor_widget=None, event=None):
         outputs = get_audio_outputs()
         if not outputs:
             return
@@ -138,10 +157,14 @@ class SlidersWidget(Gtk.Box):
             menu.append(item)
 
         menu.show_all()
-        try:
-            menu.popup_at_widget(btn, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
-        except Exception:
-            menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
+        target = anchor_widget or self.dev_btn
+        if event:
+            menu.popup(None, None, None, None, event.button, event.time)
+        else:
+            try:
+                menu.popup_at_widget(target, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
+            except Exception:
+                menu.popup(None, None, None, None, 0, Gtk.get_current_event_time())
 
     def on_device_selected(self, out):
         set_audio_output(out)
