@@ -18,6 +18,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
   - Quick toggle tiles: Network, Bluetooth, DND, Night Light, Game Mode, Project, Screenshot, and Wallpaper.
   - Mini media player with album/title controls (`playerctl`).
   - Interactive Theme Switcher button (``) and Keybindings Cheatsheet button (`[⌨ Keybinds]`).
+- **Audio Output Device Selector**: Standalone GTK3 quick switcher (`Super + Shift + a` or Right-Click Polybar volume) and integrated Control Center selector to switch seamlessly between Internal Speakers, Headphones, Bluetooth TWS/Headsets, HDMI/DisplayPort TV/Monitors, and USB Audio DACs with automatic active stream migration and test chime.
 - **Screen Projection & Wireless Cast (Win+P Style)**: Dedicated presentation and display manager (`Super + p`):
   - Cable projection modes for proyektor/TV: `PC Screen Only`, `Duplicate / Mirror`, `Extend Right`, `Extend Left`, and `Second Screen Only`.
   - Built-in **Wireless Web Cast Server** streaming real-time desktop view over local Wi-Fi to any Smart TV, iPad, or browser via HTTP/MJPEG.
@@ -57,6 +58,7 @@ A modern, cohesive, and aesthetic **i3wm** rice built on **Arch Linux** themed i
 | **`Super + Shift + v`** | Clear Clipboard History |
 | **`Super + n`** | Open Modern GTK3 Network Manager |
 | **`Super + Shift + n`** | Open Advanced Network Settings (nmtui) |
+| **`Super + Shift + a`** | Open Audio Output Device Selector |
 | **`Super + p`** | Open Screen Project & Wireless Cast Menu |
 | **`Super + c`** | Toggle Control Center (Quick Settings) |
 | **`Super + Shift + m`** | Toggle Do Not Disturb (DND) |
@@ -194,6 +196,7 @@ dotfiles/
 │   ├── rofi/               # Rofi app launcher, powermenu, colors.rasi & network.rasi
 │   └── starship.toml       # Starship prompt configuration
 ├── .local/bin/             # Custom utility scripts
+│   ├── audio-selector      # GTK3 Audio Output Device Selector (Speakers, Headphone, HDMI)
 │   ├── battery-alert       # Background daemon for battery low & charging alerts
 │   ├── battery-info        # Detailed battery statistics & health notifier
 │   ├── brightness-control  # Brightness OSD notifier with Dunst

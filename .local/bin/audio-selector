@@ -1,0 +1,736 @@
+#!/usr/bin/env python3
+"""
+Catppuccin / Multi-Theme Audio Output Device Selector (Rofi / GTK Style)
+Instant popup to switch audio output devices (Internal Speakers, Headphones,
+Bluetooth TWS/Headsets, HDMI/DisplayPort Monitors, and USB Audio interfaces).
+"""
+import sys
+import os
+import signal
+import subprocess
+import shutil
+import re
+import math
+import struct
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+gi.require_version("Pango", "1.0")
+from gi.repository import Gtk, Gdk, GLib, Pango
+
+PID_FILE = "/tmp/audio_selector_gtk.pid"
+if os.path.exists(PID_FILE):
+    try:
+        with open(PID_FILE, "r") as f:
+            old_pid = int(f.read().strip())
+        os.remove(PID_FILE)
+        os.kill(old_pid, signal.SIGTERM)
+        sys.exit(0)
+    except Exception:
+        pass
+
+with open(PID_FILE, "w") as f:
+    f.write(str(os.getpid()))
+
+# Load Global Theme Preference
+THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
+current_theme_key = "catppuccin"
+if os.path.exists(THEME_PREF_FILE):
+    try:
+        with open(THEME_PREF_FILE) as f:
+            t_key = f.read().strip()
+            if t_key:
+                current_theme_key = t_key
+    except Exception:
+        pass
+
+THEMES = {
+    "catppuccin": {
+        "bg": "rgba(30, 30, 46, 0.88)",
+        "surface0": "rgba(49, 50, 68, 0.82)",
+        "surface1": "#45475a",
+        "accent": "#cba6f7",
+        "fg": "#cdd6f4",
+        "subtext": "#a6adc8",
+        "overlay": "#6c7086",
+        "blue": "#89b4fa",
+        "red": "#f38ba8",
+        "green": "#a6e3a1",
+        "yellow": "#f9e2af",
+    },
+    "tokyo-night": {
+        "bg": "rgba(26, 27, 38, 0.88)",
+        "surface0": "rgba(36, 40, 59, 0.82)",
+        "surface1": "#2f3549",
+        "accent": "#7aa2f7",
+        "fg": "#c0caf5",
+        "subtext": "#a9b1d6",
+        "overlay": "#565f89",
+        "blue": "#7aa2f7",
+        "red": "#f7768e",
+        "green": "#9ece6a",
+        "yellow": "#e0af68",
+    },
+    "nord": {
+        "bg": "rgba(46, 52, 64, 0.88)",
+        "surface0": "rgba(59, 66, 82, 0.82)",
+        "surface1": "#434c5e",
+        "accent": "#88c0d0",
+        "fg": "#eceff4",
+        "subtext": "#d8dee9",
+        "overlay": "#4c566a",
+        "blue": "#81a1c1",
+        "red": "#bf616a",
+        "green": "#a3be8c",
+        "yellow": "#ebcb8b",
+    },
+    "oled": {
+        "bg": "rgba(9, 9, 11, 0.90)",
+        "surface0": "rgba(20, 20, 24, 0.85)",
+        "surface1": "#222228",
+        "accent": "#38bdf8",
+        "fg": "#ffffff",
+        "subtext": "#a1a1aa",
+        "overlay": "#52525b",
+        "blue": "#38bdf8",
+        "red": "#f43f5e",
+        "green": "#10b981",
+        "yellow": "#f59e0b",
+    },
+    "light": {
+        "bg": "rgba(255, 255, 255, 0.90)",
+        "surface0": "rgba(241, 245, 249, 0.85)",
+        "surface1": "#cbd5e1",
+        "accent": "#0284c7",
+        "fg": "#0f172a",
+        "subtext": "#475569",
+        "overlay": "#94a3b8",
+        "blue": "#0284c7",
+        "red": "#ef4444",
+        "green": "#10b981",
+        "yellow": "#f59e0b",
+    },
+    "dracula": {
+        "bg": "rgba(40, 42, 54, 0.88)",
+        "surface0": "rgba(68, 71, 90, 0.82)",
+        "surface1": "#6272a4",
+        "accent": "#bd93f9",
+        "fg": "#f8f8f2",
+        "subtext": "#bfbfbf",
+        "overlay": "#6272a4",
+        "blue": "#8be9fd",
+        "red": "#ff5555",
+        "green": "#50fa7b",
+        "yellow": "#f1fa8c",
+    },
+    "gruvbox": {
+        "bg": "rgba(40, 40, 40, 0.88)",
+        "surface0": "rgba(60, 56, 54, 0.82)",
+        "surface1": "#504945",
+        "accent": "#fe8019",
+        "fg": "#ebdbb2",
+        "subtext": "#d5c4a1",
+        "overlay": "#928374",
+        "blue": "#83a598",
+        "red": "#fb4934",
+        "green": "#b8bb26",
+        "yellow": "#fabd2f",
+    },
+    "rose-pine": {
+        "bg": "rgba(25, 23, 36, 0.88)",
+        "surface0": "rgba(31, 29, 46, 0.82)",
+        "surface1": "#26233a",
+        "accent": "#ebbcba",
+        "fg": "#e0def4",
+        "subtext": "#908caa",
+        "overlay": "#6e6a86",
+        "blue": "#c4a7e7",
+        "red": "#eb6f92",
+        "green": "#9ccfd8",
+        "yellow": "#f6c177",
+    },
+    "everforest": {
+        "bg": "rgba(45, 53, 59, 0.88)",
+        "surface0": "rgba(52, 63, 68, 0.82)",
+        "surface1": "#3d484d",
+        "accent": "#a7c080",
+        "fg": "#d3c6aa",
+        "subtext": "#9da9a0",
+        "overlay": "#7a8478",
+        "blue": "#7fbbb3",
+        "red": "#e67e80",
+        "green": "#a7c080",
+        "yellow": "#dbbc7f",
+    },
+    "cyberpunk": {
+        "bg": "rgba(18, 12, 31, 0.90)",
+        "surface0": "rgba(36, 21, 56, 0.82)",
+        "surface1": "#382057",
+        "accent": "#00f0ff",
+        "fg": "#fdfdfd",
+        "subtext": "#f38ba8",
+        "overlay": "#705d8f",
+        "blue": "#00e5ff",
+        "red": "#ff0055",
+        "green": "#00ff9f",
+        "yellow": "#ffe600",
+    },
+}
+
+t = THEMES.get(current_theme_key, THEMES["catppuccin"])
+
+def notify(title, message, icon="audio-speakers"):
+    subprocess.Popen([
+        "dunstify", "-a", "Audio",
+        "-h", "string:x-dunst-stack-tag:audio_sink",
+        "-i", icon,
+        "-t", "2000", "-u", "low",
+        title, message
+    ], stderr=subprocess.DEVNULL)
+
+def play_test_chime():
+    """Generates a pleasant 440+880Hz audio chime to test the active audio device."""
+    try:
+        sample_rate = 44100
+        duration = 0.25
+        samples = []
+        for i in range(int(sample_rate * duration)):
+            tm = i / sample_rate
+            env = math.exp(-6 * tm)
+            val = (math.sin(2 * math.pi * 523.25 * tm) * 0.6 + math.sin(2 * math.pi * 659.25 * tm) * 0.4) * env
+            samples.append(int(val * 16383))
+
+        raw_bytes = struct.pack("<" + "h" * len(samples), *samples)
+        p = subprocess.Popen(["paplay", "--raw", "--rate=44100", "--channels=1", "--format=s16le"], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        p.communicate(input=raw_bytes)
+    except Exception:
+        pass
+
+def get_audio_outputs():
+    try:
+        out = subprocess.check_output(["pactl", "list", "sinks"], stderr=subprocess.DEVNULL, text=True)
+        def_sink = subprocess.check_output(["pactl", "get-default-sink"], stderr=subprocess.DEVNULL, text=True).strip()
+    except Exception:
+        return []
+
+    sinks = []
+    curr = None
+    in_ports = False
+
+    for line in out.splitlines():
+        line_s = line.strip()
+        if line.startswith("Sink #"):
+            if curr and "name" in curr:
+                sinks.append(curr)
+            curr = {"ports": {}}
+            in_ports = False
+        elif not curr:
+            continue
+        elif line_s.startswith("Name:"):
+            curr["name"] = line_s.split(":", 1)[1].strip()
+        elif line_s.startswith("Description:"):
+            curr["desc"] = line_s.split(":", 1)[1].strip()
+        elif line_s.startswith("Active Port:"):
+            curr["active_port"] = line_s.split(":", 1)[1].strip()
+            in_ports = False
+        elif line_s.startswith("Ports:"):
+            in_ports = True
+        elif in_ports:
+            if ":" in line_s:
+                pname = line_s.split(":", 1)[0].strip()
+                pdesc = line_s.split(":", 1)[1].strip().split("(")[0].strip()
+                curr["ports"][pname] = pdesc
+            else:
+                in_ports = False
+
+    if curr and "name" in curr:
+        sinks.append(curr)
+
+    outputs = []
+    for s in sinks:
+        sink_name = s.get("name", "")
+        sink_desc = s.get("desc", sink_name)
+        active_port = s.get("active_port", "")
+        ports = s.get("ports", {})
+        is_def_sink = (sink_name == def_sink)
+
+        if len(ports) > 1:
+            for pname, pdesc in ports.items():
+                is_active = is_def_sink and (pname == active_port)
+                icon = "󰓃"
+                p_lower = pname.lower() + " " + pdesc.lower()
+                category = "Speaker"
+                if "headphone" in p_lower:
+                    icon = "󰋋"
+                    category = "Headphones"
+                elif "speaker" in p_lower:
+                    icon = "󰓃"
+                    category = "Speakers"
+                elif "hdmi" in p_lower or "displayport" in p_lower:
+                    icon = "󰡁"
+                    category = "Monitor / TV"
+                elif "bluetooth" in p_lower or "bluez" in p_lower:
+                    icon = "󰂯"
+                    category = "Bluetooth Audio"
+
+                clean_title = pdesc if pdesc else pname
+                outputs.append({
+                    "type": "port",
+                    "sink_name": sink_name,
+                    "port_name": pname,
+                    "title": clean_title,
+                    "subtitle": f"{sink_desc} • Port: {pname}",
+                    "full_label": f"{sink_desc} ({clean_title})",
+                    "icon": icon,
+                    "category": category,
+                    "is_active": is_active,
+                })
+        else:
+            icon = "󰓃"
+            s_lower = sink_name.lower() + " " + sink_desc.lower()
+            category = "Audio Device"
+            if "bluez" in s_lower or "bluetooth" in s_lower or "headset" in s_lower or "tws" in s_lower:
+                icon = "󰂯"
+                category = "Bluetooth Audio"
+            elif "hdmi" in s_lower or "displayport" in s_lower:
+                icon = "󰡁"
+                category = "HDMI / DisplayPort"
+            elif "headphone" in s_lower:
+                icon = "󰋋"
+                category = "Headphones"
+            elif "usb" in s_lower:
+                icon = "󰝚"
+                category = "USB Audio Interface"
+
+            short_name = sink_desc
+            for rem in ["Analog Stereo", "Digital Stereo (HDMI)", "Digital Stereo", "Audio Controller"]:
+                if rem in short_name and len(short_name) > len(rem) + 3:
+                    short_name = short_name.replace(rem, "").strip()
+
+            outputs.append({
+                "type": "sink",
+                "sink_name": sink_name,
+                "port_name": None,
+                "title": short_name,
+                "subtitle": sink_desc,
+                "full_label": sink_desc,
+                "icon": icon,
+                "category": category,
+                "is_active": is_def_sink,
+            })
+
+    return outputs
+
+def set_audio_output(output_info):
+    sink_name = output_info["sink_name"]
+    port_name = output_info.get("port_name")
+    try:
+        subprocess.run(["pactl", "set-default-sink", sink_name], stderr=subprocess.DEVNULL)
+        if port_name:
+            subprocess.run(["pactl", "set-sink-port", sink_name, port_name], stderr=subprocess.DEVNULL)
+        # Migrate all active sink inputs
+        inputs = subprocess.check_output(["pactl", "list", "short", "sink-inputs"], stderr=subprocess.DEVNULL, text=True)
+        for line in inputs.splitlines():
+            if line.strip():
+                inp_id = line.split()[0]
+                subprocess.run(["pactl", "move-sink-input", inp_id, sink_name], stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+    icon = "audio-speakers"
+    if "󰋋" in output_info.get("icon", ""):
+        icon = "audio-headphones"
+    elif "󰂯" in output_info.get("icon", ""):
+        icon = "audio-headset"
+    elif "󰡁" in output_info.get("icon", ""):
+        icon = "video-display"
+
+    notify("Audio Output Switched", f"Active: {output_info.get('full_label', output_info.get('title'))}", icon=icon)
+
+class AudioSelectorWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.set_title("AudioSelectorMenu")
+        self.set_role("audio-selector-popup")
+        self.set_decorated(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_resizable(False)
+
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual:
+            self.set_visual(visual)
+
+        self.apply_css()
+
+        self.items = []
+        self._build_ui()
+        self.position_window()
+
+        self.connect("key-press-event", self.on_key_press)
+        self.connect("button-press-event", self.on_button_press)
+        self.connect("map-event", self.on_map_event)
+        self.connect("destroy", lambda w: self.cleanup())
+
+    def on_map_event(self, widget, event):
+        GLib.idle_add(self.grab_seat)
+
+    def grab_seat(self):
+        try:
+            seat = Gdk.Display.get_default().get_default_seat()
+            if seat and self.get_window():
+                cursor = self.get_window().get_cursor()
+                seat.grab(self.get_window(), Gdk.SeatCapabilities.ALL, True, cursor, None, None)
+        except Exception:
+            pass
+        return False
+
+    def on_button_press(self, widget, event):
+        if not self.get_window():
+            return False
+        success, ox, oy = self.get_window().get_origin()
+        w = self.get_window().get_width()
+        h = self.get_window().get_height()
+        inside = (ox <= event.x_root <= ox + w) and (oy <= event.y_root <= oy + h)
+        if not inside:
+            self.close_and_exit()
+            return True
+        return False
+
+    def close_and_exit(self):
+        try:
+            seat = Gdk.Display.get_default().get_default_seat()
+            if seat:
+                seat.ungrab()
+        except Exception:
+            pass
+        self.cleanup()
+        self.destroy()
+        Gtk.main_quit()
+
+    def cleanup(self):
+        if os.path.exists(PID_FILE):
+            try:
+                os.remove(PID_FILE)
+            except Exception:
+                pass
+
+    def apply_css(self):
+        css = f"""
+        window {{
+            background-color: transparent;
+        }}
+        #main-card {{
+            background-color: {t["bg"]};
+            border: 2px solid {t["accent"]};
+            border-radius: 16px;
+            padding: 18px 20px;
+        }}
+        #header-box {{
+            padding: 0px 4px 10px 4px;
+            border-bottom: 1px solid {t["surface0"]};
+            margin-bottom: 4px;
+        }}
+        #hdr-title {{
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 13pt;
+            font-weight: bold;
+        }}
+        #hdr-status {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+        }}
+        .status-badge-active {{
+            background-color: {t["accent"]};
+            color: {t["bg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+            font-weight: bold;
+            border-radius: 999px;
+            padding: 3px 10px;
+        }}
+        #listbox {{
+            background-color: transparent;
+        }}
+        .audio-row {{
+            background-color: transparent;
+            border: 1.5px solid transparent;
+            border-radius: 10px;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+        }}
+        .audio-row:hover,
+        .audio-row:selected {{
+            background-color: {t["surface0"]};
+            border-color: {t["accent"]};
+        }}
+        .icon-large {{
+            color: {t["accent"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 18pt;
+            margin-right: 12px;
+        }}
+        .row-title {{
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 10pt;
+            font-weight: bold;
+        }}
+        .row-desc {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+        }}
+        .active-pill {{
+            background-color: {t["green"]};
+            color: {t["bg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 7.5pt;
+            font-weight: bold;
+            border-radius: 999px;
+            padding: 2px 8px;
+            margin-right: 8px;
+        }}
+        .hotkey-badge {{
+            color: {t["subtext"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8pt;
+            background-color: {t["surface0"]};
+            border-radius: 4px;
+            padding: 2px 6px;
+        }}
+        #footer-bar {{
+            background-color: {t["surface0"]};
+            border-radius: 10px;
+            padding: 6px 10px;
+            margin-top: 8px;
+        }}
+        button.footer-action-btn,
+        .footer-action-btn {{
+            background-color: transparent;
+            border: none;
+            color: {t["fg"]};
+            font-family: 'JetBrainsMono Nerd Font';
+            font-size: 8.5pt;
+            border-radius: 6px;
+            padding: 4px 10px;
+        }}
+        button.footer-action-btn:hover,
+        .footer-action-btn:hover {{
+            background-color: {t["surface1"]};
+            color: {t["accent"]};
+        }}
+        """
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css.encode("utf-8"))
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+    def _build_ui(self):
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        main_box.set_name("main-card")
+        main_box.set_size_request(560, 420)
+        self.add(main_box)
+
+        # 1. Header Box
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        header.set_name("header-box")
+
+        hdr_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title_lbl = Gtk.Label(label="󰓃 Audio Output Selector", xalign=0)
+        title_lbl.set_name("hdr-title")
+        hdr_vbox.pack_start(title_lbl, False, False, 0)
+
+        self.status_lbl = Gtk.Label(label="Select audio sink device", xalign=0)
+        self.status_lbl.set_name("hdr-status")
+        hdr_vbox.pack_start(self.status_lbl, False, False, 0)
+
+        header.pack_start(hdr_vbox, True, True, 0)
+
+        badge_lbl = Gtk.Label(label="PIPEWIRE / PULSE")
+        badge_lbl.get_style_context().add_class("status-badge-active")
+        badge_lbl.set_valign(Gtk.Align.CENTER)
+        header.pack_start(badge_lbl, False, False, 0)
+
+        main_box.pack_start(header, False, False, 0)
+
+        # 2. Options List Box
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_name("listbox")
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.listbox.connect("row-activated", self.on_row_activated)
+        scrolled.add(self.listbox)
+        main_box.pack_start(scrolled, True, True, 0)
+
+        self.populate_options()
+
+        # 3. Footer Actions Toolbar
+        footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        footer.set_name("footer-bar")
+
+        rescan_btn = Gtk.Button(label="󰑐 Rescan")
+        rescan_btn.get_style_context().add_class("footer-action-btn")
+        rescan_btn.set_tooltip_text("Rescan audio sinks (Hotkey: R)")
+        rescan_btn.connect("clicked", lambda b: self.rescan_audio())
+        footer.pack_start(rescan_btn, False, False, 0)
+
+        mixer_btn = Gtk.Button(label="󰓃 Mixer (Pavucontrol)")
+        mixer_btn.get_style_context().add_class("footer-action-btn")
+        mixer_btn.set_tooltip_text("Open Volume Mixer (Hotkey: P)")
+        mixer_btn.connect("clicked", lambda b: self.launch_mixer())
+        footer.pack_start(mixer_btn, False, False, 0)
+
+        test_btn = Gtk.Button(label="󰝚 Test Chime")
+        test_btn.get_style_context().add_class("footer-action-btn")
+        test_btn.set_tooltip_text("Play test chime on active output (Hotkey: T)")
+        test_btn.connect("clicked", lambda b: self.trigger_test_sound())
+        footer.pack_start(test_btn, False, False, 0)
+
+        spacer = Gtk.Box()
+        footer.pack_start(spacer, True, True, 0)
+
+        close_btn = Gtk.Button(label="Esc Close")
+        close_btn.get_style_context().add_class("footer-action-btn")
+        close_btn.connect("clicked", lambda b: self.close_and_exit())
+        footer.pack_end(close_btn, False, False, 0)
+
+        main_box.pack_start(footer, False, False, 0)
+
+    def populate_options(self):
+        for child in self.listbox.get_children():
+            self.listbox.remove(child)
+
+        self.items = []
+        outputs = get_audio_outputs()
+        active_title = "None"
+
+        for idx, out in enumerate(outputs):
+            key_num = str(idx + 1) if idx < 9 else ""
+            out["key"] = key_num
+            self.items.append(out)
+
+            if out.get("is_active"):
+                active_title = out.get("full_label", out.get("title"))
+
+            row = Gtk.ListBoxRow()
+            row.get_style_context().add_class("audio-row")
+            row.out_data = out
+
+            hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            hbox.set_valign(Gtk.Align.CENTER)
+
+            icon_lbl = Gtk.Label(label=out["icon"])
+            icon_lbl.get_style_context().add_class("icon-large")
+            hbox.pack_start(icon_lbl, False, False, 0)
+
+            vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            title = Gtk.Label(label=out["title"], xalign=0)
+            title.get_style_context().add_class("row-title")
+            vbox.pack_start(title, False, False, 0)
+
+            desc = Gtk.Label(label=out["subtitle"], xalign=0)
+            desc.get_style_context().add_class("row-desc")
+            desc.set_ellipsize(Pango.EllipsizeMode.END)
+            vbox.pack_start(desc, False, False, 0)
+            hbox.pack_start(vbox, True, True, 0)
+
+            if out.get("is_active"):
+                active_lbl = Gtk.Label(label="● ACTIVE")
+                active_lbl.get_style_context().add_class("active-pill")
+                active_lbl.set_valign(Gtk.Align.CENTER)
+                hbox.pack_start(active_lbl, False, False, 0)
+
+            if key_num:
+                k_lbl = Gtk.Label(label=f"[{key_num}]")
+                k_lbl.get_style_context().add_class("hotkey-badge")
+                k_lbl.set_valign(Gtk.Align.CENTER)
+                hbox.pack_start(k_lbl, False, False, 0)
+
+            row.add(hbox)
+            self.listbox.add(row)
+
+        self.status_lbl.set_text(f"Active Output: {active_title}")
+        self.listbox.show_all()
+
+    def position_window(self):
+        display = Gdk.Display.get_default()
+        monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
+        geom = monitor.get_geometry()
+
+        win_w, win_h = 560, 420
+        x = geom.x + (geom.width - win_w) // 2
+        y = geom.y + (geom.height - win_h) // 2
+        self.move(x, y)
+
+    def rescan_audio(self):
+        self.populate_options()
+        notify("Audio Rescanned", "Audio sink list refreshed.")
+
+    def launch_mixer(self):
+        self.close_and_exit()
+        if shutil.which("pavucontrol"):
+            subprocess.Popen(["pavucontrol"])
+        else:
+            subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "alsamixer"])
+
+    def trigger_test_sound(self):
+        play_test_chime()
+
+    def on_row_activated(self, listbox, row):
+        if not hasattr(row, "out_data"):
+            return
+        out = row.out_data
+        set_audio_output(out)
+        self.populate_options()
+        play_test_chime()
+
+    def on_key_press(self, widget, event):
+        keyval = event.keyval
+        keyname = Gdk.keyval_name(keyval)
+
+        if keyname in ("Escape", "q", "Q"):
+            self.close_and_exit()
+            return True
+
+        if keyname in ("r", "R"):
+            self.rescan_audio()
+            return True
+
+        if keyname in ("p", "P"):
+            self.launch_mixer()
+            return True
+
+        if keyname in ("t", "T"):
+            self.trigger_test_sound()
+            return True
+
+        # Number hotkeys 1-9
+        for item in self.items:
+            if item.get("key") == keyname:
+                set_audio_output(item)
+                self.populate_options()
+                play_test_chime()
+                return True
+
+        return False
+
+def main():
+    signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
+    signal.signal(signal.SIGTERM, lambda s, f: sys.exit(0))
+
+    win = AudioSelectorWindow()
+    win.show_all()
+    Gtk.main()
+
+if __name__ == "__main__":
+    main()

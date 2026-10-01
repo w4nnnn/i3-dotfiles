@@ -80,6 +80,10 @@ bindsym $mod+Shift+m exec --no-startup-id ~/.local/bin/toggle-dnd
 bindsym $mod+v exec --no-startup-id ~/.local/bin/clipboard
 bindsym $mod+Shift+v exec --no-startup-id ~/.local/bin/clipboard --clear
 
+# Audio Output Selector (Quick Device Switcher)
+bindsym $mod+Shift+a exec --no-startup-id ~/.local/bin/audio-selector
+bindsym $mod+Mod1+v exec --no-startup-id ~/.local/bin/audio-selector
+
 # Network Menu (NetworkManager + Rofi)
 bindsym $mod+n exec --no-startup-id ~/.local/bin/network-menu
 bindsym $mod+Shift+n exec --no-startup-id kitty --class floating_terminal -e nmtui
