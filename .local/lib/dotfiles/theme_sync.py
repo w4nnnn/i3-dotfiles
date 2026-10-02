@@ -222,7 +222,7 @@ color15 {t["subtext"]}
     corner_radius = 12
     mouse_left_click = close_current
     mouse_middle_click = do_action, close_current
-    mouse_right_click = close_all
+    mouse_right_click = close_current
 
 [urgency_low]
     background = "{t["bg"]}"
@@ -298,8 +298,8 @@ WRONG_TEXT_COLOR="{t['accent_contrast'].lstrip('#')}ff"
     if os.path.exists(launch_script):
         subprocess.Popen([launch_script], stderr=subprocess.DEVNULL)
     subprocess.Popen(["killall", "-SIGUSR1", "kitty"], stderr=subprocess.DEVNULL)
-    subprocess.Popen(["killall", "-q", "dunst"], stderr=subprocess.DEVNULL)
-    subprocess.Popen(["dunst"], stderr=subprocess.DEVNULL)
+    if subprocess.call(["dunstctl", "reload"], stderr=subprocess.DEVNULL) != 0:
+        subprocess.Popen(["dunst"], stderr=subprocess.DEVNULL)
 
     # Dunst notification
     subprocess.Popen([
