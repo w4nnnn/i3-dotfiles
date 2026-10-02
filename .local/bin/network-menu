@@ -9,9 +9,6 @@ import sys
 import os
 import signal
 import subprocess
-import shutil
-import re
-import html
 import threading
 import gi
 
@@ -20,198 +17,46 @@ gi.require_version("Gdk", "3.0")
 gi.require_version("Pango", "1.0")
 from gi.repository import Gtk, Gdk, GLib, Pango
 
+# Add local lib to path
+lib_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib"))
+if lib_dir not in sys.path:
+    sys.path.insert(0, lib_dir)
+user_lib = os.path.expanduser("~/.local/lib")
+if user_lib not in sys.path:
+    sys.path.insert(0, user_lib)
+
+from dotfiles.themes import get_current_theme
+from dotfiles.gtk_utils import (
+    manage_single_instance,
+    cleanup_pid,
+    grab_seat,
+    ungrab_seat,
+    is_click_outside,
+    center_window,
+    setup_transparent_window,
+    notify,
+)
+from dotfiles.network import (
+    scan_networks,
+    connect_saved_or_open,
+    connect_with_password,
+    disconnect_active,
+    toggle_wifi_radio,
+    open_captive_portal,
+)
+from dotfiles.styles.network import get_network_menu_css
+from dotfiles.network_dialog import build_network_row, PasswordPromptBox
+
 PID_FILE = "/tmp/network_menu_gtk.pid"
-if os.path.exists(PID_FILE):
-    try:
-        with open(PID_FILE, "r") as f:
-            old_pid = int(f.read().strip())
-        os.remove(PID_FILE)
-        os.kill(old_pid, signal.SIGTERM)
-        sys.exit(0)
-    except Exception:
-        pass
-
-with open(PID_FILE, "w") as f:
-    f.write(str(os.getpid()))
-
-# Load Global Theme Preference
-THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
-current_theme_key = "catppuccin"
-if os.path.exists(THEME_PREF_FILE):
-    try:
-        with open(THEME_PREF_FILE) as f:
-            t_key = f.read().strip()
-            if t_key:
-                current_theme_key = t_key
-    except Exception:
-        pass
-
-THEMES = {
-    "catppuccin": {
-        "bg": "rgba(30, 30, 46, 0.82)",
-        "surface0": "rgba(49, 50, 68, 0.82)",
-        "surface1": "#45475a",
-        "accent": "#cba6f7",
-        "fg": "#cdd6f4",
-        "subtext": "#a6adc8",
-        "overlay": "#6c7086",
-        "blue": "#89b4fa",
-        "red": "#f38ba8",
-        "green": "#a6e3a1",
-        "yellow": "#f9e2af",
-    },
-    "tokyo-night": {
-        "bg": "rgba(26, 27, 38, 0.82)",
-        "surface0": "rgba(36, 40, 59, 0.82)",
-        "surface1": "#2f3549",
-        "accent": "#7aa2f7",
-        "fg": "#c0caf5",
-        "subtext": "#a9b1d6",
-        "overlay": "#565f89",
-        "blue": "#7aa2f7",
-        "red": "#f7768e",
-        "green": "#9ece6a",
-        "yellow": "#e0af68",
-    },
-    "nord": {
-        "bg": "rgba(46, 52, 64, 0.82)",
-        "surface0": "rgba(59, 66, 82, 0.82)",
-        "surface1": "#434c5e",
-        "accent": "#88c0d0",
-        "fg": "#eceff4",
-        "subtext": "#d8dee9",
-        "overlay": "#4c566a",
-        "blue": "#81a1c1",
-        "red": "#bf616a",
-        "green": "#a3be8c",
-        "yellow": "#ebcb8b",
-    },
-    "oled": {
-        "bg": "rgba(9, 9, 11, 0.85)",
-        "surface0": "rgba(20, 20, 24, 0.85)",
-        "surface1": "#222228",
-        "accent": "#38bdf8",
-        "fg": "#ffffff",
-        "subtext": "#a1a1aa",
-        "overlay": "#52525b",
-        "blue": "#38bdf8",
-        "red": "#f43f5e",
-        "green": "#10b981",
-        "yellow": "#f59e0b",
-    },
-    "light": {
-        "bg": "rgba(255, 255, 255, 0.85)",
-        "surface0": "rgba(241, 245, 249, 0.85)",
-        "surface1": "#cbd5e1",
-        "accent": "#0284c7",
-        "fg": "#0f172a",
-        "subtext": "#475569",
-        "overlay": "#94a3b8",
-        "blue": "#0284c7",
-        "red": "#ef4444",
-        "green": "#10b981",
-        "yellow": "#f59e0b",
-    },
-    "dracula": {
-        "bg": "rgba(40, 42, 54, 0.82)",
-        "surface0": "rgba(68, 71, 90, 0.82)",
-        "surface1": "#6272a4",
-        "accent": "#bd93f9",
-        "fg": "#f8f8f2",
-        "subtext": "#bfbfbf",
-        "overlay": "#6272a4",
-        "blue": "#8be9fd",
-        "red": "#ff5555",
-        "green": "#50fa7b",
-        "yellow": "#f1fa8c",
-    },
-    "gruvbox": {
-        "bg": "rgba(40, 40, 40, 0.82)",
-        "surface0": "rgba(60, 56, 54, 0.82)",
-        "surface1": "#504945",
-        "accent": "#fe8019",
-        "fg": "#ebdbb2",
-        "subtext": "#d5c4a1",
-        "overlay": "#928374",
-        "blue": "#83a598",
-        "red": "#fb4934",
-        "green": "#b8bb26",
-        "yellow": "#fabd2f",
-    },
-    "rose-pine": {
-        "bg": "rgba(25, 23, 36, 0.82)",
-        "surface0": "rgba(31, 29, 46, 0.82)",
-        "surface1": "#26233a",
-        "accent": "#ebbcba",
-        "fg": "#e0def4",
-        "subtext": "#908caa",
-        "overlay": "#6e6a86",
-        "blue": "#c4a7e7",
-        "red": "#eb6f92",
-        "green": "#9ccfd8",
-        "yellow": "#f6c177",
-    },
-    "everforest": {
-        "bg": "rgba(45, 53, 59, 0.82)",
-        "surface0": "rgba(52, 63, 68, 0.82)",
-        "surface1": "#3d484d",
-        "accent": "#a7c080",
-        "fg": "#d3c6aa",
-        "subtext": "#9da9a0",
-        "overlay": "#7a8478",
-        "blue": "#7fbbb3",
-        "red": "#e67e80",
-        "green": "#a7c080",
-        "yellow": "#dbbc7f",
-    },
-    "cyberpunk": {
-        "bg": "rgba(18, 12, 31, 0.85)",
-        "surface0": "rgba(36, 21, 56, 0.82)",
-        "surface1": "#382057",
-        "accent": "#00f0ff",
-        "fg": "#fdfdfd",
-        "subtext": "#f38ba8",
-        "overlay": "#705d8f",
-        "blue": "#00e5ff",
-        "red": "#ff2a6d",
-        "green": "#05ffa1",
-        "yellow": "#ffe600",
-    },
-}
-
-t = THEMES.get(current_theme_key, THEMES["catppuccin"])
-
-def run_cmd(cmd):
-    try:
-        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL, text=True).strip()
-    except Exception:
-        return ""
-
-def notify(title, message, icon="network-wireless"):
-    subprocess.Popen([
-        "dunstify", "-a", "Network",
-        "-h", "string:x-dunst-stack-tag:network",
-        "-i", icon,
-        "-t", "2000",
-        title, message
-    ], stderr=subprocess.DEVNULL)
 
 class RofiStyleNetworkWindow(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.set_title("CatppuccinNetworkMenu")
         self.set_role("network-menu-popup")
-        self.set_decorated(False)
-        self.set_skip_taskbar_hint(True)
-        self.set_skip_pager_hint(True)
-        self.set_keep_above(True)
-        self.set_resizable(False)
+        setup_transparent_window(self)
 
-        screen = self.get_screen()
-        visual = screen.get_rgba_visual()
-        if visual:
-            self.set_visual(visual)
-
+        self.theme = get_current_theme()
         self.apply_css()
 
         self.all_networks = []
@@ -219,347 +64,31 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.wifi_enabled = True
         self.wifi_dev = ""
         self.is_scanning = False
-        self.current_target_ssid = ""
 
         self._build_ui()
-        self.position_window()
+        center_window(self, 660, 480)
 
         self.connect("key-press-event", self.on_key_press)
         self.connect("button-press-event", self.on_button_press)
-        self.connect("map-event", self.on_map_event)
-        self.connect("destroy", lambda w: self.cleanup())
+        self.connect("map-event", lambda w, e: GLib.idle_add(lambda: grab_seat(self)))
+        self.connect("destroy", lambda w: cleanup_pid(PID_FILE))
 
         self.refresh_state(rescan=True)
 
-    def on_map_event(self, widget, event):
-        GLib.idle_add(self.grab_seat)
-
-    def grab_seat(self):
-        try:
-            seat = Gdk.Display.get_default().get_default_seat()
-            if seat and self.get_window():
-                cursor = self.get_window().get_cursor()
-                seat.grab(self.get_window(), Gdk.SeatCapabilities.ALL, True, cursor, None, None)
-        except Exception:
-            pass
-        return False
-
     def on_button_press(self, widget, event):
-        if not self.get_window():
-            return False
-        success, ox, oy = self.get_window().get_origin()
-        w = self.get_window().get_width()
-        h = self.get_window().get_height()
-        inside = (ox <= event.x_root <= ox + w) and (oy <= event.y_root <= oy + h)
-        if not inside:
+        if is_click_outside(self, event):
             self.close_and_exit()
             return True
         return False
 
     def close_and_exit(self):
-        try:
-            seat = Gdk.Display.get_default().get_default_seat()
-            if seat:
-                seat.ungrab()
-        except Exception:
-            pass
-        self.cleanup()
+        ungrab_seat()
+        cleanup_pid(PID_FILE)
         self.destroy()
         Gtk.main_quit()
 
-    def cleanup(self):
-        if os.path.exists(PID_FILE):
-            try:
-                os.remove(PID_FILE)
-            except Exception:
-                pass
-
     def apply_css(self):
-        css = f"""
-        window {{
-            background-color: transparent;
-        }}
-        #main-card {{
-            background-color: {t["bg"]};
-            border: 2px solid {t["accent"]};
-            border-radius: 16px;
-            padding: 20px;
-        }}
-        #inputbar {{
-            background-color: {t["surface0"]};
-            border-radius: 12px;
-            padding: 8px 14px;
-        }}
-        #prompt-icon {{
-            color: {t["accent"]};
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 12pt;
-            margin-right: 8px;
-        }}
-        entry,
-        #search-entry,
-        #search-entry:focus {{
-            background-color: transparent;
-            border: none;
-            outline: none;
-            box-shadow: none;
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10.5pt;
-        }}
-        #listbox {{
-            background-color: transparent;
-            padding: 4px 0px;
-        }}
-        .element-row {{
-            background-color: transparent;
-            border: 1.5px solid transparent;
-            border-radius: 10px;
-            padding: 6px 10px;
-            margin-bottom: 3px;
-        }}
-        .element-row:hover,
-        .element-row:selected,
-        .element-row.selected {{
-            background-color: {t["surface0"]};
-            border-color: {t["accent"]};
-        }}
-        .element-row.connected {{
-            background-color: rgba(49, 50, 68, 0.35);
-        }}
-        .element-text {{
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10pt;
-        }}
-        .badge-connected {{
-            background-color: rgba(166, 227, 161, 0.18);
-            color: {t["green"]};
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-            font-weight: bold;
-        }}
-        .badge-band {{
-            color: {t["subtext"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-        }}
-        .badge-sec {{
-            color: {t["yellow"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-        }}
-        .badge-sec.open {{
-            color: {t["subtext"]};
-        }}
-        .badge-sig {{
-            color: #ffffff;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.5pt;
-            font-weight: bold;
-        }}
-        #footer-bar {{
-            background-color: {t["surface0"]};
-            border-radius: 10px;
-            padding: 6px 10px;
-            margin-top: 10px;
-        }}
-        button.footer-action-btn,
-        .footer-action-btn {{
-            background-color: transparent;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-            border-radius: 8px;
-            padding: 5px 10px;
-            color: {t["subtext"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.8pt;
-            font-weight: 500;
-        }}
-        button.footer-action-btn:focus,
-        button.footer-action-btn:hover,
-        .footer-action-btn:focus,
-        .footer-action-btn:hover {{
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-            background-color: {t["surface1"]};
-            color: {t["accent"]};
-        }}
-        .footer-action-btn.portal {{
-            color: {t["blue"]};
-        }}
-        button.footer-action-btn.portal:hover,
-        .footer-action-btn.portal:hover {{
-            background-color: {t["blue"]};
-            color: #11111b;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-        }}
-        .footer-action-btn.danger {{
-            color: {t["red"]};
-        }}
-        button.footer-action-btn.danger:hover,
-        .footer-action-btn.danger:hover {{
-            background-color: {t["red"]};
-            color: #11111b;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-        }}
-        .footer-action-btn.rescan {{
-            color: {t["accent"]};
-        }}
-        button.footer-action-btn.rescan:hover,
-        .footer-action-btn.rescan:hover {{
-            background-color: {t["accent"]};
-            color: #11111b;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-        }}
-        .footer-action-btn.settings {{
-            color: {t["yellow"]};
-        }}
-        button.footer-action-btn.settings:hover,
-        .footer-action-btn.settings:hover {{
-            background-color: {t["yellow"]};
-            color: #11111b;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-        }}
-        .footer-action-btn.radio {{
-            color: {t["green"]};
-        }}
-        button.footer-action-btn.radio:hover,
-        .footer-action-btn.radio:hover {{
-            background-color: {t["green"]};
-            color: #11111b;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-        }}
-        /* Password View Styling */
-        #pwd-icon {{
-            color: {t["accent"]};
-            font-size: 32pt;
-            margin-bottom: 4px;
-        }}
-        #pwd-title {{
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
-            font-weight: bold;
-        }}
-        #pwd-subtitle {{
-            color: {t["subtext"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 9.2pt;
-            margin-bottom: 8px;
-        }}
-        #pwd-entry-container {{
-            background-color: {t["surface0"]};
-            border: 1.5px solid {t["surface1"]};
-            border-radius: 10px;
-            padding: 4px 10px;
-        }}
-        #pwd-entry-container:focus-within {{
-            border-color: {t["accent"]};
-        }}
-        #pwd-entry,
-        #pwd-entry:focus {{
-            background-color: transparent;
-            border: none;
-            outline: none;
-            box-shadow: none;
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 11pt;
-        }}
-        button.pwd-eye-btn,
-        .pwd-eye-btn {{
-            background-color: transparent;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-            color: {t["subtext"]};
-            font-size: 11pt;
-            padding: 4px 6px;
-        }}
-        button.pwd-eye-btn:hover,
-        .pwd-eye-btn:hover {{
-            color: {t["accent"]};
-            background-color: transparent;
-            border: none;
-        }}
-        #pwd-error {{
-            color: {t["red"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.8pt;
-            font-weight: bold;
-            margin-top: 4px;
-        }}
-        button.pwd-btn,
-        .pwd-btn {{
-            border-radius: 8px;
-            padding: 7px 18px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 9.2pt;
-            font-weight: bold;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-        }}
-        button.pwd-btn.cancel,
-        .pwd-btn.cancel {{
-            background-color: {t["surface0"]};
-            color: {t["subtext"]};
-        }}
-        button.pwd-btn.cancel:hover,
-        .pwd-btn.cancel:hover {{
-            background-color: {t["surface1"]};
-            color: {t["fg"]};
-            border: none;
-            outline: none;
-        }}
-        button.pwd-btn.connect,
-        .pwd-btn.connect {{
-            background-color: {t["accent"]};
-            color: #11111b;
-        }}
-        button.pwd-btn.connect:hover,
-        .pwd-btn.connect:hover {{
-            background-color: {t["blue"]};
-            color: #11111b;
-            border: none;
-            outline: none;
-        }}
-        scrollbar trough {{
-            background-color: transparent;
-        }}
-        scrollbar slider {{
-            background-color: {t["surface0"]};
-            border-radius: 6px;
-            min-width: 4px;
-        }}
-        scrollbar slider:hover {{
-            background-color: {t["accent"]};
-        }}
-        """
+        css = get_network_menu_css(self.theme)
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
@@ -569,23 +98,18 @@ class RofiStyleNetworkWindow(Gtk.Window):
         )
 
     def _build_ui(self):
-        # Main Card Box (660px width matching Rofi network.rasi)
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         main_box.set_name("main-card")
         main_box.set_size_request(660, 480)
         self.add(main_box)
 
-        # Stack to smoothly transition between Network List and Password Prompt
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
         self.stack.set_transition_duration(150)
 
-        # ======================================================================
         # VIEW 1: Networks List View
-        # ======================================================================
         self.networks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
 
-        # 1. Input Bar (Pill search box with prompt icon)
         inputbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         inputbar.set_name("inputbar")
 
@@ -596,12 +120,11 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.search_entry = Gtk.Entry()
         self.search_entry.set_name("search-entry")
         self.search_entry.set_placeholder_text("Filter Wi-Fi networks...")
-        self.search_entry.connect("changed", self.on_search_changed)
+        self.search_entry.connect("changed", lambda e: self.render_network_list(self.all_networks))
         inputbar.pack_start(self.search_entry, True, True, 0)
 
         self.networks_box.pack_start(inputbar, False, False, 0)
 
-        # 2. Listview (Pure SSID list ONLY)
         self.scrolled = Gtk.ScrolledWindow()
         self.scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.listbox = Gtk.ListBox()
@@ -611,19 +134,17 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.scrolled.add(self.listbox)
         self.networks_box.pack_start(self.scrolled, True, True, 0)
 
-        # 3. Action Footer Toolbar (REAL Interactive GTK Buttons)
+        # Footer Toolbar
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         footer.set_name("footer-bar")
 
-        # Portal Button
         self.portal_btn = Gtk.Button(label="󰖟 Portal")
         self.portal_btn.get_style_context().add_class("footer-action-btn")
         self.portal_btn.get_style_context().add_class("portal")
         self.portal_btn.set_tooltip_text("Open Captive Portal Login")
-        self.portal_btn.connect("clicked", lambda w: (self.close_and_exit(), self.action_portal()))
+        self.portal_btn.connect("clicked", lambda w: (self.close_and_exit(), open_captive_portal()))
         footer.pack_start(self.portal_btn, True, True, 0)
 
-        # Disconnect Button
         self.disconn_btn = Gtk.Button(label="󰅖 Disconnect")
         self.disconn_btn.get_style_context().add_class("footer-action-btn")
         self.disconn_btn.get_style_context().add_class("danger")
@@ -631,7 +152,6 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.disconn_btn.connect("clicked", lambda w: self.action_disconnect())
         footer.pack_start(self.disconn_btn, True, True, 0)
 
-        # Rescan Button
         self.rescan_btn = Gtk.Button(label="󰑐 Rescan")
         self.rescan_btn.get_style_context().add_class("footer-action-btn")
         self.rescan_btn.get_style_context().add_class("rescan")
@@ -639,7 +159,6 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.rescan_btn.connect("clicked", lambda w: self.refresh_state(rescan=True))
         footer.pack_start(self.rescan_btn, True, True, 0)
 
-        # Settings Button
         self.settings_btn = Gtk.Button(label="󰢻 Settings")
         self.settings_btn.get_style_context().add_class("footer-action-btn")
         self.settings_btn.get_style_context().add_class("settings")
@@ -647,7 +166,6 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.settings_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "nmtui"])))
         footer.pack_start(self.settings_btn, True, True, 0)
 
-        # Radio Toggle Button (Wifi Off / Wifi On)
         self.radio_btn = Gtk.Button(label="󰤮 Wifi Off")
         self.radio_btn.get_style_context().add_class("footer-action-btn")
         self.radio_btn.get_style_context().add_class("radio")
@@ -658,86 +176,13 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.networks_box.pack_start(footer, False, False, 0)
         self.stack.add_named(self.networks_box, "networks")
 
-        # ======================================================================
-        # VIEW 2: Elegant Password Prompt Modal View
-        # ======================================================================
-        self.pwd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        self.pwd_box.set_valign(Gtk.Align.CENTER)
-        self.pwd_box.set_halign(Gtk.Align.CENTER)
-        self.pwd_box.set_size_request(440, -1)
-
-        # Lock Icon
-        pwd_icon = Gtk.Label(label="󰌾")
-        pwd_icon.set_name("pwd-icon")
-        self.pwd_box.pack_start(pwd_icon, False, False, 0)
-
-        # Title & Subtitle
-        self.pwd_title_lbl = Gtk.Label(label="Connect to Wi-Fi")
-        self.pwd_title_lbl.set_name("pwd-title")
-        self.pwd_title_lbl.set_use_markup(True)
-        self.pwd_box.pack_start(self.pwd_title_lbl, False, False, 0)
-
-        self.pwd_sub_lbl = Gtk.Label(label="Enter security key to join this network")
-        self.pwd_sub_lbl.set_name("pwd-subtitle")
-        self.pwd_box.pack_start(self.pwd_sub_lbl, False, False, 0)
-
-        # Password Entry Pill Box
-        pwd_entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        pwd_entry_box.set_name("pwd-entry-container")
-
-        self.pwd_entry = Gtk.Entry()
-        self.pwd_entry.set_name("pwd-entry")
-        self.pwd_entry.set_visibility(False)
-        self.pwd_entry.set_placeholder_text("Password...")
-        self.pwd_entry.connect("activate", lambda e: self.do_connect_with_password())
-        pwd_entry_box.pack_start(self.pwd_entry, True, True, 0)
-
-        self.pwd_eye_btn = Gtk.Button(label="󰈈")
-        self.pwd_eye_btn.get_style_context().add_class("pwd-eye-btn")
-        self.pwd_eye_btn.set_tooltip_text("Show Password")
-        self.pwd_eye_btn.connect("clicked", self.toggle_pwd_visibility)
-        pwd_entry_box.pack_start(self.pwd_eye_btn, False, False, 0)
-
-        self.pwd_box.pack_start(pwd_entry_box, False, False, 0)
-
-        # Error / Status Feedback Label
-        self.pwd_error_lbl = Gtk.Label(label="")
-        self.pwd_error_lbl.set_name("pwd-error")
-        self.pwd_box.pack_start(self.pwd_error_lbl, False, False, 0)
-
-        # Actions: Cancel & Connect Buttons
-        pwd_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
-        pwd_btn_box.set_halign(Gtk.Align.CENTER)
-        pwd_btn_box.set_margin_top(10)
-
-        self.pwd_cancel_btn = Gtk.Button(label="Cancel")
-        self.pwd_cancel_btn.get_style_context().add_class("pwd-btn")
-        self.pwd_cancel_btn.get_style_context().add_class("cancel")
-        self.pwd_cancel_btn.connect("clicked", lambda w: self.cancel_pwd_prompt())
-        pwd_btn_box.pack_start(self.pwd_cancel_btn, False, False, 0)
-
-        self.pwd_connect_btn = Gtk.Button(label="󰖩 Connect")
-        self.pwd_connect_btn.get_style_context().add_class("pwd-btn")
-        self.pwd_connect_btn.get_style_context().add_class("connect")
-        self.pwd_connect_btn.connect("clicked", lambda w: self.do_connect_with_password())
-        pwd_btn_box.pack_start(self.pwd_connect_btn, False, False, 0)
-
-        self.pwd_box.pack_start(pwd_btn_box, False, False, 0)
-
-        self.stack.add_named(self.pwd_box, "password")
-
+        # VIEW 2: Password Prompt Modal View
+        self.pwd_prompt = PasswordPromptBox(
+            on_connect_cb=self.do_connect_with_password,
+            on_cancel_cb=self.cancel_pwd_prompt
+        )
+        self.stack.add_named(self.pwd_prompt, "password")
         main_box.pack_start(self.stack, True, True, 0)
-
-    def position_window(self):
-        display = Gdk.Display.get_default()
-        monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
-        geom = monitor.get_geometry()
-
-        win_w, win_h = 660, 480
-        # Position centered on screen matching Rofi
-        x = geom.x + (geom.width - win_w) // 2
-        y = geom.y + (geom.height - win_h) // 2
-        self.move(x, y)
 
     def refresh_state(self, rescan=False):
         if self.is_scanning:
@@ -746,61 +191,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
         self.rescan_btn.set_label("󰑐 Scanning...")
 
         def worker():
-            devs = run_cmd(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev"]).splitlines()
-            wifi_dev = ""
-            active_ssid = ""
-            active_ip = ""
-
-            for line in devs:
-                parts = line.split(":")
-                if len(parts) >= 2 and parts[1] == "wifi":
-                    wifi_dev = parts[0]
-                    if len(parts) >= 4 and parts[2] == "connected":
-                        active_ssid = parts[3]
-                    break
-
-            radio_state = run_cmd(["nmcli", "radio", "wifi"]) == "enabled"
-
-            if active_ssid:
-                ip_out = run_cmd(["ip", "-4", "addr", "show", wifi_dev])
-                m = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+)", ip_out)
-                if m:
-                    active_ip = m.group(1)
-
-            nets = []
-            if radio_state and wifi_dev:
-                if rescan:
-                    run_cmd(["nmcli", "dev", "wifi", "rescan"])
-                raw_out = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list", "--rescan", "no"])
-                if not raw_out.strip():
-                    raw_out = run_cmd(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,CHAN", "dev", "wifi", "list"])
-
-                raw_nets = {}
-                for line in raw_out.splitlines():
-                    if not line:
-                        continue
-                    p = line.split(":")
-                    if len(p) < 5:
-                        continue
-                    in_use = p[0].strip() == "*"
-                    ssid = p[1].strip()
-                    if not ssid:
-                        continue
-                    sig_int = int(p[2]) if p[2].isdigit() else 0
-                    sec = p[3].strip()
-                    chan_int = int(p[4]) if p[4].isdigit() else 1
-
-                    if ssid not in raw_nets or in_use or sig_int > raw_nets[ssid]["signal"]:
-                        raw_nets[ssid] = {
-                            "in_use": in_use,
-                            "ssid": ssid,
-                            "signal": sig_int,
-                            "security": sec,
-                            "chan": chan_int,
-                        }
-
-                nets = sorted(raw_nets.values(), key=lambda x: (not x["in_use"], -x["signal"]))
-
+            wifi_dev, radio_state, active_ssid, active_ip, nets = scan_networks(rescan=rescan)
             GLib.idle_add(self.update_ui_state, wifi_dev, radio_state, active_ssid, active_ip, nets)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -823,10 +214,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
 
         if self.active_ssid:
             self.disconn_btn.set_sensitive(True)
-            if self.active_ip:
-                self.disconn_btn.set_tooltip_text(f"Disconnect from {self.active_ssid} ({self.active_ip})")
-            else:
-                self.disconn_btn.set_tooltip_text(f"Disconnect from {self.active_ssid}")
+            self.disconn_btn.set_tooltip_text(f"Disconnect from {self.active_ssid}")
         else:
             self.disconn_btn.set_sensitive(False)
             self.disconn_btn.set_tooltip_text("No active Wi-Fi connection")
@@ -838,10 +226,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
             self.listbox.remove(child)
 
         query = self.search_entry.get_text().strip().lower()
-        if query:
-            filtered = [n for n in nets if query in n["ssid"].lower()]
-        else:
-            filtered = nets
+        filtered = [n for n in nets if query in n["ssid"].lower()] if query else nets
 
         if not filtered:
             row = Gtk.ListBoxRow()
@@ -853,73 +238,14 @@ class RofiStyleNetworkWindow(Gtk.Window):
             self.listbox.show_all()
             return
 
-        for idx, net in enumerate(filtered):
-            row = Gtk.ListBoxRow()
-            row.net_data = net
-            box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-            box.get_style_context().add_class("element-row")
-            if net["in_use"]:
-                box.get_style_context().add_class("connected")
-
-            # Signal Icon
-            sig = net["signal"]
-            if net["in_use"]:
-                s_icon = "󰖩"
-            elif sig >= 70:
-                s_icon = "󰤨"
-            elif sig >= 50:
-                s_icon = "󰤥"
-            elif sig >= 25:
-                s_icon = "󰤢"
-            else:
-                s_icon = "󰤟"
-
-            icon_lbl = Gtk.Label(label=s_icon)
-            icon_lbl.get_style_context().add_class("element-text")
-            box.pack_start(icon_lbl, False, False, 0)
-
-            # SSID
-            ssid_lbl = Gtk.Label(label=f"<b>{html.escape(net['ssid'])}</b>", xalign=0)
-            ssid_lbl.set_use_markup(True)
-            ssid_lbl.get_style_context().add_class("element-text")
-            ssid_lbl.set_ellipsize(Pango.EllipsizeMode.END)
-            ssid_lbl.set_max_width_chars(28)
-            box.pack_start(ssid_lbl, True, True, 0)
-
-            # Badges
-            if net["in_use"]:
-                badge = Gtk.Label(label="CONNECTED")
-                badge.get_style_context().add_class("badge-connected")
-                box.pack_start(badge, False, False, 0)
-
-            band_txt = "5GHz" if net["chan"] > 14 else "2.4G"
-            band_lbl = Gtk.Label(label=band_txt)
-            band_lbl.get_style_context().add_class("badge-band")
-            box.pack_start(band_lbl, False, False, 0)
-
-            is_open = not net["security"] or net["security"] == "--"
-            sec_txt = "OPEN" if is_open else "SEC"
-            sec_lbl = Gtk.Label(label=sec_txt)
-            sec_lbl.get_style_context().add_class("badge-sec")
-            if is_open:
-                sec_lbl.get_style_context().add_class("open")
-            box.pack_start(sec_lbl, False, False, 0)
-
-            sig_lbl = Gtk.Label(label=f"{sig:>3}%")
-            sig_lbl.get_style_context().add_class("badge-sig")
-            box.pack_start(sig_lbl, False, False, 0)
-
-            row.add(box)
+        for net in filtered:
+            row = build_network_row(net)
             self.listbox.add(row)
 
         self.listbox.show_all()
-        # Select first row by default for keyboard arrow navigation
         first_row = self.listbox.get_row_at_index(0)
         if first_row:
             self.listbox.select_row(first_row)
-
-    def on_search_changed(self, entry):
-        self.render_network_list(self.all_networks)
 
     def on_row_activated(self, listbox, row):
         if not hasattr(row, "net_data"):
@@ -927,124 +253,75 @@ class RofiStyleNetworkWindow(Gtk.Window):
         net = row.net_data
         target = net["ssid"]
         if net["in_use"]:
-            notify("Wi-Fi", f"Already connected to {target}.")
+            notify("Network", "Wi-Fi", f"Already connected to {target}.")
             return
 
-        saved = run_cmd(["nmcli", "-t", "-f", "NAME", "c", "show"]).splitlines()
         is_open = not net["security"] or net["security"] == "--"
+        success, mode = connect_saved_or_open(target, is_open)
 
-        if target in saved:
-            notify("Connecting...", f"Connecting to saved network: {target}...")
-            res = subprocess.run(["nmcli", "con", "up", "id", target], capture_output=True)
-            if res.returncode == 0:
-                notify("Connected", f"Successfully connected to {target}.")
+        if mode in ("saved", "open"):
+            if success:
+                notify("Network", "Connected", f"Successfully connected to {target}.")
             else:
-                notify("Failed", f"Could not connect to {target}.")
-            self.refresh_state()
-        elif is_open:
-            notify("Connecting...", f"Connecting to open network: {target}...")
-            res = subprocess.run(["nmcli", "dev", "wifi", "connect", target], capture_output=True)
-            if res.returncode == 0:
-                notify("Connected", f"Successfully connected to {target}.")
-                subprocess.Popen([os.path.expanduser("~/.local/bin/portal-login"), "--auto"])
-            else:
-                notify("Failed", f"Could not connect to {target}.")
+                notify("Network", "Failed", f"Could not connect to {target}.")
             self.refresh_state()
         else:
             self.prompt_password(target)
 
     def prompt_password(self, target_ssid):
-        self.current_target_ssid = target_ssid
-        self.pwd_title_lbl.set_markup(f"Connect to <b>{html.escape(target_ssid)}</b>")
-        self.pwd_sub_lbl.set_text("Enter security key to join this network")
-        self.pwd_entry.set_text("")
-        self.pwd_entry.set_visibility(False)
-        self.pwd_eye_btn.set_label("󰈈")
-        self.pwd_error_lbl.set_text("")
-        self.pwd_connect_btn.set_sensitive(True)
-        self.pwd_cancel_btn.set_sensitive(True)
-        self.pwd_connect_btn.set_label("󰖩 Connect")
+        self.pwd_prompt.prepare_for_network(target_ssid)
         self.stack.set_visible_child_name("password")
-        GLib.idle_add(self.pwd_entry.grab_focus)
+        GLib.idle_add(self.pwd_prompt.entry.grab_focus)
 
     def cancel_pwd_prompt(self):
-        self.current_target_ssid = ""
-        self.pwd_error_lbl.set_text("")
+        self.pwd_prompt.prepare_for_network("")
         self.stack.set_visible_child_name("networks")
         GLib.idle_add(self.search_entry.grab_focus)
 
-    def toggle_pwd_visibility(self, btn):
-        is_vis = self.pwd_entry.get_visibility()
-        self.pwd_entry.set_visibility(not is_vis)
-        if not is_vis:
-            self.pwd_eye_btn.set_label("󰈉")
-            self.pwd_eye_btn.set_tooltip_text("Hide Password")
-        else:
-            self.pwd_eye_btn.set_label("󰈈")
-            self.pwd_eye_btn.set_tooltip_text("Show Password")
-
     def do_connect_with_password(self):
-        pwd = self.pwd_entry.get_text().strip()
+        pwd = self.pwd_prompt.entry.get_text().strip()
         if not pwd:
-            self.pwd_error_lbl.set_text("Please enter a password.")
-            self.pwd_entry.grab_focus()
+            self.pwd_prompt.set_error("Please enter a password.")
             return
 
-        self.pwd_error_lbl.set_text("")
-        self.pwd_connect_btn.set_sensitive(False)
-        self.pwd_cancel_btn.set_sensitive(False)
-        self.pwd_connect_btn.set_label("󰑐 Connecting...")
-
-        target = self.current_target_ssid
+        self.pwd_prompt.set_loading(True)
+        target = self.pwd_prompt.target_ssid
 
         def worker():
-            cmd = ["nmcli", "dev", "wifi", "connect", target, "password", pwd]
-            res = subprocess.run(cmd, capture_output=True, text=True)
-            GLib.idle_add(self.on_pwd_connect_finish, target, res.returncode == 0, res.stderr or res.stdout)
+            success, msg = connect_with_password(target, pwd)
+            GLib.idle_add(self.on_pwd_connect_finish, target, success, msg)
 
         threading.Thread(target=worker, daemon=True).start()
 
     def on_pwd_connect_finish(self, target, success, msg):
-        self.pwd_connect_btn.set_sensitive(True)
-        self.pwd_cancel_btn.set_sensitive(True)
-        self.pwd_connect_btn.set_label("󰖩 Connect")
-
+        self.pwd_prompt.set_loading(False)
         if success:
-            notify("Connected", f"Successfully connected to {target}.")
+            notify("Network", "Connected", f"Successfully connected to {target}.")
             self.stack.set_visible_child_name("networks")
             self.refresh_state()
         else:
             err_msg = "Connection failed. Please check password."
             if "Secrets were required" in msg or "bad-passphrase" in msg or "password" in msg.lower():
                 err_msg = "Incorrect Wi-Fi password. Please try again."
-            self.pwd_error_lbl.set_text(f"󰅖 {err_msg}")
-            self.pwd_entry.grab_focus()
-            self.pwd_entry.select_region(0, -1)
-
-    def action_portal(self):
-        portal_bin = shutil.which("portal-login") or os.path.expanduser("~/.local/bin/portal-login")
-        subprocess.Popen([portal_bin])
+            self.pwd_prompt.set_error(err_msg)
 
     def action_disconnect(self):
         if self.active_ssid:
-            subprocess.run(["nmcli", "con", "down", "id", self.active_ssid])
-            notify("Disconnected", f"Disconnected from {self.active_ssid}.")
+            disconnect_active(self.active_ssid)
+            notify("Network", "Disconnected", f"Disconnected from {self.active_ssid}.")
             self.refresh_state()
 
     def action_toggle_radio(self):
-        if self.wifi_enabled:
-            subprocess.run(["nmcli", "radio", "wifi", "off"])
-            notify("Wi-Fi Disabled", "Wi-Fi radio turned off.")
-        else:
-            subprocess.run(["nmcli", "radio", "wifi", "on"])
-            notify("Wi-Fi Enabled", "Scanning for networks...")
+        new_state = toggle_wifi_radio(self.wifi_enabled)
+        notify("Network",
+               "Wi-Fi Enabled" if new_state else "Wi-Fi Disabled",
+               "Scanning for networks..." if new_state else "Wi-Fi radio turned off.")
         self.refresh_state(rescan=True)
 
     def on_key_press(self, widget, event):
         keyval = event.keyval
         state = event.state
 
-        # Handle Escape
         if keyval == Gdk.KEY_Escape:
             if self.stack.get_visible_child_name() == "password":
                 self.cancel_pwd_prompt()
@@ -1052,18 +329,16 @@ class RofiStyleNetworkWindow(Gtk.Window):
             self.close_and_exit()
             return True
 
-        # Handle Password view keys
         if self.stack.get_visible_child_name() == "password":
             if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
                 self.do_connect_with_password()
                 return True
             return False
 
-        # Alt + Hotkeys in Networks list
         if state & Gdk.ModifierType.MOD1_MASK:
             if keyval in (Gdk.KEY_p, Gdk.KEY_P):
                 self.close_and_exit()
-                self.action_portal()
+                open_captive_portal()
                 return True
             elif keyval in (Gdk.KEY_d, Gdk.KEY_D):
                 self.action_disconnect()
@@ -1079,7 +354,6 @@ class RofiStyleNetworkWindow(Gtk.Window):
                 self.action_toggle_radio()
                 return True
 
-        # Arrow Up / Down navigation when focused on search entry
         if keyval == Gdk.KEY_Down:
             cur = self.listbox.get_selected_row()
             if cur:
@@ -1103,6 +377,7 @@ class RofiStyleNetworkWindow(Gtk.Window):
         return False
 
 def main():
+    manage_single_instance(PID_FILE)
     win = RofiStyleNetworkWindow()
     win.show_all()
     Gtk.main()

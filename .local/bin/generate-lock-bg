@@ -9,6 +9,26 @@ gi.require_version("GdkPixbuf", "2.0")
 from gi.repository import Gdk, GdkPixbuf
 import cairo, math, os, sys
 
+lib_path = os.path.expanduser("~/.local/lib")
+if lib_path not in sys.path:
+    sys.path.insert(0, lib_path)
+
+try:
+    from dotfiles.themes import get_current_theme, hex_to_rgb_float
+    t = get_current_theme()
+except ImportError:
+    t = {
+        "bg": "#1e1e2e",
+        "crust": "#11111b",
+        "surface0": "#313244",
+        "surface1": "#45475a",
+        "overlay": "#6c7086",
+        "accent": "#cba6f7",
+        "fg": "#cdd6f4",
+        "subtext": "#a6adc8",
+    }
+    hex_to_rgb_float = lambda h: (0.12, 0.12, 0.18)
+
 cache_dir = os.path.expanduser("~/.cache")
 os.makedirs(cache_dir, exist_ok=True)
 out_png = os.path.join(cache_dir, "catppuccin_lockscreen.png")
@@ -64,12 +84,20 @@ card_x = (width - card_w) / 2
 card_y = 520
 card_r = 20
 
-# Card background (#1e1e2e at 90% opacity)
+# Card background & border
+bg_r, bg_g, bg_b = hex_to_rgb_float(t.get("bg", "#1e1e2e"))
+acc_r, acc_g, acc_b = hex_to_rgb_float(t.get("accent", "#cba6f7"))
+s0_r, s0_g, s0_b = hex_to_rgb_float(t.get("surface0", "#313244"))
+s1_r, s1_g, s1_b = hex_to_rgb_float(t.get("surface1", "#45475a"))
+crust_r, crust_g, crust_b = hex_to_rgb_float(t.get("crust", "#11111b"))
+fg_r, fg_g, fg_b = hex_to_rgb_float(t.get("fg", "#cdd6f4"))
+sub_r, sub_g, sub_b = hex_to_rgb_float(t.get("subtext", "#a6adc8"))
+ovr_r, ovr_g, ovr_b = hex_to_rgb_float(t.get("overlay", "#6c7086"))
+
 draw_rounded_rect(cr, card_x, card_y, card_w, card_h, card_r)
-cr.set_source_rgba(0.12, 0.12, 0.18, 0.90)
+cr.set_source_rgba(bg_r, bg_g, bg_b, 0.90)
 cr.fill_preserve()
-# Card border (#cba6f7 Mauve at 50% opacity)
-cr.set_source_rgba(0.79, 0.65, 0.97, 0.50)
+cr.set_source_rgba(acc_r, acc_g, acc_b, 0.50)
 cr.set_line_width(2)
 cr.stroke()
 
@@ -79,16 +107,16 @@ av_cy = card_y + 75
 av_r = 42
 
 cr.arc(av_cx, av_cy, av_r, 0, 2*math.pi)
-cr.set_source_rgba(0.19, 0.20, 0.27, 0.95) # surface0
+cr.set_source_rgba(s0_r, s0_g, s0_b, 0.95)
 cr.fill_preserve()
-cr.set_source_rgba(0.79, 0.65, 0.97, 0.40)
+cr.set_source_rgba(acc_r, acc_g, acc_b, 0.40)
 cr.set_line_width(2)
 cr.stroke()
 
 # Avatar icon
 cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
 cr.set_font_size(34)
-cr.set_source_rgb(0.79, 0.65, 0.97)
+cr.set_source_rgb(acc_r, acc_g, acc_b)
 ext = cr.text_extents("")
 cr.move_to(av_cx - ext.width/2 - ext.x_bearing - 1, av_cy - ext.height/2 - ext.y_bearing)
 cr.show_text("")
@@ -97,7 +125,7 @@ cr.show_text("")
 username = os.getenv("USER", "User")
 cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
 cr.set_font_size(18)
-cr.set_source_rgb(0.80, 0.84, 0.96) # cdd6f4
+cr.set_source_rgb(fg_r, fg_g, fg_b)
 ext_u = cr.text_extents(username)
 cr.move_to(av_cx - ext_u.width/2 - ext_u.x_bearing, av_cy + 70)
 cr.show_text(username)
@@ -105,7 +133,7 @@ cr.show_text(username)
 # Subtitle
 cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
 cr.set_font_size(11)
-cr.set_source_rgb(0.65, 0.68, 0.78) # a6adc8
+cr.set_source_rgb(sub_r, sub_g, sub_b)
 ext_sub = cr.text_extents("Arch Linux")
 cr.move_to(av_cx - ext_sub.width/2 - ext_sub.x_bearing, av_cy + 90)
 cr.show_text("Arch Linux")
@@ -118,16 +146,16 @@ pill_y = card_y + 225
 pill_r = 19
 
 draw_rounded_rect(cr, pill_x, pill_y, pill_w, pill_h, pill_r)
-cr.set_source_rgba(0.07, 0.07, 0.11, 0.95) # crust
+cr.set_source_rgba(crust_r, crust_g, crust_b, 0.95)
 cr.fill_preserve()
-cr.set_source_rgba(0.27, 0.28, 0.35, 0.80) # surface1
+cr.set_source_rgba(s1_r, s1_g, s1_b, 0.80)
 cr.set_line_width(1.5)
 cr.stroke()
 
 # Placeholder text
 cr.select_font_face("JetBrainsMono Nerd Font", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
 cr.set_font_size(11)
-cr.set_source_rgba(0.55, 0.57, 0.65, 0.9)
+cr.set_source_rgba(ovr_r, ovr_g, ovr_b, 0.9)
 cr.move_to(pill_x + 20, pill_y + 24)
 cr.show_text("  Enter Password...")
 

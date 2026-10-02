@@ -7,6 +7,16 @@ import sys
 import time
 import signal
 
+# Add dotfiles library path
+lib_path = os.path.expanduser("~/.local/lib")
+if lib_path not in sys.path:
+    sys.path.insert(0, lib_path)
+
+try:
+    from dotfiles.themes import get_current_theme
+except ImportError:
+    get_current_theme = lambda: {"green": "#a6e3a1", "red": "#f38ba8"}
+
 def sig_handler(signum, frame):
     sys.exit(0)
 
@@ -57,13 +67,17 @@ def main():
     prev_time = time.time()
 
     while True:
+        t = get_current_theme()
+        col_green = t.get("green", "#a6e3a1")
+        col_red = t.get("red", "#f38ba8")
+
         dev = get_default_device()
         now = time.time()
         dt = max(now - prev_time, 0.1)
 
         if not dev:
-            # Lucide wifi-off icon (0xe1af), red icon, subtext "Offline"
-            sys.stdout.write("%{F#f38ba8}%{F-} %{F#a6adc8}Offline%{F-}\n")
+            # Lucide wifi-off icon (0xe1af), theme red icon, native subtext "Offline"
+            sys.stdout.write(f"%{{F{col_red}}}%{{F-}} Offline\n")
             sys.stdout.flush()
             prev_dev = None
             prev_bytes = 0
@@ -86,8 +100,8 @@ def main():
         icon = "" if is_wireless else ""
         speed_str = format_speed(speed)
 
-        # Output with Catppuccin Mocha colors: Green icon (#a6e3a1), Text (#cdd6f4)
-        sys.stdout.write(f"%{{F#a6e3a1}}{icon}%{{F-}} %{{F#cdd6f4}}{speed_str}%{{F-}}\n")
+        # Dynamic theme colored icon, native bar foreground for speed text (perfect contrast)
+        sys.stdout.write(f"%{{F{col_green}}}{icon}%{{F-}} {speed_str}\n")
         sys.stdout.flush()
         time.sleep(2)
 

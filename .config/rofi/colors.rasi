@@ -8,6 +8,8 @@
     surface0:       #313244d0;
     surface1:       #45475a;
     border-col:     #cba6f7;
+    accent:         #cba6f7;
+    accent-contrast:#11111b;
     mauve:          #cba6f7;
     fg:             #cdd6f4;
     subtext:        #a6adc8;

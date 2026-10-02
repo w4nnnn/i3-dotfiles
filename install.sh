@@ -333,6 +333,13 @@ for bin in "$DIR/.local/bin/"*; do
 done
 chmod +x "$HOME/.local/bin/"* 2>/dev/null || true
 
+# .local/lib python packages and modules
+if [ -d "$DIR/.local/lib" ]; then
+    mkdir -p "$HOME/.local/lib"
+    cp -rf "$DIR/.local/lib/"* "$HOME/.local/lib/"
+    echo -e "${GREEN}  ✓ ~/.local/lib (Dotfiles shared Python library)${NC}"
+fi
+
 # Wallpapers
 mkdir -p "$HOME/Pictures/Wallpapers"
 if [ -d "$DIR/Pictures/Wallpapers" ]; then

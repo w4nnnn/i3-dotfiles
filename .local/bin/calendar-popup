@@ -23,102 +23,30 @@ import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
-# Load Theme Preference
-THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
-current_theme_key = "catppuccin"
-if os.path.exists(THEME_PREF_FILE):
-    try:
-        with open(THEME_PREF_FILE) as f:
-            t_key = f.read().strip()
-            if t_key:
-                current_theme_key = t_key
-    except Exception:
-        pass
+# Load Theme from dotfiles library
+lib_path = os.path.expanduser("~/.local/lib")
+if lib_path not in sys.path:
+    sys.path.insert(0, lib_path)
 
-THEMES = {
-    "catppuccin": {
-        "bg_card": "rgba(30, 30, 46, 0.82)",
+try:
+    from dotfiles.themes import get_current_theme
+    t = get_current_theme()
+except ImportError:
+    t = {
+        "bg_rgba": "rgba(30, 30, 46, 0.85)",
         "accent": "#cba6f7",
         "fg": "#cdd6f4",
-        "contrast": "#11111b",
-        "highlight": "#fab387",
-        "btn": "#89b4fa",
-    },
-    "tokyo-night": {
-        "bg_card": "rgba(26, 27, 38, 0.82)",
-        "accent": "#7aa2f7",
-        "fg": "#c0caf5",
-        "contrast": "#16161e",
-        "highlight": "#e0af68",
-        "btn": "#bb9af7",
-    },
-    "nord": {
-        "bg_card": "rgba(46, 52, 64, 0.82)",
-        "accent": "#88c0d0",
-        "fg": "#eceff4",
-        "contrast": "#242933",
-        "highlight": "#ebcb8b",
-        "btn": "#81a1c1",
-    },
-    "oled": {
-        "bg_card": "rgba(9, 9, 11, 0.85)",
-        "accent": "#38bdf8",
-        "fg": "#ffffff",
-        "contrast": "#000000",
-        "highlight": "#f59e0b",
-        "btn": "#34d399",
-    },
-    "light": {
-        "bg_card": "rgba(255, 255, 255, 0.85)",
-        "accent": "#0284c7",
-        "fg": "#0f172a",
-        "contrast": "#ffffff",
-        "highlight": "#f59e0b",
-        "btn": "#6366f1",
-    },
-    "dracula": {
-        "bg_card": "rgba(40, 42, 54, 0.82)",
-        "accent": "#bd93f9",
-        "fg": "#f8f8f2",
-        "contrast": "#282a36",
-        "highlight": "#ffb86c",
-        "btn": "#8be9fd",
-    },
-    "gruvbox": {
-        "bg_card": "rgba(40, 40, 40, 0.82)",
-        "accent": "#fe8019",
-        "fg": "#ebdbb2",
-        "contrast": "#282828",
-        "highlight": "#fabd2f",
-        "btn": "#fabd2f",
-    },
-    "rose-pine": {
-        "bg_card": "rgba(25, 23, 36, 0.82)",
-        "accent": "#ebbcba",
-        "fg": "#e0def4",
-        "contrast": "#191724",
-        "highlight": "#f6c177",
-        "btn": "#c4a7e7",
-    },
-    "everforest": {
-        "bg_card": "rgba(45, 53, 59, 0.82)",
-        "accent": "#a7c080",
-        "fg": "#d3c6aa",
-        "contrast": "#232a2e",
-        "highlight": "#dbbc7f",
-        "btn": "#7fbbb3",
-    },
-    "cyberpunk": {
-        "bg_card": "rgba(18, 12, 31, 0.85)",
-        "accent": "#00f0ff",
-        "fg": "#fdfdfd",
-        "contrast": "#08040d",
-        "highlight": "#ffe600",
-        "btn": "#ff007f",
-    },
-}
+        "accent_contrast": "#11111b",
+        "yellow": "#fab387",
+        "blue": "#89b4fa",
+    }
 
-t = THEMES.get(current_theme_key, THEMES["catppuccin"])
+bg_card = t.get("bg_rgba", "rgba(30, 30, 46, 0.85)")
+accent = t.get("accent", "#cba6f7")
+fg = t.get("fg", "#cdd6f4")
+contrast = t.get("accent_contrast", "#11111b")
+highlight = t.get("yellow", "#fab387")
+btn = t.get("blue", "#89b4fa")
 
 class CatppuccinCalendar(Gtk.Window):
     def __init__(self):
@@ -144,32 +72,32 @@ class CatppuccinCalendar(Gtk.Window):
             background-color: transparent;
         }}
         #calendar-card {{
-            background-color: {t["bg_card"]};
-            border: 2px solid {t["accent"]};
+            background-color: {bg_card};
+            border: 2px solid {accent};
             border-radius: 16px;
             padding: 16px;
         }}
         calendar {{
             background-color: transparent;
-            color: {t["fg"]};
+            color: {fg};
             border: none;
             font-family: 'JetBrainsMono Nerd Font';
             font-size: 10pt;
         }}
         calendar:selected {{
-            background-color: {t["accent"]};
-            color: {t["contrast"]};
+            background-color: {accent};
+            color: {contrast};
             border-radius: 6px;
         }}
         calendar.header {{
-            color: {t["accent"]};
+            color: {accent};
             font-weight: bold;
         }}
         calendar.highlight {{
-            color: {t["highlight"]};
+            color: {highlight};
         }}
         calendar.button {{
-            color: {t["btn"]};
+            color: {btn};
         }}
         """
         provider = Gtk.CssProvider()

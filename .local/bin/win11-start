@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Windows 11 Start Menu (Catppuccin Mocha)
+Windows 11 Start Menu (Catppuccin Mocha / Multi-Theme)
 Direct All-Apps Grid View with Search and Footer
 """
 import sys
@@ -18,200 +18,45 @@ gi.require_version("Pango", "1.0")
 gi.require_version("PangoCairo", "1.0")
 from gi.repository import Gtk, Gdk, Gio, GLib, Pango, PangoCairo
 
+# Add local lib to path
+lib_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib"))
+if lib_dir not in sys.path:
+    sys.path.insert(0, lib_dir)
+user_lib = os.path.expanduser("~/.local/lib")
+if user_lib not in sys.path:
+    sys.path.insert(0, user_lib)
+
+from dotfiles.themes import get_current_theme
+from dotfiles.gtk_utils import (
+    manage_single_instance,
+    cleanup_pid,
+    grab_seat,
+    ungrab_seat,
+    is_click_outside,
+    center_window,
+    setup_transparent_window,
+)
+from dotfiles.apps import get_username, get_desktop_apps, launch_desktop_app
+from dotfiles.styles.win11_start import get_win11_start_css
+
 PID_FILE = "/tmp/win11_start_menu.pid"
-if os.path.exists(PID_FILE):
-    try:
-        with open(PID_FILE, "r") as f:
-            old_pid = int(f.read().strip())
-        os.remove(PID_FILE)
-        os.kill(old_pid, signal.SIGTERM)
-        sys.exit(0)
-    except Exception:
-        pass
 
-with open(PID_FILE, "w") as f:
-    f.write(str(os.getpid()))
-
-# Load Theme Preference
-THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
-current_theme_key = "catppuccin"
-if os.path.exists(THEME_PREF_FILE):
-    try:
-        with open(THEME_PREF_FILE) as f:
-            t_key = f.read().strip()
-            if t_key:
-                current_theme_key = t_key
-    except Exception:
-        pass
-
-THEMES = {
-    "catppuccin": {
-        "bg_card": "rgba(30, 30, 46, 0.82)",
-        "bg_inner": "rgba(24, 24, 37, 0.85)",
-        "bg_footer": "rgba(24, 24, 37, 0.88)",
-        "accent": "#cba6f7",
-        "accent_rgb": (203 / 255.0, 166 / 255.0, 247 / 255.0),
-        "surface0": "#313244",
-        "surface0_rgb": (49 / 255.0, 50 / 255.0, 68 / 255.0),
-        "surface1": "#45475a",
-        "fg": "#cdd6f4",
-        "muted": "#6c7086",
-        "danger": "#f38ba8",
-    },
-    "tokyo-night": {
-        "bg_card": "rgba(26, 27, 38, 0.82)",
-        "bg_inner": "rgba(22, 22, 30, 0.85)",
-        "bg_footer": "rgba(22, 22, 30, 0.88)",
-        "accent": "#7aa2f7",
-        "accent_rgb": (122 / 255.0, 162 / 255.0, 247 / 255.0),
-        "surface0": "#24283b",
-        "surface0_rgb": (36 / 255.0, 40 / 255.0, 59 / 255.0),
-        "surface1": "#2f3549",
-        "fg": "#c0caf5",
-        "muted": "#565f89",
-        "danger": "#f7768e",
-    },
-    "nord": {
-        "bg_card": "rgba(46, 52, 64, 0.82)",
-        "bg_inner": "rgba(36, 41, 51, 0.85)",
-        "bg_footer": "rgba(36, 41, 51, 0.88)",
-        "accent": "#88c0d0",
-        "accent_rgb": (136 / 255.0, 192 / 255.0, 208 / 255.0),
-        "surface0": "#3b4252",
-        "surface0_rgb": (59 / 255.0, 66 / 255.0, 82 / 255.0),
-        "surface1": "#434c5e",
-        "fg": "#eceff4",
-        "muted": "#4c566a",
-        "danger": "#bf616a",
-    },
-    "oled": {
-        "bg_card": "rgba(9, 9, 11, 0.85)",
-        "bg_inner": "rgba(0, 0, 0, 0.85)",
-        "bg_footer": "rgba(0, 0, 0, 0.88)",
-        "accent": "#38bdf8",
-        "accent_rgb": (56 / 255.0, 189 / 255.0, 248 / 255.0),
-        "surface0": "#141418",
-        "surface0_rgb": (20 / 255.0, 20 / 255.0, 24 / 255.0),
-        "surface1": "#222228",
-        "fg": "#ffffff",
-        "muted": "#52525b",
-        "danger": "#f43f5e",
-    },
-    "light": {
-        "bg_card": "rgba(255, 255, 255, 0.85)",
-        "bg_inner": "rgba(241, 245, 249, 0.85)",
-        "bg_footer": "rgba(241, 245, 249, 0.88)",
-        "accent": "#0284c7",
-        "accent_rgb": (2 / 255.0, 132 / 255.0, 199 / 255.0),
-        "surface0": "#e2e8f0",
-        "surface0_rgb": (226 / 255.0, 232 / 255.0, 240 / 255.0),
-        "surface1": "#cbd5e1",
-        "fg": "#0f172a",
-        "muted": "#94a3b8",
-        "danger": "#ef4444",
-    },
-    "dracula": {
-        "bg_card": "rgba(40, 42, 54, 0.82)",
-        "bg_inner": "rgba(33, 34, 44, 0.85)",
-        "bg_footer": "rgba(33, 34, 44, 0.88)",
-        "accent": "#bd93f9",
-        "accent_rgb": (189 / 255.0, 147 / 255.0, 249 / 255.0),
-        "surface0": "#44475a",
-        "surface0_rgb": (68 / 255.0, 71 / 255.0, 90 / 255.0),
-        "surface1": "#6272a4",
-        "fg": "#f8f8f2",
-        "muted": "#6272a4",
-        "danger": "#ff5555",
-    },
-    "gruvbox": {
-        "bg_card": "rgba(40, 40, 40, 0.82)",
-        "bg_inner": "rgba(29, 32, 33, 0.85)",
-        "bg_footer": "rgba(29, 32, 33, 0.88)",
-        "accent": "#fe8019",
-        "accent_rgb": (254 / 255.0, 128 / 255.0, 25 / 255.0),
-        "surface0": "#3c3836",
-        "surface0_rgb": (60 / 255.0, 56 / 255.0, 54 / 255.0),
-        "surface1": "#504945",
-        "fg": "#ebdbb2",
-        "muted": "#928374",
-        "danger": "#fb4934",
-    },
-    "rose-pine": {
-        "bg_card": "rgba(25, 23, 36, 0.82)",
-        "bg_inner": "rgba(17, 15, 23, 0.85)",
-        "bg_footer": "rgba(17, 15, 23, 0.88)",
-        "accent": "#ebbcba",
-        "accent_rgb": (235 / 255.0, 188 / 255.0, 186 / 255.0),
-        "surface0": "#1f1d2e",
-        "surface0_rgb": (31 / 255.0, 29 / 255.0, 46 / 255.0),
-        "surface1": "#26233a",
-        "fg": "#e0def4",
-        "muted": "#6e6a86",
-        "danger": "#eb6f92",
-    },
-    "everforest": {
-        "bg_card": "rgba(45, 53, 59, 0.82)",
-        "bg_inner": "rgba(30, 35, 38, 0.85)",
-        "bg_footer": "rgba(30, 35, 38, 0.88)",
-        "accent": "#a7c080",
-        "accent_rgb": (167 / 255.0, 192 / 255.0, 128 / 255.0),
-        "surface0": "#343f44",
-        "surface0_rgb": (52 / 255.0, 63 / 255.0, 68 / 255.0),
-        "surface1": "#3d484d",
-        "fg": "#d3c6aa",
-        "muted": "#7a8478",
-        "danger": "#e67e80",
-    },
-    "cyberpunk": {
-        "bg_card": "rgba(18, 12, 31, 0.85)",
-        "bg_inner": "rgba(8, 4, 13, 0.85)",
-        "bg_footer": "rgba(8, 4, 13, 0.88)",
-        "accent": "#00f0ff",
-        "accent_rgb": (0 / 255.0, 240 / 255.0, 255 / 255.0),
-        "surface0": "#241538",
-        "surface0_rgb": (36 / 255.0, 21 / 255.0, 56 / 255.0),
-        "surface1": "#382057",
-        "fg": "#fdfdfd",
-        "muted": "#705d8f",
-        "danger": "#ff2a6d",
-    },
-}
-
-t = THEMES.get(current_theme_key, THEMES["catppuccin"])
-
-def get_username():
-    return os.getenv("USER", "User")
-
-def get_desktop_apps():
-    all_apps = Gio.AppInfo.get_all()
-    res = []
-    seen = set()
-    for app in all_apps:
-        if app.should_show():
-            name = app.get_name()
-            if name not in seen:
-                seen.add(name)
-                res.append(app)
-    # Sort alphabetically
-    res.sort(key=lambda a: a.get_name().lower())
-    return res
+def hex_to_rgb(hex_str):
+    hex_str = hex_str.lstrip("#")
+    if len(hex_str) == 6:
+        return tuple(int(hex_str[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+    return (0.8, 0.8, 0.8)
 
 class Win11StartMenu(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.set_title("Windows11StartMenu")
         self.set_role("win11-start-menu")
-        self.set_decorated(False)
-        self.set_skip_taskbar_hint(True)
-        self.set_skip_pager_hint(True)
-        self.set_keep_above(True)
-        self.set_resizable(False)
+        setup_transparent_window(self)
 
-        screen = self.get_screen()
-        visual = screen.get_rgba_visual()
-        if visual:
-            self.set_visual(visual)
-
+        self.theme = get_current_theme()
+        self.accent_rgb = hex_to_rgb(self.theme["accent"])
+        self.surface0_rgb = hex_to_rgb(self.theme["surface0"])
         self.apply_css()
 
         self.all_apps = get_desktop_apps()
@@ -259,7 +104,6 @@ class Win11StartMenu(Gtk.Window):
         self.body_box.set_name("body-container")
         root_card.pack_start(self.body_box, True, True, 0)
 
-        # Build initial all-apps view
         self.build_apps_view(self.all_apps)
 
         # 3. Bottom Footer (User & Power)
@@ -267,13 +111,13 @@ class Win11StartMenu(Gtk.Window):
 
         # Events
         self.connect("key-press-event", self.on_key_press)
-        self.connect("map-event", self.on_map_event)
+        self.connect("map-event", lambda w, e: GLib.idle_add(lambda: grab_seat(self)))
         self.connect("button-press-event", self.on_button_press)
         self.connect("size-allocate", self.on_size_allocate)
-        self.connect("destroy", self.cleanup)
+        self.connect("destroy", lambda w: cleanup_pid(PID_FILE))
 
         self.show_all()
-        self.position_center()
+        center_window(self, 660, 580)
         self.apply_cursor()
 
         GLib.idle_add(self.search_entry.grab_focus)
@@ -298,15 +142,6 @@ class Win11StartMenu(Gtk.Window):
         region = Gdk.cairo_region_create_from_surface(surf)
         widget.shape_combine_region(region)
 
-    def position_center(self):
-        display = Gdk.Display.get_default()
-        monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
-        geom = monitor.get_geometry()
-        w, h = 660, 580
-        pos_x = geom.x + (geom.width - w) // 2
-        pos_y = geom.y + (geom.height - h) // 2
-        self.move(pos_x, pos_y)
-
     def apply_cursor(self):
         display = Gdk.Display.get_default()
         cursor = Gdk.Cursor.new_from_name(display, "default") or Gdk.Cursor.new_from_name(display, "left_ptr")
@@ -314,135 +149,7 @@ class Win11StartMenu(Gtk.Window):
             self.get_window().set_cursor(cursor)
 
     def apply_css(self):
-        css = f"""
-        window {{
-            background-color: transparent;
-        }}
-        #start-window {{
-            background-color: {t["bg_card"]};
-            border: 2px solid {t["accent"]};
-            border-radius: 16px;
-            padding: 0px;
-        }}
-        #search-wrapper {{
-            padding: 20px 26px 16px 26px;
-            border-bottom: 1px solid {t["surface0"]};
-            margin-bottom: 8px;
-        }}
-        #search-bar {{
-            background-color: {t["bg_inner"]};
-            border: 1px solid {t["surface0"]};
-            border-radius: 8px;
-            padding: 6px 14px;
-            outline: none;
-            box-shadow: none;
-        }}
-        #search-bar:focus-within {{
-            border: 1px solid {t["surface1"]};
-        }}
-        #search-icon {{
-            color: {t["accent"]};
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
-        }}
-        entry,
-        #search-entry,
-        #search-entry:focus {{
-            background-color: transparent;
-            border: none;
-            outline: none;
-            box-shadow: none;
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10.5pt;
-        }}
-        .close-search-btn {{
-            background-color: transparent;
-            border: none;
-            color: {t["muted"]};
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 12pt;
-            padding: 0;
-            min-width: 24px;
-            min-height: 24px;
-            border-radius: 6px;
-        }}
-        .close-search-btn:hover {{
-            color: {t["danger"]};
-            background-color: {t["surface0"]};
-        }}
-        #body-container {{
-            padding: 0px 24px 8px 24px;
-        }}
-        .app-tile {{
-            background-color: transparent;
-            border: 1px solid transparent;
-            border-radius: 10px;
-            padding: 10px 4px;
-        }}
-        .app-tile:hover {{
-            background-color: {t["surface0"]};
-            border-color: {t["surface1"]};
-        }}
-        .app-tile-label {{
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.5pt;
-            margin-top: 5px;
-        }}
-        .no-results-lbl {{
-            color: {t["muted"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10pt;
-        }}
-        #footer-bar {{
-            background-color: {t["bg_footer"]};
-            border-top: 1px solid {t["surface0"]};
-            border-radius: 0px 0px 16px 16px;
-            padding: 12px 28px;
-        }}
-        .avatar-circle {{
-            background-color: {t["surface0"]};
-            border-radius: 50%;
-            min-width: 32px;
-            min-height: 32px;
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
-            color: {t["accent"]};
-        }}
-        .user-name {{
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 9.5pt;
-            font-weight: bold;
-            margin-left: 8px;
-        }}
-        .footer-power-btn {{
-            background-color: transparent;
-            border: none;
-            border-radius: 8px;
-            min-width: 34px;
-            min-height: 34px;
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 14pt;
-            color: {t["danger"]};
-            padding: 0;
-        }}
-        .footer-power-btn:hover {{
-            background-color: {t["surface0"]};
-        }}
-        scrollbar trough {{
-            background-color: transparent;
-        }}
-        scrollbar slider {{
-            background-color: {t["surface0"]};
-            border-radius: 6px;
-            min-width: 4px;
-        }}
-        scrollbar slider:hover {{
-            background-color: {t["accent"]};
-        }}
-        """
+        css = get_win11_start_css(self.theme)
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
@@ -494,7 +201,6 @@ class Win11StartMenu(Gtk.Window):
         box.set_halign(Gtk.Align.CENTER)
         box.set_valign(Gtk.Align.CENTER)
 
-        # Icon
         icon = app.get_icon()
         if icon:
             img = Gtk.Image.new_from_gicon(icon, Gtk.IconSize.DIALOG)
@@ -504,7 +210,6 @@ class Win11StartMenu(Gtk.Window):
             img.set_pixel_size(38)
         box.pack_start(img, False, False, 0)
 
-        # Name label
         lbl = Gtk.Label(label=app.get_name())
         lbl.get_style_context().add_class("app-tile-label")
         lbl.set_ellipsize(Pango.EllipsizeMode.END)
@@ -512,14 +217,13 @@ class Win11StartMenu(Gtk.Window):
         box.pack_start(lbl, False, False, 0)
 
         btn.add(box)
-        btn.connect("clicked", lambda w, a=app: self.launch_app(a))
+        btn.connect("clicked", lambda w, a=app: (self.close_and_exit(), launch_desktop_app(a)))
         return btn
 
     def create_footer(self):
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         footer.set_name("footer-bar")
 
-        # User Avatar (Drawn with Cairo for pixel-perfect circular centering)
         self.avatar_area = Gtk.DrawingArea()
         self.avatar_area.set_size_request(32, 32)
         self.avatar_area.set_valign(Gtk.Align.CENTER)
@@ -527,7 +231,6 @@ class Win11StartMenu(Gtk.Window):
         self.avatar_area.connect("draw", self.on_avatar_draw)
         footer.pack_start(self.avatar_area, False, False, 0)
 
-        # Username
         user_lbl = Gtk.Label(label=get_username(), xalign=0)
         user_lbl.get_style_context().add_class("user-name")
         footer.pack_start(user_lbl, False, False, 0)
@@ -535,7 +238,6 @@ class Win11StartMenu(Gtk.Window):
         dummy = Gtk.Box()
         footer.pack_start(dummy, True, True, 0)
 
-        # Power button (Lucide power)
         pwr_btn = Gtk.Button(label="")
         pwr_btn.get_style_context().add_class("footer-power-btn")
         if pwr_btn.get_child():
@@ -552,13 +254,10 @@ class Win11StartMenu(Gtk.Window):
         h = widget.get_allocated_height()
         radius = min(w, h) / 2.0
 
-        # Draw circle background
         cr.arc(w / 2.0, h / 2.0, radius, 0, 2 * math.pi)
-        sr, sg, sb = t.get("surface0_rgb", (49 / 255.0, 50 / 255.0, 68 / 255.0))
-        cr.set_source_rgb(sr, sg, sb)
+        cr.set_source_rgb(*self.surface0_rgb)
         cr.fill()
 
-        # Draw Lucide user icon centered using ink bounds
         layout = self.create_pango_layout("")
         desc = Pango.FontDescription("lucide 13")
         layout.set_font_description(desc)
@@ -568,8 +267,7 @@ class Win11StartMenu(Gtk.Window):
         y = round((h - ink.height) / 2.0 - ink.y)
 
         cr.move_to(x, y)
-        ar, ag, ab = t.get("accent_rgb", (203 / 255.0, 166 / 255.0, 247 / 255.0))
-        cr.set_source_rgb(ar, ag, ab)
+        cr.set_source_rgb(*self.accent_rgb)
         PangoCairo.show_layout(cr, layout)
 
     def on_search_changed(self, entry):
@@ -583,17 +281,8 @@ class Win11StartMenu(Gtk.Window):
 
     def on_search_activate(self, entry):
         if self.filtered_apps:
-            self.launch_app(self.filtered_apps[0])
-
-    def launch_app(self, app):
-        self.close_and_exit()
-        try:
-            app.launch([], None)
-        except Exception:
-            cmd = app.get_commandline()
-            if cmd:
-                clean_cmd = [part for part in cmd.split() if not part.startswith("%")]
-                subprocess.Popen(clean_cmd)
+            self.close_and_exit()
+            launch_desktop_app(self.filtered_apps[0])
 
     def on_key_press(self, widget, event):
         if event.keyval == Gdk.KEY_Escape:
@@ -601,48 +290,22 @@ class Win11StartMenu(Gtk.Window):
             return True
         return False
 
-    def on_map_event(self, widget, event):
-        GLib.idle_add(self.grab_seat)
-
-    def grab_seat(self):
-        try:
-            seat = Gdk.Display.get_default().get_default_seat()
-            if seat and self.get_window():
-                cursor = self.get_window().get_cursor()
-                seat.grab(self.get_window(), Gdk.SeatCapabilities.ALL, True, cursor, None, None)
-        except Exception:
-            pass
-        return False
-
     def on_button_press(self, widget, event):
-        if not self.get_window():
-            return False
-        success, ox, oy = self.get_window().get_origin()
-        w = self.get_window().get_width()
-        h = self.get_window().get_height()
-        inside = (ox <= event.x_root <= ox + w) and (oy <= event.y_root <= oy + h)
-        if not inside:
+        if is_click_outside(self, event):
             self.close_and_exit()
             return True
         return False
 
     def close_and_exit(self):
-        try:
-            seat = Gdk.Display.get_default().get_default_seat()
-            if seat:
-                seat.ungrab()
-        except Exception:
-            pass
+        ungrab_seat()
+        cleanup_pid(PID_FILE)
         self.destroy()
         Gtk.main_quit()
 
-    def cleanup(self, *args):
-        if os.path.exists(PID_FILE):
-            try:
-                os.remove(PID_FILE)
-            except Exception:
-                pass
-
-if __name__ == "__main__":
+def main():
+    manage_single_instance(PID_FILE)
     win = Win11StartMenu()
     Gtk.main()
+
+if __name__ == "__main__":
+    main()

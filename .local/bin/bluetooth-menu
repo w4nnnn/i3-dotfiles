@@ -9,7 +9,6 @@ import sys
 import os
 import signal
 import subprocess
-import shutil
 import html
 import threading
 import time
@@ -21,192 +20,46 @@ gi.require_version("Pango", "1.0")
 gi.require_version("Gio", "2.0")
 from gi.repository import Gtk, Gdk, GLib, Pango, Gio
 
+# Add local lib to path
+lib_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../lib"))
+if lib_dir not in sys.path:
+    sys.path.insert(0, lib_dir)
+user_lib = os.path.expanduser("~/.local/lib")
+if user_lib not in sys.path:
+    sys.path.insert(0, user_lib)
+
+from dotfiles.themes import get_current_theme
+from dotfiles.gtk_utils import (
+    manage_single_instance,
+    cleanup_pid,
+    grab_seat,
+    ungrab_seat,
+    is_click_outside,
+    center_window,
+    setup_transparent_window,
+    notify,
+)
+from dotfiles.bluetooth import (
+    get_device_icon,
+    fetch_bluetooth_state,
+    connect_device,
+    pair_device,
+    disconnect_device,
+    set_adapter_discovery,
+    set_adapter_power,
+)
+from dotfiles.styles.bluetooth import get_bluetooth_css
+
 PID_FILE = "/tmp/bluetooth_menu_gtk.pid"
-if os.path.exists(PID_FILE):
-    try:
-        with open(PID_FILE, "r") as f:
-            old_pid = int(f.read().strip())
-        os.remove(PID_FILE)
-        os.kill(old_pid, signal.SIGTERM)
-        sys.exit(0)
-    except Exception:
-        pass
-
-with open(PID_FILE, "w") as f:
-    f.write(str(os.getpid()))
-
-# Load Global Theme Preference
-THEME_PREF_FILE = os.path.expanduser("~/.config/control-center-theme")
-current_theme_key = "catppuccin"
-if os.path.exists(THEME_PREF_FILE):
-    try:
-        with open(THEME_PREF_FILE) as f:
-            t_key = f.read().strip()
-            if t_key:
-                current_theme_key = t_key
-    except Exception:
-        pass
-
-THEMES = {
-    "catppuccin": {
-        "bg": "rgba(30, 30, 46, 0.85)",
-        "surface0": "rgba(49, 50, 68, 0.85)",
-        "surface1": "#45475a",
-        "accent": "#cba6f7",
-        "fg": "#cdd6f4",
-        "subtext": "#a6adc8",
-        "overlay": "#6c7086",
-        "blue": "#89b4fa",
-        "red": "#f38ba8",
-        "green": "#a6e3a1",
-        "yellow": "#f9e2af",
-    },
-    "tokyo-night": {
-        "bg": "rgba(26, 27, 38, 0.85)",
-        "surface0": "rgba(36, 40, 59, 0.85)",
-        "surface1": "#2f3549",
-        "accent": "#7aa2f7",
-        "fg": "#c0caf5",
-        "subtext": "#a9b1d6",
-        "overlay": "#565f89",
-        "blue": "#7aa2f7",
-        "red": "#f7768e",
-        "green": "#9ece6a",
-        "yellow": "#e0af68",
-    },
-    "nord": {
-        "bg": "rgba(46, 52, 64, 0.85)",
-        "surface0": "rgba(59, 66, 82, 0.85)",
-        "surface1": "#434c5e",
-        "accent": "#88c0d0",
-        "fg": "#eceff4",
-        "subtext": "#d8dee9",
-        "overlay": "#4c566a",
-        "blue": "#81a1c1",
-        "red": "#bf616a",
-        "green": "#a3be8c",
-        "yellow": "#ebcb8b",
-    },
-    "oled": {
-        "bg": "rgba(9, 9, 11, 0.88)",
-        "surface0": "rgba(20, 20, 24, 0.88)",
-        "surface1": "#222228",
-        "accent": "#38bdf8",
-        "fg": "#ffffff",
-        "subtext": "#a1a1aa",
-        "overlay": "#52525b",
-        "blue": "#38bdf8",
-        "red": "#f43f5e",
-        "green": "#10b981",
-        "yellow": "#f59e0b",
-    },
-    "light": {
-        "bg": "rgba(255, 255, 255, 0.88)",
-        "surface0": "rgba(241, 245, 249, 0.88)",
-        "surface1": "#cbd5e1",
-        "accent": "#0284c7",
-        "fg": "#0f172a",
-        "subtext": "#475569",
-        "overlay": "#94a3b8",
-        "blue": "#0284c7",
-        "red": "#ef4444",
-        "green": "#10b981",
-        "yellow": "#f59e0b",
-    },
-    "dracula": {
-        "bg": "rgba(40, 42, 54, 0.85)",
-        "surface0": "rgba(68, 71, 90, 0.85)",
-        "surface1": "#6272a4",
-        "accent": "#bd93f9",
-        "fg": "#f8f8f2",
-        "subtext": "#bfbfbf",
-        "overlay": "#6272a4",
-        "blue": "#8be9fd",
-        "red": "#ff5555",
-        "green": "#50fa7b",
-        "yellow": "#f1fa8c",
-    },
-    "gruvbox": {
-        "bg": "rgba(40, 40, 40, 0.85)",
-        "surface0": "rgba(60, 56, 54, 0.85)",
-        "surface1": "#504945",
-        "accent": "#fe8019",
-        "fg": "#ebdbb2",
-        "subtext": "#d5c4a1",
-        "overlay": "#928374",
-        "blue": "#83a598",
-        "red": "#fb4934",
-        "green": "#b8bb26",
-        "yellow": "#fabd2f",
-    },
-    "rose-pine": {
-        "bg": "rgba(25, 23, 36, 0.85)",
-        "surface0": "rgba(31, 29, 46, 0.85)",
-        "surface1": "#26233a",
-        "accent": "#ebbcba",
-        "fg": "#e0def4",
-        "subtext": "#908caa",
-        "overlay": "#6e6a86",
-        "blue": "#c4a7e7",
-        "red": "#eb6f92",
-        "green": "#9ccfd8",
-        "yellow": "#f6c177",
-    },
-    "everforest": {
-        "bg": "rgba(45, 53, 59, 0.85)",
-        "surface0": "rgba(52, 63, 68, 0.85)",
-        "surface1": "#3d484d",
-        "accent": "#a7c080",
-        "fg": "#d3c6aa",
-        "subtext": "#9da9a0",
-        "overlay": "#7a8478",
-        "blue": "#7fbbb3",
-        "red": "#e67e80",
-        "green": "#a7c080",
-        "yellow": "#dbbc7f",
-    },
-    "cyberpunk": {
-        "bg": "rgba(18, 12, 31, 0.88)",
-        "surface0": "rgba(36, 21, 56, 0.85)",
-        "surface1": "#382057",
-        "accent": "#00f0ff",
-        "fg": "#fdfdfd",
-        "subtext": "#f38ba8",
-        "overlay": "#705d8f",
-        "blue": "#00e5ff",
-        "red": "#ff2a6d",
-        "green": "#05ffa1",
-        "yellow": "#ffe600",
-    },
-}
-
-t = THEMES.get(current_theme_key, THEMES["catppuccin"])
-
-def notify(title, message, icon="bluetooth"):
-    subprocess.Popen([
-        "dunstify", "-a", "Bluetooth",
-        "-h", "string:x-dunst-stack-tag:bluetooth",
-        "-i", icon,
-        "-t", "2000",
-        title, message
-    ], stderr=subprocess.DEVNULL)
 
 class BluetoothManagerWindow(Gtk.Window):
     def __init__(self):
         super().__init__(type=Gtk.WindowType.TOPLEVEL)
         self.set_title("CatppuccinBluetoothMenu")
         self.set_role("bluetooth-menu-popup")
-        self.set_decorated(False)
-        self.set_skip_taskbar_hint(True)
-        self.set_skip_pager_hint(True)
-        self.set_keep_above(True)
-        self.set_resizable(False)
+        setup_transparent_window(self)
 
-        screen = self.get_screen()
-        visual = screen.get_rgba_visual()
-        if visual:
-            self.set_visual(visual)
-
+        self.theme = get_current_theme()
         self.apply_css()
 
         self.all_devices = []
@@ -218,12 +71,12 @@ class BluetoothManagerWindow(Gtk.Window):
 
         self._init_dbus()
         self._build_ui()
-        self.position_window()
+        center_window(self, 660, 480)
 
         self.connect("key-press-event", self.on_key_press)
         self.connect("button-press-event", self.on_button_press)
-        self.connect("map-event", self.on_map_event)
-        self.connect("destroy", lambda w: self.cleanup())
+        self.connect("map-event", lambda w, e: GLib.idle_add(lambda: grab_seat(self)))
+        self.connect("destroy", lambda w: cleanup_pid(PID_FILE))
 
         self.refresh_state(rescan=True)
 
@@ -233,27 +86,8 @@ class BluetoothManagerWindow(Gtk.Window):
         except Exception:
             self.bus = None
 
-    def on_map_event(self, widget, event):
-        GLib.idle_add(self.grab_seat)
-
-    def grab_seat(self):
-        try:
-            seat = Gdk.Display.get_default().get_default_seat()
-            if seat and self.get_window():
-                cursor = self.get_window().get_cursor()
-                seat.grab(self.get_window(), Gdk.SeatCapabilities.ALL, True, cursor, None, None)
-        except Exception:
-            pass
-        return False
-
     def on_button_press(self, widget, event):
-        if not self.get_window():
-            return False
-        success, ox, oy = self.get_window().get_origin()
-        w = self.get_window().get_width()
-        h = self.get_window().get_height()
-        inside = (ox <= event.x_root <= ox + w) and (oy <= event.y_root <= oy + h)
-        if not inside:
+        if is_click_outside(self, event):
             self.close_and_exit()
             return True
         return False
@@ -261,192 +95,13 @@ class BluetoothManagerWindow(Gtk.Window):
     def close_and_exit(self):
         if self.is_scanning:
             self.stop_scan()
-        try:
-            seat = Gdk.Display.get_default().get_default_seat()
-            if seat:
-                seat.ungrab()
-        except Exception:
-            pass
-        self.cleanup()
+        ungrab_seat()
+        cleanup_pid(PID_FILE)
         self.destroy()
         Gtk.main_quit()
 
-    def cleanup(self):
-        if os.path.exists(PID_FILE):
-            try:
-                os.remove(PID_FILE)
-            except Exception:
-                pass
-
     def apply_css(self):
-        css = f"""
-        window {{
-            background-color: transparent;
-        }}
-        #main-card {{
-            background-color: {t["bg"]};
-            border: 2px solid {t["accent"]};
-            border-radius: 16px;
-            padding: 20px;
-        }}
-        #inputbar {{
-            background-color: {t["surface0"]};
-            border-radius: 12px;
-            padding: 8px 14px;
-        }}
-        #prompt-icon {{
-            color: {t["accent"]};
-            font-family: 'lucide', 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
-            margin-right: 8px;
-        }}
-        entry,
-        #search-entry,
-        #search-entry:focus {{
-            background-color: transparent;
-            border: none;
-            outline: none;
-            box-shadow: none;
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10.5pt;
-        }}
-        #listbox {{
-            background-color: transparent;
-            padding: 4px 0px;
-        }}
-        .element-row {{
-            background-color: transparent;
-            border: 1.5px solid transparent;
-            border-radius: 10px;
-            padding: 8px 12px;
-            margin-bottom: 3px;
-        }}
-        .element-row:hover,
-        .element-row:selected,
-        .element-row.selected {{
-            background-color: {t["surface0"]};
-            border-color: {t["accent"]};
-        }}
-        .element-row.connected {{
-            background-color: rgba(49, 50, 68, 0.40);
-        }}
-        .element-icon {{
-            color: {t["accent"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 13pt;
-            margin-right: 6px;
-        }}
-        .element-text {{
-            color: {t["fg"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 10pt;
-        }}
-        .element-sub {{
-            color: {t["subtext"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-        }}
-        .badge-connected {{
-            background-color: rgba(166, 227, 161, 0.20);
-            color: {t["green"]};
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-            font-weight: bold;
-        }}
-        .badge-paired {{
-            background-color: rgba(203, 166, 247, 0.18);
-            color: {t["accent"]};
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8pt;
-            font-weight: bold;
-        }}
-        .badge-battery {{
-            color: {t["green"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.5pt;
-            font-weight: bold;
-        }}
-        .badge-rssi {{
-            color: {t["subtext"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.5pt;
-        }}
-        #footer-bar {{
-            background-color: {t["surface0"]};
-            border-radius: 10px;
-            padding: 6px 10px;
-            margin-top: 10px;
-        }}
-        button.footer-action-btn,
-        .footer-action-btn {{
-            background-color: transparent;
-            border: none;
-            border-color: transparent;
-            outline: none;
-            box-shadow: none;
-            border-radius: 8px;
-            padding: 5px 10px;
-            color: {t["subtext"]};
-            font-family: 'JetBrainsMono Nerd Font';
-            font-size: 8.8pt;
-            font-weight: 500;
-        }}
-        button.footer-action-btn:focus,
-        button.footer-action-btn:hover,
-        .footer-action-btn:focus,
-        .footer-action-btn:hover {{
-            background-color: {t["surface1"]};
-            color: {t["accent"]};
-        }}
-        .footer-action-btn.danger {{
-            color: {t["red"]};
-        }}
-        button.footer-action-btn.danger:hover,
-        .footer-action-btn.danger:hover {{
-            background-color: {t["red"]};
-            color: #11111b;
-        }}
-        .footer-action-btn.rescan {{
-            color: {t["accent"]};
-        }}
-        button.footer-action-btn.rescan:hover,
-        .footer-action-btn.rescan:hover {{
-            background-color: {t["accent"]};
-            color: #11111b;
-        }}
-        .footer-action-btn.terminal {{
-            color: {t["yellow"]};
-        }}
-        button.footer-action-btn.terminal:hover,
-        .footer-action-btn.terminal:hover {{
-            background-color: {t["yellow"]};
-            color: #11111b;
-        }}
-        .footer-action-btn.radio {{
-            color: {t["green"]};
-        }}
-        button.footer-action-btn.radio:hover,
-        .footer-action-btn.radio:hover {{
-            background-color: {t["green"]};
-            color: #11111b;
-        }}
-        scrollbar trough {{
-            background-color: transparent;
-        }}
-        scrollbar slider {{
-            background-color: {t["surface0"]};
-            border-radius: 6px;
-            min-width: 4px;
-        }}
-        scrollbar slider:hover {{
-            background-color: {t["accent"]};
-        }}
-        """
+        css = get_bluetooth_css(self.theme)
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
@@ -472,7 +127,7 @@ class BluetoothManagerWindow(Gtk.Window):
         self.search_entry = Gtk.Entry()
         self.search_entry.set_name("search-entry")
         self.search_entry.set_placeholder_text("Filter Bluetooth devices...")
-        self.search_entry.connect("changed", self.on_search_changed)
+        self.search_entry.connect("changed", lambda e: self.render_device_list(self.all_devices))
         inputbar.pack_start(self.search_entry, True, True, 0)
 
         main_box.pack_start(inputbar, False, False, 0)
@@ -525,108 +180,9 @@ class BluetoothManagerWindow(Gtk.Window):
 
         main_box.pack_start(footer, False, False, 0)
 
-    def position_window(self):
-        display = Gdk.Display.get_default()
-        monitor = display.get_primary_monitor() or display.get_monitor_at_point(0, 0)
-        geom = monitor.get_geometry()
-
-        win_w, win_h = 660, 480
-        x = geom.x + (geom.width - win_w) // 2
-        y = geom.y + (geom.height - win_h) // 2
-        self.move(x, y)
-
-    def get_device_icon(self, icon_str, name):
-        name_lower = name.lower()
-        if any(w in name_lower for w in ["headphone", "headset", "earphone", "buds", "airpod", "wh-", "wf-"]):
-            return "󰋋"
-        if any(w in name_lower for w in ["speaker", "soundbar", "audio", "jbl", "bose", "echo"]):
-            return "󰓃"
-        if any(w in name_lower for w in ["mouse", "trackpad"]):
-            return "󰍽"
-        if any(w in name_lower for w in ["keyboard", "keychron"]):
-            return "󰌌"
-        if any(w in name_lower for w in ["gamepad", "controller", "xbox", "ps4", "ps5", "dualshock"]):
-            return "󰊴"
-        if any(w in name_lower for w in ["phone", "galaxy", "iphone", "pixel", "redmi", "xiaomi"]):
-            return "󰏲"
-        if any(w in name_lower for w in ["watch", "band", "fit"]):
-            return "󰂵"
-        if any(w in name_lower for w in ["tv", "smart tv", "bravia", "roku", "basemen"]):
-            return "󰍹"
-        if any(w in name_lower for w in ["pc", "laptop", "desktop", "macbook"]):
-            return "󰌢"
-
-        if "audio" in icon_str or "headset" in icon_str:
-            return "󰋋"
-        if "input-mouse" in icon_str:
-            return "󰍽"
-        if "input-keyboard" in icon_str:
-            return "󰌌"
-        if "input-gaming" in icon_str:
-            return "󰊴"
-        if "phone" in icon_str:
-            return "󰏲"
-        if "computer" in icon_str:
-            return "󰌢"
-
-        return "󰂯"
-
     def refresh_state(self, rescan=False):
         def worker():
-            powered = False
-            adapter_path = None
-            devices = []
-
-            if self.bus:
-                try:
-                    om = Gio.DBusProxy.new_sync(
-                        self.bus, Gio.DBusProxyFlags.NONE, None,
-                        "org.bluez", "/", "org.freedesktop.DBus.ObjectManager", None
-                    )
-                    managed = om.GetManagedObjects()
-
-                    for path, ifaces in managed.items():
-                        if "org.bluez.Adapter1" in ifaces:
-                            adapter_path = path
-                            powered = bool(ifaces["org.bluez.Adapter1"].get("Powered", False))
-                            break
-
-                    for path, ifaces in managed.items():
-                        if "org.bluez.Device1" in ifaces:
-                            d = ifaces["org.bluez.Device1"]
-                            bat = ifaces.get("org.bluez.Battery1", {}).get("Percentage", None)
-                            name = d.get("Alias", d.get("Name", d.get("Address", "Unknown")))
-                            addr = d.get("Address", "")
-                            paired = bool(d.get("Paired", False))
-                            connected = bool(d.get("Connected", False))
-                            trusted = bool(d.get("Trusted", False))
-                            icon_name = d.get("Icon", "bluetooth")
-                            rssi = d.get("RSSI", 0)
-
-                            devices.append({
-                                "path": path,
-                                "name": name,
-                                "address": addr,
-                                "paired": paired,
-                                "connected": connected,
-                                "trusted": trusted,
-                                "icon": icon_name,
-                                "rssi": rssi,
-                                "battery": bat,
-                            })
-                except Exception:
-                    pass
-
-            if not adapter_path:
-                try:
-                    out = subprocess.check_output(["bluetoothctl", "show"], stderr=subprocess.DEVNULL, text=True)
-                    powered = "Powered: yes" in out
-                except Exception:
-                    powered = False
-
-            # Sort devices: 1. Connected, 2. Paired, 3. Discovered by RSSI
-            devices.sort(key=lambda x: (not x["connected"], not x["paired"], -x["rssi"]))
-
+            powered, adapter_path, devices = fetch_bluetooth_state(self.bus)
             GLib.idle_add(self.update_ui_state, powered, adapter_path, devices, rescan)
 
         threading.Thread(target=worker, daemon=True).start()
@@ -639,11 +195,13 @@ class BluetoothManagerWindow(Gtk.Window):
         if self.bt_enabled:
             self.radio_btn.set_label("󰂲 BT Off")
             self.radio_btn.set_tooltip_text("Turn Bluetooth Off")
+            self.rescan_btn.set_sensitive(True)
             if rescan and not self.is_scanning:
                 self.start_scan()
         else:
             self.radio_btn.set_label("󰂯 BT On")
             self.radio_btn.set_tooltip_text("Turn Bluetooth On")
+            self.rescan_btn.set_sensitive(False)
             if self.is_scanning:
                 self.stop_scan()
 
@@ -657,10 +215,7 @@ class BluetoothManagerWindow(Gtk.Window):
             self.listbox.remove(child)
 
         query = self.search_entry.get_text().strip().lower()
-        if query:
-            filtered = [d for d in devices if query in d["name"].lower() or query in d["address"].lower()]
-        else:
-            filtered = devices
+        filtered = [d for d in devices if query in d["name"].lower() or query in d["address"].lower()] if query else devices
 
         if not filtered:
             row = Gtk.ListBoxRow()
@@ -678,7 +233,7 @@ class BluetoothManagerWindow(Gtk.Window):
             self.listbox.show_all()
             return
 
-        for idx, dev in enumerate(filtered):
+        for dev in filtered:
             row = Gtk.ListBoxRow()
             row.dev_data = dev
 
@@ -688,7 +243,7 @@ class BluetoothManagerWindow(Gtk.Window):
                 box.get_style_context().add_class("connected")
 
             # Device Type Icon
-            icon_char = self.get_device_icon(dev["icon"], dev["name"])
+            icon_char = get_device_icon(dev["icon"], dev["name"])
             icon_lbl = Gtk.Label(label=icon_char)
             icon_lbl.get_style_context().add_class("element-icon")
             box.pack_start(icon_lbl, False, False, 0)
@@ -734,100 +289,52 @@ class BluetoothManagerWindow(Gtk.Window):
         if first_row:
             self.listbox.select_row(first_row)
 
-    def on_search_changed(self, entry):
-        self.render_device_list(self.all_devices)
-
     def on_row_activated(self, listbox, row):
         if not hasattr(row, "dev_data"):
             return
         dev = row.dev_data
-        target_name = dev["name"]
-        target_addr = dev["address"]
-        target_path = dev["path"]
 
         if dev["connected"]:
-            # Prompt or Disconnect
             self.action_disconnect_device(dev)
         elif dev["paired"]:
-            # Connect
             self.action_connect_device(dev)
         else:
-            # Pair & Connect
             self.action_pair_device(dev)
 
     def action_connect_device(self, dev):
-        notify("Connecting...", f"Connecting to {dev['name']} ({dev['address']})...", icon="bluetooth-active")
+        notify("Bluetooth", "Connecting...", f"Connecting to {dev['name']} ({dev['address']})...", icon="bluetooth-active")
 
         def worker():
-            success = False
-            if self.bus and dev.get("path"):
-                try:
-                    d_proxy = Gio.DBusProxy.new_sync(
-                        self.bus, Gio.DBusProxyFlags.NONE, None,
-                        "org.bluez", dev["path"], "org.bluez.Device1", None
-                    )
-                    d_proxy.Connect()
-                    success = True
-                except Exception:
-                    pass
-
-            if not success:
-                res = subprocess.run(["bluetoothctl", "connect", dev["address"]], capture_output=True, text=True)
-                success = "Connection successful" in res.stdout or res.returncode == 0
-
+            success = connect_device(self.bus, dev)
             if success:
-                notify("Connected", f"Connected to {dev['name']}.", icon="bluetooth")
+                notify("Bluetooth", "Connected", f"Connected to {dev['name']}.", icon="bluetooth")
             else:
-                notify("Failed", f"Could not connect to {dev['name']}.", icon="dialog-error")
-
+                notify("Bluetooth", "Failed", f"Could not connect to {dev['name']}.", icon="dialog-error")
             time.sleep(0.5)
             self.refresh_state()
 
         threading.Thread(target=worker, daemon=True).start()
 
     def action_pair_device(self, dev):
-        notify("Pairing...", f"Pairing with {dev['name']}...", icon="bluetooth-active")
+        notify("Bluetooth", "Pairing...", f"Pairing with {dev['name']}...", icon="bluetooth-active")
 
         def worker():
-            success = False
-            # Trust and pair via bluetoothctl for robust PIN/passkey handling
-            res_trust = subprocess.run(["bluetoothctl", "trust", dev["address"]], capture_output=True)
-            res_pair = subprocess.run(["bluetoothctl", "pair", dev["address"]], capture_output=True, text=True)
-            res_conn = subprocess.run(["bluetoothctl", "connect", dev["address"]], capture_output=True, text=True)
-
-            if "successful" in res_conn.stdout or "Connection successful" in res_pair.stdout or res_conn.returncode == 0:
-                success = True
-
+            success = pair_device(dev)
             if success:
-                notify("Paired & Connected", f"Successfully connected to {dev['name']}.", icon="bluetooth")
+                notify("Bluetooth", "Paired & Connected", f"Successfully connected to {dev['name']}.", icon="bluetooth")
             else:
-                notify("Pairing Failed", f"Could not pair with {dev['name']}.", icon="dialog-error")
-
+                notify("Bluetooth", "Pairing Failed", f"Could not pair with {dev['name']}.", icon="dialog-error")
             time.sleep(0.5)
             self.refresh_state()
 
         threading.Thread(target=worker, daemon=True).start()
 
     def action_disconnect_device(self, dev):
-        notify("Disconnecting...", f"Disconnecting {dev['name']}...", icon="bluetooth")
+        notify("Bluetooth", "Disconnecting...", f"Disconnecting {dev['name']}...", icon="bluetooth")
 
         def worker():
-            success = False
-            if self.bus and dev.get("path"):
-                try:
-                    d_proxy = Gio.DBusProxy.new_sync(
-                        self.bus, Gio.DBusProxyFlags.NONE, None,
-                        "org.bluez", dev["path"], "org.bluez.Device1", None
-                    )
-                    d_proxy.Disconnect()
-                    success = True
-                except Exception:
-                    pass
-
-            if not success:
-                subprocess.run(["bluetoothctl", "disconnect", dev["address"]], stderr=subprocess.DEVNULL)
-
-            notify("Disconnected", f"Disconnected from {dev['name']}.", icon="bluetooth")
+            disconnect_device(self.bus, dev)
+            notify("Bluetooth", "Disconnected", f"Disconnected from {dev['name']}.", icon="bluetooth")
             time.sleep(0.3)
             self.refresh_state()
 
@@ -838,7 +345,6 @@ class BluetoothManagerWindow(Gtk.Window):
         if cur and hasattr(cur, "dev_data") and cur.dev_data["connected"]:
             self.action_disconnect_device(cur.dev_data)
         else:
-            # Disconnect any connected device
             conn = [d for d in self.all_devices if d["connected"]]
             if conn:
                 self.action_disconnect_device(conn[0])
@@ -854,23 +360,8 @@ class BluetoothManagerWindow(Gtk.Window):
             return
         self.is_scanning = True
         self.rescan_btn.set_label("󰑐 Scanning...")
+        threading.Thread(target=lambda: set_adapter_discovery(self.bus, self.adapter_path, True), daemon=True).start()
 
-        def worker():
-            if self.bus and self.adapter_path:
-                try:
-                    adapter = Gio.DBusProxy.new_sync(
-                        self.bus, Gio.DBusProxyFlags.NONE, None,
-                        "org.bluez", self.adapter_path, "org.bluez.Adapter1", None
-                    )
-                    adapter.StartDiscovery()
-                except Exception:
-                    pass
-            else:
-                subprocess.Popen(["bluetoothctl", "--timeout", "15", "scan", "on"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        threading.Thread(target=worker, daemon=True).start()
-
-        # Stop scan after 15 seconds
         if self.scan_timer_id:
             GLib.source_remove(self.scan_timer_id)
         self.scan_timer_id = GLib.timeout_add_seconds(15, self.stop_scan)
@@ -882,41 +373,16 @@ class BluetoothManagerWindow(Gtk.Window):
             GLib.source_remove(self.scan_timer_id)
             self.scan_timer_id = None
 
-        def worker():
-            if self.bus and self.adapter_path:
-                try:
-                    adapter = Gio.DBusProxy.new_sync(
-                        self.bus, Gio.DBusProxyFlags.NONE, None,
-                        "org.bluez", self.adapter_path, "org.bluez.Adapter1", None
-                    )
-                    adapter.StopDiscovery()
-                except Exception:
-                    pass
-
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=lambda: set_adapter_discovery(self.bus, self.adapter_path, False), daemon=True).start()
         return False
 
     def action_toggle_radio(self):
         target = not self.bt_enabled
-        if target:
-            subprocess.run(["rfkill", "unblock", "bluetooth"], stderr=subprocess.DEVNULL)
-            time.sleep(0.1)
-
-        if self.bus and self.adapter_path:
-            try:
-                adapter_prop = Gio.DBusProxy.new_sync(
-                    self.bus, Gio.DBusProxyFlags.NONE, None,
-                    "org.bluez", self.adapter_path, "org.freedesktop.DBus.Properties", None
-                )
-                adapter_prop.Set("(ssv)", "org.bluez.Adapter1", "Powered", GLib.Variant.new_boolean(target))
-            except Exception:
-                pass
-        else:
-            cmd = "on" if target else "off"
-            subprocess.run(["bluetoothctl", "power", cmd], stderr=subprocess.DEVNULL)
-
-        notify("Bluetooth Enabled" if target else "Bluetooth Disabled",
-               "Scanning for devices..." if target else "Bluetooth radio turned off.")
+        set_adapter_power(self.bus, self.adapter_path, target)
+        notify("Bluetooth",
+               "Bluetooth Enabled" if target else "Bluetooth Disabled",
+               "Scanning for devices..." if target else "Bluetooth radio turned off.",
+               icon="bluetooth" if target else "bluetooth-disabled")
         time.sleep(0.3)
         self.refresh_state(rescan=target)
 
@@ -966,6 +432,7 @@ class BluetoothManagerWindow(Gtk.Window):
         return False
 
 def main():
+    manage_single_instance(PID_FILE)
     win = BluetoothManagerWindow()
     win.show_all()
     Gtk.main()

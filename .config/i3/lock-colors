@@ -1,0 +1,11 @@
+# Global Theme Colors for i3lock
+INSIDE_COLOR="1e1e2ebb"
+RING_COLOR="cba6f7ff"
+VER_COLOR="89b4faff"
+WRONG_COLOR="f38ba8ff"
+KEYHL_COLOR="a6e3a1ff"
+BSHL_COLOR="fab387ff"
+TIME_COLOR="cdd6f4ff"
+DATE_COLOR="a6adc8ff"
+VERIF_TEXT_COLOR="11111bff"
+WRONG_TEXT_COLOR="11111bff"
