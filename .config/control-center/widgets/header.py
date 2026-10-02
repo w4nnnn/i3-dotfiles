@@ -87,6 +87,7 @@ class HeaderWidget(Gtk.Box):
             self.caffeine_btn.set_tooltip_text("Caffeine Mode: OFF (Keep screen awake)")
 
     def on_theme_clicked(self, btn):
+        self.window.menu_open = True
         menu = Gtk.Menu()
         menu.get_style_context().add_class("theme-menu")
         for key, theme_data in THEMES.items():
@@ -97,6 +98,13 @@ class HeaderWidget(Gtk.Box):
             item.connect("activate", lambda w, k=key: self.window.set_theme(k))
             menu.append(item)
         menu.show_all()
+
+        def on_menu_deactivate(m):
+            self.window.menu_open = False
+            self.window.schedule_grab()
+
+        menu.connect("deactivate", on_menu_deactivate)
+
         try:
             menu.popup_at_widget(btn, Gdk.Gravity.SOUTH, Gdk.Gravity.NORTH, None)
         except Exception:

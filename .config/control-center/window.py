@@ -37,6 +37,8 @@ class ControlCenterWindow(Gtk.Window):
         self.set_keep_above(True)
         self.set_resizable(False)
         self.taking_screenshot = False
+        self.menu_open = False
+        self.add_events(Gdk.EventMask.FOCUS_CHANGE_MASK)
 
         # Load Theme
         self.current_theme_key = load_saved_theme()
@@ -95,6 +97,7 @@ class ControlCenterWindow(Gtk.Window):
         self.connect("key-press-event", self.on_key_press)
         self.connect("map-event", self.on_map_event)
         self.connect("button-press-event", self.on_button_press)
+        self.connect("focus-out-event", self.on_focus_out)
         self.connect("size-allocate", self.on_size_allocate)
         self.connect("destroy", self.cleanup)
 
@@ -172,6 +175,9 @@ class ControlCenterWindow(Gtk.Window):
             if os.path.isfile(bin_switcher):
                 subprocess.Popen([bin_switcher, theme_key], stderr=subprocess.DEVNULL)
 
+            # Re-schedule seat grab to prevent loss of grab during theme sync / i3 reload
+            self.schedule_grab()
+
     def on_telemetry_tick(self):
         self.telemetry.update_telemetry()
         self.header.update_uptime()
@@ -196,9 +202,16 @@ class ControlCenterWindow(Gtk.Window):
         return False
 
     def on_map_event(self, widget, event):
+        self.schedule_grab()
+
+    def schedule_grab(self):
         GLib.idle_add(self.grab_seat)
+        GLib.timeout_add(100, self.grab_seat)
+        GLib.timeout_add(300, self.grab_seat)
 
     def grab_seat(self):
+        if getattr(self, "menu_open", False):
+            return False
         try:
             seat = Gdk.Display.get_default().get_default_seat()
             if seat and self.get_window():
@@ -207,6 +220,14 @@ class ControlCenterWindow(Gtk.Window):
         except Exception:
             pass
         return False
+
+    def on_focus_out(self, widget, event):
+        if getattr(self, "taking_screenshot", False):
+            return False
+        if getattr(self, "menu_open", False):
+            return False
+        self.close_and_exit()
+        return True
 
     def on_button_press(self, widget, event):
         if getattr(self, "taking_screenshot", False):
