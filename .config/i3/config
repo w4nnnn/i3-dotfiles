@@ -17,8 +17,13 @@ smart_gaps off
 # instead of restoring a stale EWMH desktop index (_NET_WM_DESKTOP)
 for_window [class="(?i)(brave-browser|chromium|google-chrome|microsoft-edge|vivaldi|opera|electron)"] move to workspace current
 
+# Enforce pixel border on CSD applications that disable WM decorations via _MOTIF_WM_HINTS
 for_window [class="kitty"] border pixel 2
 for_window [class="Kitty"] border pixel 2
+for_window [class="(?i)tauonmb"] border pixel 2
+for_window [class="(?i)(code|com\.microsoft\.VSCode)"] border pixel 2
+for_window [class="(?i)steam"] border pixel 2
+for_window [class="(?i)spotify"] border pixel 2
 
 # Drag floating windows
 floating_modifier $mod
@@ -37,7 +42,7 @@ for_window [title="CatppuccinControlCenter"] floating enable, border none
 for_window [title="Windows11StartMenu"] floating enable, border none
 for_window [title="CatppuccinNetworkMenu"] floating enable, border none
 for_window [title="CatppuccinBluetoothMenu"] floating enable, border none
-for_window [title="AudioOutputSelector"] floating enable, border none
+for_window [title="(?i)(AudioOutputSelector|AudioSelectorMenu)"] floating enable, border none
 for_window [title="ScreenProjectMenu"] floating enable, border none
 
 # --- Autostart Applications ---
