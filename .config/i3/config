@@ -13,6 +13,10 @@ default_floating_border pixel 2
 smart_gaps off
 
 # Ensure terminal has consistent border
+# Ensure browser and Electron apps open on the currently focused workspace
+# instead of restoring a stale EWMH desktop index (_NET_WM_DESKTOP)
+for_window [class="(?i)(brave-browser|chromium|google-chrome|microsoft-edge|vivaldi|opera|electron)"] move to workspace current
+
 for_window [class="kitty"] border pixel 2
 for_window [class="Kitty"] border pixel 2
 
