@@ -74,6 +74,8 @@ OFFICIAL_PKGS=(
     xorg-xset
     xorg-xrdb
     xss-lock
+    dex
+    xdotool
     polkit-gnome
     brightnessctl
     playerctl

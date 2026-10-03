@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 
 # Quake-style Dropdown Scratchpad Terminal for i3wm
+# Uses native i3 IPC: shows if hidden/unfocused, hides if focused, or launches if not running.
 
-if ! xdotool search --classname "scratchpad_term" windowactivate >/dev/null 2>&1; then
-    if ! i3-msg '[instance="scratchpad_term"] scratchpad show' 2>/dev/null | grep -q '"success":true'; then
-        kitty --name scratchpad_term &
-    fi
-else
-    i3-msg '[instance="scratchpad_term"] move scratchpad' >/dev/null 2>&1
+if ! i3-msg '[instance="scratchpad_term"] scratchpad show' 2>/dev/null | grep -q '"success":true'; then
+    kitty --name scratchpad_term &
 fi
