@@ -257,8 +257,14 @@ class RofiStyleNetworkWindow(Gtk.Window):
             return
 
         is_open = not net["security"] or net["security"] == "--"
-        success, mode = connect_saved_or_open(target, is_open)
 
+        def worker():
+            success, mode = connect_saved_or_open(target, is_open)
+            GLib.idle_add(self._on_saved_or_open_connect_finish, target, success, mode)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_saved_or_open_connect_finish(self, target, success, mode):
         if mode in ("saved", "open"):
             if success:
                 notify("Network", "Connected", f"Successfully connected to {target}.")
