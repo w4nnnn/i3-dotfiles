@@ -67,6 +67,11 @@ class BluetoothManagerWindow(Gtk.Window):
         self.adapter_path = None
         self.is_scanning = False
         self.scan_timer_id = None
+        self._poll_timer_id = None
+        self._refresh_timer_id = None
+        self._is_refreshing = False
+        self._pending_refresh = False
+        self._dbus_subs = []
         self.bus = None
 
         self._init_dbus()
@@ -83,8 +88,32 @@ class BluetoothManagerWindow(Gtk.Window):
     def _init_dbus(self):
         try:
             self.bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+            if self.bus:
+                for sig in ("InterfacesAdded", "InterfacesRemoved"):
+                    self._dbus_subs.append(self.bus.signal_subscribe(
+                        "org.bluez", "org.freedesktop.DBus.ObjectManager", sig, "/", None,
+                        Gio.DBusSignalFlags.NONE, self._on_dbus_signal, None
+                    ))
+                self._dbus_subs.append(self.bus.signal_subscribe(
+                    "org.bluez", "org.freedesktop.DBus.Properties", "PropertiesChanged", None, None,
+                    Gio.DBusSignalFlags.NONE, self._on_dbus_signal, None
+                ))
         except Exception:
             self.bus = None
+            self._dbus_subs = []
+
+    def _on_dbus_signal(self, *args):
+        GLib.idle_add(self._schedule_refresh)
+
+    def _schedule_refresh(self, delay_ms=300):
+        if self._refresh_timer_id:
+            GLib.source_remove(self._refresh_timer_id)
+        self._refresh_timer_id = GLib.timeout_add(delay_ms, self._do_scheduled_refresh)
+
+    def _do_scheduled_refresh(self):
+        self._refresh_timer_id = None
+        self.refresh_state(rescan=False)
+        return False
 
     def on_button_press(self, widget, event):
         if is_click_outside(self, event):
@@ -93,6 +122,24 @@ class BluetoothManagerWindow(Gtk.Window):
         return False
 
     def close_and_exit(self):
+        if self.scan_timer_id:
+            GLib.source_remove(self.scan_timer_id)
+            self.scan_timer_id = None
+        if self._poll_timer_id:
+            GLib.source_remove(self._poll_timer_id)
+            self._poll_timer_id = None
+        if self._refresh_timer_id:
+            GLib.source_remove(self._refresh_timer_id)
+            self._refresh_timer_id = None
+
+        if self.bus and self._dbus_subs:
+            for sub in self._dbus_subs:
+                try:
+                    self.bus.signal_unsubscribe(sub)
+                except Exception:
+                    pass
+            self._dbus_subs = []
+
         if self.is_scanning:
             self.stop_scan()
         ungrab_seat()
@@ -146,46 +193,40 @@ class BluetoothManagerWindow(Gtk.Window):
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
         footer.set_name("footer-bar")
 
-        # Disconnect / Unpair Button
-        self.disconn_btn = Gtk.Button(label="󰅖 Disconnect")
-        self.disconn_btn.get_style_context().add_class("footer-action-btn")
-        self.disconn_btn.get_style_context().add_class("danger")
-        self.disconn_btn.set_tooltip_text("Disconnect Active Device")
-        self.disconn_btn.connect("clicked", lambda w: self.action_disconnect_selected())
-        footer.pack_start(self.disconn_btn, True, True, 0)
+        def add_btn(lbl, cls, tip, cb):
+            btn = Gtk.Button(label=lbl)
+            btn.get_style_context().add_class("footer-action-btn")
+            btn.get_style_context().add_class(cls)
+            btn.set_tooltip_text(tip)
+            btn.connect("clicked", lambda w: cb())
+            footer.pack_start(btn, True, True, 0)
+            return btn
 
-        # Rescan Button
-        self.rescan_btn = Gtk.Button(label="󰑐 Rescan")
-        self.rescan_btn.get_style_context().add_class("footer-action-btn")
-        self.rescan_btn.get_style_context().add_class("rescan")
-        self.rescan_btn.set_tooltip_text("Scan for Nearby Devices (15s)")
-        self.rescan_btn.connect("clicked", lambda w: self.action_toggle_scan())
-        footer.pack_start(self.rescan_btn, True, True, 0)
-
-        # Terminal / CLI Button
-        self.term_btn = Gtk.Button(label="󰢻 Terminal")
-        self.term_btn.get_style_context().add_class("footer-action-btn")
-        self.term_btn.get_style_context().add_class("terminal")
-        self.term_btn.set_tooltip_text("Open bluetoothctl in Floating Terminal")
-        self.term_btn.connect("clicked", lambda w: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "bluetoothctl"])))
-        footer.pack_start(self.term_btn, True, True, 0)
-
-        # Radio Toggle Button
-        self.radio_btn = Gtk.Button(label="󰂲 BT Off")
-        self.radio_btn.get_style_context().add_class("footer-action-btn")
-        self.radio_btn.get_style_context().add_class("radio")
-        self.radio_btn.set_tooltip_text("Turn Bluetooth Off")
-        self.radio_btn.connect("clicked", lambda w: self.action_toggle_radio())
-        footer.pack_start(self.radio_btn, True, True, 0)
-
+        self.disconn_btn = add_btn("󰅖 Disconnect", "danger", "Disconnect Active Device", self.action_disconnect_selected)
+        self.rescan_btn = add_btn("󰑐 Rescan", "rescan", "Scan for Nearby Devices (15s)", self.action_toggle_scan)
+        self.term_btn = add_btn("󰢻 Terminal", "terminal", "Open bluetoothctl in Floating Terminal",
+                                lambda: (self.close_and_exit(), subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "bluetoothctl"])))
+        self.radio_btn = add_btn("󰂲 BT Off", "radio", "Turn Bluetooth Off", self.action_toggle_radio)
         main_box.pack_start(footer, False, False, 0)
 
     def refresh_state(self, rescan=False):
+        if self._is_refreshing:
+            self._pending_refresh = True
+            return
+        self._is_refreshing = True
+
         def worker():
             powered, adapter_path, devices = fetch_bluetooth_state(self.bus)
-            GLib.idle_add(self.update_ui_state, powered, adapter_path, devices, rescan)
+            GLib.idle_add(self._on_refresh_done, powered, adapter_path, devices, rescan)
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _on_refresh_done(self, powered, adapter_path, devices, rescan):
+        self._is_refreshing = False
+        self.update_ui_state(powered, adapter_path, devices, rescan)
+        if self._pending_refresh:
+            self._pending_refresh = False
+            self.refresh_state(rescan=False)
 
     def update_ui_state(self, powered, adapter_path, devices, rescan):
         self.bt_enabled = powered
@@ -196,6 +237,10 @@ class BluetoothManagerWindow(Gtk.Window):
             self.radio_btn.set_label("󰂲 BT Off")
             self.radio_btn.set_tooltip_text("Turn Bluetooth Off")
             self.rescan_btn.set_sensitive(True)
+            if self.is_scanning:
+                self.rescan_btn.set_label("󰑐 Scanning...")
+            else:
+                self.rescan_btn.set_label("󰑐 Rescan")
             if rescan and not self.is_scanning:
                 self.start_scan()
         else:
@@ -211,6 +256,9 @@ class BluetoothManagerWindow(Gtk.Window):
         self.render_device_list(self.all_devices)
 
     def render_device_list(self, devices):
+        cur_row = self.listbox.get_selected_row()
+        selected_addr = cur_row.dev_data["address"] if (cur_row and hasattr(cur_row, "dev_data")) else None
+
         for child in self.listbox.get_children():
             self.listbox.remove(child)
 
@@ -227,15 +275,19 @@ class BluetoothManagerWindow(Gtk.Window):
                 msg = "No devices found · Click Rescan to discover nearby devices"
             lbl = Gtk.Label(label=msg)
             lbl.get_style_context().add_class("element-text")
-            lbl.set_padding(18, 18)
+            lbl.set_margin_top(18)
+            lbl.set_margin_bottom(18)
             row.add(lbl)
             self.listbox.add(row)
             self.listbox.show_all()
             return
 
+        matched_row = None
         for dev in filtered:
             row = Gtk.ListBoxRow()
             row.dev_data = dev
+            if selected_addr and dev["address"] == selected_addr:
+                matched_row = row
 
             box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
             box.get_style_context().add_class("element-row")
@@ -285,9 +337,9 @@ class BluetoothManagerWindow(Gtk.Window):
             self.listbox.add(row)
 
         self.listbox.show_all()
-        first_row = self.listbox.get_row_at_index(0)
-        if first_row:
-            self.listbox.select_row(first_row)
+        target = matched_row or self.listbox.get_row_at_index(0)
+        if target:
+            self.listbox.select_row(target)
 
     def on_row_activated(self, listbox, row):
         if not hasattr(row, "dev_data"):
@@ -303,41 +355,31 @@ class BluetoothManagerWindow(Gtk.Window):
 
     def action_connect_device(self, dev):
         notify("Bluetooth", "Connecting...", f"Connecting to {dev['name']} ({dev['address']})...", icon="bluetooth-active")
-
         def worker():
             success = connect_device(self.bus, dev)
-            if success:
-                notify("Bluetooth", "Connected", f"Connected to {dev['name']}.", icon="bluetooth")
-            else:
-                notify("Bluetooth", "Failed", f"Could not connect to {dev['name']}.", icon="dialog-error")
+            title, msg, ic = ("Connected", f"Connected to {dev['name']}.", "bluetooth") if success else ("Failed", f"Could not connect to {dev['name']}.", "dialog-error")
+            notify("Bluetooth", title, msg, icon=ic)
             time.sleep(0.5)
             self.refresh_state()
-
         threading.Thread(target=worker, daemon=True).start()
 
     def action_pair_device(self, dev):
         notify("Bluetooth", "Pairing...", f"Pairing with {dev['name']}...", icon="bluetooth-active")
-
         def worker():
             success = pair_device(dev)
-            if success:
-                notify("Bluetooth", "Paired & Connected", f"Successfully connected to {dev['name']}.", icon="bluetooth")
-            else:
-                notify("Bluetooth", "Pairing Failed", f"Could not pair with {dev['name']}.", icon="dialog-error")
+            title, msg, ic = ("Paired & Connected", f"Successfully connected to {dev['name']}.", "bluetooth") if success else ("Pairing Failed", f"Could not pair with {dev['name']}.", "dialog-error")
+            notify("Bluetooth", title, msg, icon=ic)
             time.sleep(0.5)
             self.refresh_state()
-
         threading.Thread(target=worker, daemon=True).start()
 
     def action_disconnect_device(self, dev):
         notify("Bluetooth", "Disconnecting...", f"Disconnecting {dev['name']}...", icon="bluetooth")
-
         def worker():
             disconnect_device(self.bus, dev)
             notify("Bluetooth", "Disconnected", f"Disconnected from {dev['name']}.", icon="bluetooth")
             time.sleep(0.3)
             self.refresh_state()
-
         threading.Thread(target=worker, daemon=True).start()
 
     def action_disconnect_selected(self):
@@ -366,14 +408,29 @@ class BluetoothManagerWindow(Gtk.Window):
             GLib.source_remove(self.scan_timer_id)
         self.scan_timer_id = GLib.timeout_add_seconds(15, self.stop_scan)
 
+        if self._poll_timer_id:
+            GLib.source_remove(self._poll_timer_id)
+        self._poll_timer_id = GLib.timeout_add_seconds(2, self._scan_poll_tick)
+
+    def _scan_poll_tick(self):
+        if not self.is_scanning:
+            self._poll_timer_id = None
+            return False
+        self.refresh_state(rescan=False)
+        return True
+
     def stop_scan(self):
         self.is_scanning = False
         self.rescan_btn.set_label("󰑐 Rescan")
         if self.scan_timer_id:
             GLib.source_remove(self.scan_timer_id)
             self.scan_timer_id = None
+        if self._poll_timer_id:
+            GLib.source_remove(self._poll_timer_id)
+            self._poll_timer_id = None
 
         threading.Thread(target=lambda: set_adapter_discovery(self.bus, self.adapter_path, False), daemon=True).start()
+        self.refresh_state(rescan=False)
         return False
 
     def action_toggle_radio(self):
@@ -409,25 +466,15 @@ class BluetoothManagerWindow(Gtk.Window):
                 subprocess.Popen(["kitty", "--class", "floating_terminal", "-e", "bluetoothctl"])
                 return True
 
-        if keyval == Gdk.KEY_Down:
+        if keyval in (Gdk.KEY_Down, Gdk.KEY_Up):
             cur = self.listbox.get_selected_row()
             if cur:
-                idx = cur.get_index()
-                next_row = self.listbox.get_row_at_index(idx + 1)
-                if next_row:
-                    self.listbox.select_row(next_row)
-                    next_row.grab_focus()
+                delta = 1 if keyval == Gdk.KEY_Down else -1
+                target = self.listbox.get_row_at_index(max(0, cur.get_index() + delta))
+                if target:
+                    self.listbox.select_row(target)
+                    target.grab_focus()
                     return True
-        elif keyval == Gdk.KEY_Up:
-            cur = self.listbox.get_selected_row()
-            if cur:
-                idx = cur.get_index()
-                if idx > 0:
-                    prev_row = self.listbox.get_row_at_index(idx - 1)
-                    if prev_row:
-                        self.listbox.select_row(prev_row)
-                        prev_row.grab_focus()
-                        return True
 
         return False
 

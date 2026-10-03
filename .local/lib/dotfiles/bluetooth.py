@@ -149,9 +149,17 @@ def set_adapter_discovery(bus, adapter_path, enable):
                 "org.bluez", adapter_path, "org.bluez.Adapter1", None
             )
             if enable:
-                adapter.StartDiscovery()
+                try:
+                    adapter.StartDiscovery()
+                except Exception as e:
+                    if "InProgress" not in str(e):
+                        raise
             else:
-                adapter.StopDiscovery()
+                try:
+                    adapter.StopDiscovery()
+                except Exception as e:
+                    if "Failed" not in str(e) and "InProgress" not in str(e):
+                        raise
             return
         except Exception:
             pass
