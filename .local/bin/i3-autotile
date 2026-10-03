@@ -14,7 +14,7 @@ import signal
 import re
 
 FILE_DIALOG_TITLE_RE = re.compile(
-    r"(?i)^(open|save|choose|select|browse|buka|simpan|pilih)\s*(file|files|folder|directory|image|as|berkas|gambar)?.*"
+    r"(?i)^(open|save|choose|select|browse|buka|simpan|pilih)\s+(file|files|folder|directory|image|as|berkas|gambar)\b.*"
 )
 
 def recv_exact(sock, n):
@@ -55,17 +55,28 @@ def query_ipc(sock_path, msg_type, payload=""):
 
 def is_file_dialog(con):
     wp = con.get("window_properties") or {}
+    wtype = con.get("window_type") or ""
+    cls = wp.get("class") or ""
     role = wp.get("window_role") or ""
+
+    # Normal application windows (browsers, terminals, text editors) are NEVER file dialogs
+    if wtype == "normal":
+        return False
+
+    cls_lower = cls.lower()
+    if cls_lower in ("kitty", "brave-browser", "chromium", "google-chrome", "firefox", "code", "com.microsoft.vscode", "thunar"):
+        return False
+
+    if role in ("browser", "browser-window"):
+        return False
+
     if role == "GtkFileChooserDialog":
         return True
-    cls = wp.get("class") or ""
     if re.search(r"(?i)xdg-desktop-portal", cls):
         return True
     
-    # Generic dialogs by title (only if window_type == 'dialog' or already floating)
-    wtype = con.get("window_type") or ""
-    is_floating = con.get("floating") in ("user_on", "auto_on")
-    if wtype == "dialog" or is_floating:
+    # Generic dialogs by title (only if window_type is dialog, utility, or unknown)
+    if wtype in ("dialog", "utility", "unknown"):
         title = con.get("name") or wp.get("title") or ""
         if FILE_DIALOG_TITLE_RE.match(title):
             return True
