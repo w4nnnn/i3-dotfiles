@@ -388,6 +388,12 @@ if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.cinnamon.desktop.default-applications.terminal exec 'kitty' 2>/dev/null || true
     gsettings set org.cinnamon.desktop.default-applications.terminal exec-arg '-e' 2>/dev/null || true
     gsettings set org.nemo.extensions.nemo-terminal terminal-shell '/usr/bin/zsh' 2>/dev/null || true
+
+    # GTK File Chooser dialog sensible default size & position
+    gsettings set org.gtk.Settings.FileChooser window-size '(880, 520)' 2>/dev/null || true
+    gsettings set org.gtk.Settings.FileChooser window-position '(243, 142)' 2>/dev/null || true
+    gsettings set org.gtk.gtk4.Settings.FileChooser window-size '(880, 520)' 2>/dev/null || true
+    gsettings set org.gtk.gtk4.Settings.FileChooser window-position '(243, 142)' 2>/dev/null || true
 fi
 
 # Add user to libvirt and kvm groups if installed
