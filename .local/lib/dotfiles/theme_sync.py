@@ -3,7 +3,7 @@ Theme synchronizer: Updates config files for Rofi, Polybar, i3, Kitty, and Dunst
 """
 import os
 import subprocess
-from .themes import THEMES, THEME_PREF_FILE
+from .themes import THEMES, THEME_PREF_FILE, is_light_theme, get_theme_category
 
 def apply_global_theme(theme_key):
     if theme_key not in THEMES:
@@ -271,15 +271,30 @@ WRONG_TEXT_COLOR="{t['accent_contrast'].lstrip('#')}ff"
             except Exception:
                 pass
 
-    # 8. Sync GTK color-scheme & dark preference
-    is_light = (theme_key == "light")
+    # 8. Sync GTK & Browser theme categories (Dark vs Light)
+    is_light = is_light_theme(theme_key)
     scheme = "prefer-light" if is_light else "prefer-dark"
     dark_flag = "0" if is_light else "1"
-    try:
-        subprocess.Popen(["gsettings", "set", "org.gnome.desktop.interface", "color-scheme", scheme], stderr=subprocess.DEVNULL)
-    except Exception:
-        pass
-    for gtk_dir in [os.path.expanduser("~/.config/gtk-3.0"), os.path.expanduser("~/.config/gtk-4.0")]:
+    gtk_theme = "Adwaita" if is_light else "catppuccin-mocha-mauve-standard+default"
+    icon_theme = "Papirus-Light" if is_light else "Papirus-Dark"
+
+    # GSettings (GNOME & Cinnamon desktop interfaces)
+    for schema in ("org.gnome.desktop.interface", "org.cinnamon.desktop.interface"):
+        try:
+            if schema == "org.gnome.desktop.interface":
+                subprocess.Popen(["gsettings", "set", schema, "color-scheme", scheme], stderr=subprocess.DEVNULL)
+            subprocess.Popen(["gsettings", "set", schema, "gtk-theme", gtk_theme], stderr=subprocess.DEVNULL)
+            subprocess.Popen(["gsettings", "set", schema, "icon-theme", icon_theme], stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+    # GTK 3 & GTK 4 settings.ini
+    for gtk_dir in [
+        os.path.expanduser("~/.config/gtk-3.0"),
+        os.path.expanduser("~/.config/gtk-4.0"),
+        os.path.expanduser("~/i3-dotfiles/.config/gtk-3.0"),
+        os.path.expanduser("~/i3-dotfiles/.config/gtk-4.0"),
+    ]:
         settings_file = os.path.join(gtk_dir, "settings.ini")
         if os.path.exists(settings_file):
             try:
@@ -287,8 +302,46 @@ WRONG_TEXT_COLOR="{t['accent_contrast'].lstrip('#')}ff"
                     content = sf.read()
                 import re
                 new_content = re.sub(r"gtk-application-prefer-dark-theme\s*=\s*\d+", f"gtk-application-prefer-dark-theme = {dark_flag}", content)
+                new_content = re.sub(r"gtk-theme-name\s*=\s*.+", f"gtk-theme-name = {gtk_theme}", new_content)
+                new_content = re.sub(r"gtk-icon-theme-name\s*=\s*.+", f"gtk-icon-theme-name = {icon_theme}", new_content)
                 with open(settings_file, "w") as sf:
                     sf.write(new_content)
+            except Exception:
+                pass
+
+    # GTK 2 (.gtkrc-2.0)
+    for rc_path in [os.path.expanduser("~/.gtkrc-2.0"), os.path.expanduser("~/i3-dotfiles/home/.gtkrc-2.0")]:
+        if os.path.exists(rc_path):
+            try:
+                with open(rc_path, "r") as rf:
+                    rc_content = rf.read()
+                import re
+                new_rc = re.sub(r'gtk-theme-name\s*=\s*".*"', f'gtk-theme-name = "{gtk_theme}"', rc_content)
+                new_rc = re.sub(r'gtk-icon-theme-name\s*=\s*".*"', f'gtk-icon-theme-name = "{icon_theme}"', new_rc)
+                with open(rc_path, "w") as rf:
+                    rf.write(new_rc)
+            except Exception:
+                pass
+
+    # Brave / Chromium: ensure Classic mode (system_theme: 0) so native dark/light rendering is used
+    for pref_path in [
+        os.path.expanduser("~/.config/BraveSoftware/Brave-Browser/Default/Preferences"),
+        os.path.expanduser("~/.config/google-chrome/Default/Preferences"),
+        os.path.expanduser("~/.config/chromium/Default/Preferences"),
+    ]:
+        if os.path.exists(pref_path):
+            try:
+                import json
+                with open(pref_path, "r", encoding="utf-8") as pf:
+                    pdata = json.load(pf)
+                changed = False
+                ext_theme = pdata.setdefault("extensions", {}).setdefault("theme", {})
+                if ext_theme.get("system_theme") != 0:
+                    ext_theme["system_theme"] = 0
+                    changed = True
+                if changed:
+                    with open(pref_path, "w", encoding="utf-8") as pf:
+                        json.dump(pdata, pf)
             except Exception:
                 pass
 

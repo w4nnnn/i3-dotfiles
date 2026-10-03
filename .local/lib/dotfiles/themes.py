@@ -324,3 +324,11 @@ def hex_to_rgb_float(hex_color):
         )
     return (1.0, 1.0, 1.0)
 
+LIGHT_THEMES = {"light"}
+
+def is_light_theme(theme_key):
+    return theme_key in LIGHT_THEMES
+
+def get_theme_category(theme_key):
+    return "light" if is_light_theme(theme_key) else "dark"
+

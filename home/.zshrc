@@ -6,6 +6,7 @@
 export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$HOME/.npm-global/bin:$PATH"
 export EDITOR="nano"
 export VISUAL="nano"
+unset DESKTOP_STARTUP_ID
 
 # ---------------------------------------------------------
 # History Settings
