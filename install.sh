@@ -389,11 +389,23 @@ if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.cinnamon.desktop.default-applications.terminal exec-arg '-e' 2>/dev/null || true
     gsettings set org.nemo.extensions.nemo-terminal terminal-shell '/usr/bin/zsh' 2>/dev/null || true
 
-    # GTK File Chooser dialog sensible default size & position
-    gsettings set org.gtk.Settings.FileChooser window-size '(880, 520)' 2>/dev/null || true
-    gsettings set org.gtk.Settings.FileChooser window-position '(243, 142)' 2>/dev/null || true
-    gsettings set org.gtk.gtk4.Settings.FileChooser window-size '(880, 520)' 2>/dev/null || true
-    gsettings set org.gtk.gtk4.Settings.FileChooser window-position '(243, 142)' 2>/dev/null || true
+    # GTK File Chooser dialog dynamic sensible default size & position based on active screen
+    SCREEN_W=$(xrandr --current 2>/dev/null | grep -oP '\d+(?=x\d+\s+.*\*)' | head -n 1)
+    SCREEN_H=$(xrandr --current 2>/dev/null | grep -oP '\d+x\K\d+(?=\s+.*\*)' | head -n 1)
+    SCREEN_W=${SCREEN_W:-1366}
+    SCREEN_H=${SCREEN_H:-768}
+    DW=$(( SCREEN_W * 62 / 100 ))
+    [ $DW -lt 700 ] && DW=700
+    [ $DW -gt 1280 ] && DW=1280
+    DH=$(( SCREEN_H * 68 / 100 ))
+    [ $DH -lt 460 ] && DH=460
+    [ $DH -gt 800 ] && DH=800
+    DX=$(( (SCREEN_W - DW) / 2 ))
+    DY=$(( (SCREEN_H - DH) / 2 ))
+    gsettings set org.gtk.Settings.FileChooser window-size "($DW, $DH)" 2>/dev/null || true
+    gsettings set org.gtk.Settings.FileChooser window-position "($DX, $DY)" 2>/dev/null || true
+    gsettings set org.gtk.gtk4.Settings.FileChooser window-size "($DW, $DH)" 2>/dev/null || true
+    gsettings set org.gtk.gtk4.Settings.FileChooser window-position "($DX, $DY)" 2>/dev/null || true
 fi
 
 # Add user to libvirt and kvm groups if installed

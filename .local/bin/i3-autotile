@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-i3-autotile: Hyprland-style Dwindle / Spiral BSP automatic tiling for i3wm.
-Automatically alternates horizontal and vertical splits based on window aspect ratio.
+i3-autotile: Hyprland-style Dwindle / Spiral BSP automatic tiling for i3wm,
+plus dynamic responsive floating dialog sizing across all display resolutions.
 """
 import socket
 import struct
@@ -11,6 +11,11 @@ import time
 import os
 import sys
 import signal
+import re
+
+FILE_DIALOG_TITLE_RE = re.compile(
+    r"(?i)^(open|save|choose|select|browse|buka|simpan|pilih)\s*(file|files|folder|directory|image|as|berkas|gambar)?.*"
+)
 
 def recv_exact(sock, n):
     buf = bytearray()
@@ -34,16 +39,86 @@ def send_command(sock_path, cmd_str):
     except Exception:
         pass
 
-def main():
-    # Ensure single instance
-    my_pid = os.getpid()
+def query_ipc(sock_path, msg_type, payload=""):
     try:
-        pids = subprocess.check_output(["pgrep", "-f", "i3-autotile"], text=True).split()
-        for p in pids:
-            if int(p) != my_pid:
-                os.kill(int(p), signal.SIGTERM)
+        cs = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        cs.connect(sock_path)
+        p_bytes = payload.encode("utf-8")
+        cs.sendall(b"i3-ipc" + struct.pack("<II", len(p_bytes), msg_type) + p_bytes)
+        hdr = recv_exact(cs, 14)
+        _, length, _ = struct.unpack("<6sII", hdr)
+        data = recv_exact(cs, length)
+        cs.close()
+        return json.loads(data.decode("utf-8"))
     except Exception:
-        pass
+        return None
+
+def is_file_dialog(con):
+    wp = con.get("window_properties") or {}
+    role = wp.get("window_role") or ""
+    if role == "GtkFileChooserDialog":
+        return True
+    cls = wp.get("class") or ""
+    if re.search(r"(?i)xdg-desktop-portal", cls):
+        return True
+    
+    # Generic dialogs by title (only if window_type == 'dialog' or already floating)
+    wtype = con.get("window_type") or ""
+    is_floating = con.get("floating") in ("user_on", "auto_on")
+    if wtype == "dialog" or is_floating:
+        title = con.get("name") or wp.get("title") or ""
+        if FILE_DIALOG_TITLE_RE.match(title):
+            return True
+    return False
+
+def resize_file_dialog(sock_path, con, outputs_cache):
+    con_id = con.get("id")
+    if not con_id:
+        return
+
+    out_name = con.get("output")
+    out_info = outputs_cache.get(out_name) if out_name else None
+
+    if not out_info:
+        outputs = query_ipc(sock_path, 3)
+        if outputs:
+            for o in outputs:
+                if o.get("active") and o.get("name"):
+                    outputs_cache[o["name"]] = o.get("rect", {})
+            out_info = outputs_cache.get(out_name)
+
+    if not out_info:
+        out_info = next(iter(outputs_cache.values()), {"width": 1366, "height": 768})
+
+    screen_w = out_info.get("width", 1366)
+    screen_h = out_info.get("height", 768)
+
+    # Dynamic proportional sizing: 62% width, 68% height with sane bounds
+    target_w = max(700, min(1280, int(screen_w * 0.62)))
+    target_h = max(460, min(800, int(screen_h * 0.68)))
+
+    cmd = f"[con_id={con_id}] floating enable, resize set {target_w} px {target_h} px, move position center"
+    send_command(sock_path, cmd)
+
+def main():
+    # Ensure single instance safely via PID file
+    pid_file = "/tmp/i3-autotile.pid"
+    if os.path.exists(pid_file):
+        try:
+            with open(pid_file, "r") as f:
+                old_pid = int(f.read().strip())
+            if old_pid != os.getpid():
+                try:
+                    os.kill(old_pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+        except Exception:
+            pass
+    with open(pid_file, "w") as f:
+        f.write(str(os.getpid()))
+
+    outputs_cache = {}
+    handled_dialogs = set()
 
     while True:
         try:
@@ -51,14 +126,21 @@ def main():
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             s.connect(sock_path)
 
-            # Subscribe to window events (Type 2 = SUBSCRIBE)
-            sub_payload = json.dumps(["window"]).encode("utf-8")
+            # Subscribe to window and output events
+            sub_payload = json.dumps(["window", "output"]).encode("utf-8")
             s.sendall(b"i3-ipc" + struct.pack("<II", len(sub_payload), 2) + sub_payload)
             
             # Read subscribe response
             hdr = recv_exact(s, 14)
             _, length, _ = struct.unpack("<6sII", hdr)
             recv_exact(s, length)
+
+            # Pre-populate outputs cache
+            outputs = query_ipc(sock_path, 3)
+            if outputs:
+                for o in outputs:
+                    if o.get("active") and o.get("name"):
+                        outputs_cache[o["name"]] = o.get("rect", {})
 
             # Event loop
             while True:
@@ -70,26 +152,53 @@ def main():
                 if msg_type & (1 << 31):
                     event = json.loads(data_bytes.decode("utf-8", errors="ignore"))
                     change = event.get("change")
-                    if change in ("focus", "new"):
+
+                    # Handle output reconfiguration (e.g. external monitor plugged/unplugged)
+                    if "output" in event or change == "unspecified":
+                        outputs = query_ipc(sock_path, 3)
+                        if outputs:
+                            outputs_cache.clear()
+                            for o in outputs:
+                                if o.get("active") and o.get("name"):
+                                    outputs_cache[o["name"]] = o.get("rect", {})
+
+                    if change in ("new", "floating", "focus"):
                         con = event.get("container", {})
-                        # Skip floating and fullscreen windows
-                        if con.get("floating") in ("user_on", "auto_on"):
+                        con_id = con.get("id")
+
+                        # Dynamic responsive file dialog sizing
+                        if is_file_dialog(con):
+                            if con_id and con_id not in handled_dialogs:
+                                handled_dialogs.add(con_id)
+                                resize_file_dialog(sock_path, con, outputs_cache)
                             continue
-                        if con.get("fullscreen_mode", 0) != 0:
-                            continue
-                        # Also skip scratchpad or special containers
-                        if con.get("nodename") == "__i3_scratch":
-                            continue
+
+                        # Autotiling for normal tiled windows
+                        if change in ("focus", "new"):
+                            # Skip floating and fullscreen windows
+                            if con.get("floating") in ("user_on", "auto_on"):
+                                continue
+                            if con.get("fullscreen_mode", 0) != 0:
+                                continue
+                            if con.get("nodename") == "__i3_scratch":
+                                continue
+                                
+                            rect = con.get("rect", {})
+                            w = rect.get("width", 0)
+                            h = rect.get("height", 0)
                             
-                        rect = con.get("rect", {})
-                        w = rect.get("width", 0)
-                        h = rect.get("height", 0)
-                        
-                        if w > 0 and h > 0:
-                            # If wider than tall, split horizontally (left/right)
-                            # If taller than wide, split vertically (top/bottom)
-                            cmd = "split h" if w > h else "split v"
-                            send_command(sock_path, cmd)
+                            if w > 0 and h > 0:
+                                cmd = "split h" if w > h else "split v"
+                                send_command(sock_path, cmd)
+
+                    elif change == "close":
+                        con = event.get("container", {})
+                        con_id = con.get("id")
+                        if con_id:
+                            handled_dialogs.discard(con_id)
+                        if len(handled_dialogs) > 500:
+                            handled_dialogs.clear()
+
         except Exception:
             time.sleep(1)
 

@@ -48,7 +48,30 @@ def is_web_cast_active():
             pass
     return False
 
+def sync_filechooser_gsettings():
+    """Dynamically synchronize GTK file chooser default geometry based on display resolution."""
+    try:
+        out = subprocess.check_output(["xrandr", "--current"], stderr=subprocess.DEVNULL, text=True)
+        import re
+        m = re.search(r"(\d+)x(\d+)\+\d+\+\d+", out)
+        if m:
+            sw, sh = int(m.group(1)), int(m.group(2))
+        else:
+            sw, sh = 1366, 768
+
+        dw = max(700, min(1280, int(sw * 0.62)))
+        dh = max(460, min(800, int(sh * 0.68)))
+        dx = max(0, (sw - dw) // 2)
+        dy = max(0, (sh - dh) // 2)
+
+        for schema in ("org.gtk.Settings.FileChooser", "org.gtk.gtk4.Settings.FileChooser"):
+            subprocess.run(["gsettings", "set", schema, "window-size", f"({dw}, {dh})"], stderr=subprocess.DEVNULL)
+            subprocess.run(["gsettings", "set", schema, "window-position", f"({dx}, {dy})"], stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
 def post_display_hooks():
+    sync_filechooser_gsettings()
     polybar_launch = os.path.expanduser("~/.config/polybar/launch.sh")
     if os.path.exists(polybar_launch):
         subprocess.Popen([polybar_launch])
