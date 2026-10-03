@@ -63,7 +63,11 @@ if [ -n "$CHOSEN" ] && [ -n "${FILE_MAP[$CHOSEN]}" ]; then
     notify-send -i "$SELECTED_PATH" "Wallpaper Updated" "Applied to Desktop & Lockscreen: $CHOSEN"
     
     # 4. Pre-render 50% blurred background for lockscreen asynchronously
-    magick "$SELECTED_PATH" -resize 1920x1080^ -gravity center -extent 1920x1080 -blur 0x12 "$HOME/.cache/lockscreen_blur.png" &
+    SCREEN_W=$(xrandr --current 2>/dev/null | grep -oP '\d+(?=x\d+\s+.*\*)' | head -n 1)
+    SCREEN_H=$(xrandr --current 2>/dev/null | grep -oP '\d+x\K\d+(?=\s+.*\*)' | head -n 1)
+    SCREEN_W=${SCREEN_W:-1920}
+    SCREEN_H=${SCREEN_H:-1080}
+    magick "$SELECTED_PATH" -resize "${SCREEN_W}x${SCREEN_H}^" -gravity center -extent "${SCREEN_W}x${SCREEN_H}" -blur 0x12 "$HOME/.cache/lockscreen_blur.png" &
 
     # 5. Pre-generate card lockscreen canvas
     if [ -x "$HOME/.local/bin/generate-lock-bg" ]; then
