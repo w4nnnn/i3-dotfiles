@@ -41,6 +41,13 @@ except ImportError:
         "blue": "#89b4fa",
     }
 
+try:
+    from dotfiles.gtk_utils import grab_seat, ungrab_seat, is_click_outside
+except ImportError:
+    grab_seat = lambda w: False
+    ungrab_seat = lambda: None
+    is_click_outside = lambda w, e: False
+
 bg_card = t.get("bg_rgba", "rgba(30, 30, 46, 0.85)")
 accent = t.get("accent", "#cba6f7")
 fg = t.get("fg", "#cdd6f4")
@@ -120,9 +127,11 @@ class CatppuccinCalendar(Gtk.Window):
         )
         card.pack_start(self.calendar, True, True, 0)
 
-        # Close on Escape, allow Screenshot on PrintScreen, close on Focus Out
+        # Close on Escape, allow Screenshot on PrintScreen, close on Focus Out or Click Outside
         self.connect("key-press-event", self.on_key_press)
+        self.connect("button-press-event", self.on_button_press)
         self.connect("focus-out-event", self.on_focus_out)
+        self.connect("map-event", lambda w, e: GLib.idle_add(lambda: grab_seat(self)))
         self.connect("destroy", self.cleanup)
 
         # Show and position directly below Polybar in screen center
@@ -162,6 +171,12 @@ class CatppuccinCalendar(Gtk.Window):
             return True
         return False
 
+    def on_button_press(self, widget, event):
+        if is_click_outside(self, event):
+            self.close_and_exit()
+            return True
+        return False
+
     def on_focus_out(self, widget, event):
         if getattr(self, "taking_screenshot", False):
             return False
@@ -169,6 +184,7 @@ class CatppuccinCalendar(Gtk.Window):
         return False
 
     def close_and_exit(self):
+        ungrab_seat()
         self.destroy()
         Gtk.main_quit()
 
