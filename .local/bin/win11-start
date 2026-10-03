@@ -217,7 +217,7 @@ class Win11StartMenu(Gtk.Window):
         box.pack_start(lbl, False, False, 0)
 
         btn.add(box)
-        btn.connect("clicked", lambda w, a=app: (self.close_and_exit(), launch_desktop_app(a)))
+        btn.connect("clicked", lambda w, a=app: (launch_desktop_app(a), self.close_and_exit()))
         return btn
 
     def create_footer(self):
@@ -281,8 +281,9 @@ class Win11StartMenu(Gtk.Window):
 
     def on_search_activate(self, entry):
         if self.filtered_apps:
+            app = self.filtered_apps[0]
+            launch_desktop_app(app)
             self.close_and_exit()
-            launch_desktop_app(self.filtered_apps[0])
 
     def on_key_press(self, widget, event):
         if event.keyval == Gdk.KEY_Escape:
@@ -303,6 +304,7 @@ class Win11StartMenu(Gtk.Window):
         Gtk.main_quit()
 
 def main():
+    os.environ.pop("DESKTOP_STARTUP_ID", None)
     manage_single_instance(PID_FILE)
     win = Win11StartMenu()
     Gtk.main()

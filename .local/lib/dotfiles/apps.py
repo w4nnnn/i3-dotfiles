@@ -26,10 +26,15 @@ def get_desktop_apps():
     return res
 
 def launch_desktop_app(app):
+    # Ensure any stale startup notification is removed from environment
+    # so applications open on the active workspace instead of workspace 1
+    os.environ.pop("DESKTOP_STARTUP_ID", None)
     try:
         app.launch([], None)
     except Exception:
         cmd = app.get_commandline()
         if cmd:
-            clean_cmd = [part for part in cmd.split() if not part.startswith("%")]
-            subprocess.Popen(clean_cmd)
+            clean_cmd = [part for part in cmd.split() if not (part.startswith("%") and len(part) == 2)]
+            clean_env = os.environ.copy()
+            clean_env.pop("DESKTOP_STARTUP_ID", None)
+            subprocess.Popen(clean_cmd, env=clean_env)

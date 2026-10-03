@@ -39,25 +39,26 @@ def get_caffeine_status():
             pass
     return False
 
-def toggle_caffeine():
-    is_on = get_caffeine_status()
-    if is_on:
-        subprocess.run(["xset", "s", "on", "+dpms"], stderr=subprocess.DEVNULL)
-        if os.path.exists(CAFFEINE_PID_FILE):
-            try:
-                with open(CAFFEINE_PID_FILE, "r") as f:
-                    pid = int(f.read().strip())
-                os.kill(pid, signal.SIGTERM)
-                os.remove(CAFFEINE_PID_FILE)
-            except Exception:
-                if os.path.exists(CAFFEINE_PID_FILE):
-                    os.remove(CAFFEINE_PID_FILE)
+def turn_off_caffeine(notify=True):
+    subprocess.run(["xset", "s", "on", "+dpms"], stderr=subprocess.DEVNULL)
+    if os.path.exists(CAFFEINE_PID_FILE):
         try:
-            with open(CAFFEINE_STATE_FILE, "w") as f:
-                f.write("off")
+            with open(CAFFEINE_PID_FILE, "r") as f:
+                pid = int(f.read().strip())
+            os.kill(pid, signal.SIGTERM)
         except Exception:
             pass
+        try:
+            os.remove(CAFFEINE_PID_FILE)
+        except Exception:
+            pass
+    try:
+        with open(CAFFEINE_STATE_FILE, "w") as f:
+            f.write("off")
+    except Exception:
+        pass
 
+    if notify:
         subprocess.Popen([
             "dunstify", "-a", "Caffeine",
             "-h", "string:x-dunst-stack-tag:caffeine",
@@ -65,13 +66,18 @@ def toggle_caffeine():
             "-t", "2000", "-u", "low",
             "☕ Caffeine Disabled", "Normal screen sleep & auto-lock restored."
         ], stderr=subprocess.DEVNULL)
-        return False
+    return False
+
+def toggle_caffeine():
+    is_on = get_caffeine_status()
+    if is_on:
+        return turn_off_caffeine(notify=True)
     else:
         subprocess.run(["xset", "s", "off", "-dpms"], stderr=subprocess.DEVNULL)
         try:
             p = subprocess.Popen([
                 "systemd-inhibit",
-                "--what=idle:sleep:shutdown",
+                "--what=idle:sleep",
                 "--who=Caffeine",
                 "--why=Caffeine Mode Active",
                 "sleep", "infinity"

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 export PATH="$HOME/.local/bin:$PATH"
+unset DESKTOP_STARTUP_ID
 
 # Terminate already running bar and corner instances
 killall -q polybar

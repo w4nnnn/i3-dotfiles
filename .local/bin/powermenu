@@ -32,9 +32,11 @@ case "$CHOSEN" in
         i3-msg exit
         ;;
     "$REBOOT")
+        "$HOME/.local/bin/toggle-caffeine" off 2>/dev/null || true
         systemctl reboot
         ;;
     "$SHUTDOWN")
+        "$HOME/.local/bin/toggle-caffeine" off 2>/dev/null || true
         systemctl poweroff
         ;;
 esac
