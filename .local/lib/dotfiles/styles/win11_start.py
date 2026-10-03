@@ -126,13 +126,20 @@ def get_win11_start_css(t):
     .footer-power-btn:hover {{
         background-color: {t["surface0"]};
     }}
+    scrollbar,
+    scrollbar.vertical {{
+        background-color: transparent;
+        border: none;
+    }}
     scrollbar trough {{
         background-color: transparent;
+        border: none;
     }}
     scrollbar slider {{
         background-color: {t["surface0"]};
         border-radius: 6px;
         min-width: 4px;
+        border: none;
     }}
     scrollbar slider:hover {{
         background-color: {t["accent"]};

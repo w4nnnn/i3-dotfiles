@@ -176,12 +176,14 @@ class Win11StartMenu(Gtk.Window):
 
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_overlay_scrolling(False)
         scroll.set_min_content_height(400)
 
         grid = Gtk.Grid()
         grid.set_column_spacing(8)
         grid.set_row_spacing(8)
         grid.set_column_homogeneous(True)
+        grid.set_margin_end(4)
 
         for idx, app in enumerate(apps_list):
             col = idx % 6
